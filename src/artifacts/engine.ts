@@ -41,7 +41,6 @@ import {
   parseUpdateInput,
   validateArtifactMeta,
   type CreateArtifactInput,
-  type UpdateArtifactInput,
 } from './validation.js';
 import { knownArtifactTypes, readConfig, type WorkspaceConfig } from '../workspace/config.js';
 import { SpegoError } from '../errors.js';

@@ -14,7 +14,7 @@ const cli = (args: string[], cwd: string) =>
   exec('npx', ['tsx', CLI_PATH, ...args], { cwd, timeout: 15_000 });
 
 describe('CLI init', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -49,7 +49,7 @@ describe('CLI init', () => {
 });
 
 describe('CLI CRUD', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -167,7 +167,7 @@ describe('CLI CRUD', () => {
 });
 
 describe('CLI JSON output', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -201,7 +201,7 @@ describe('CLI JSON output', () => {
 });
 
 describe('CLI error cases', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -239,7 +239,7 @@ describe('CLI error cases', () => {
 });
 
 describe('CLI index rebuild', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();

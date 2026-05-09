@@ -3,6 +3,7 @@ import path from 'node:path';
 import { resolveWorkspacePaths, type WorkspacePaths } from './paths.js';
 import { defaultConfig, readConfig, writeConfig, type WorkspaceConfig } from './config.js';
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
+import { SpegoError } from '../errors.js';
 import { openIndexDb, ensureIndexSchema, closeIndexDb } from '../index/db.js';
 import { generateAll } from '../generator/index.js';
 import type { GenerationReport } from '../generator/types.js';
@@ -53,11 +54,15 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   const created: string[] = [];
 
   // Detect prior workspace state before any side effects.
-  let existingConfig: WorkspaceConfig | null = null;
+  let existingConfig: WorkspaceConfig | null;
   try {
     existingConfig = await readConfig(paths.configPath);
-  } catch {
-    existingConfig = null;
+  } catch (err) {
+    if (err instanceof SpegoError && err.code === 'WORKSPACE_NOT_FOUND') {
+      existingConfig = null;
+    } else {
+      throw err;
+    }
   }
 
   // Workspace + subdirs.

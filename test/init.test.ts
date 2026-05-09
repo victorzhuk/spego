@@ -5,7 +5,7 @@ import { initWorkspace, workspaceStatus } from '../src/workspace/init.js';
 import { makeTempProject } from './helpers.js';
 
 describe('init', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();

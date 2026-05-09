@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DeliveryEpicLink, DeliveryItemStatus, DeliveryStatus, DeliveryTaskSummary } from './types.js';
+import type { DeliveryItemStatus, DeliveryStatus, DeliveryTaskSummary } from './types.js';
 
 export async function readProposalTitle(projectRoot: string, changeRelPath: string): Promise<string> {
   const filePath = join(projectRoot, changeRelPath, 'proposal.md');

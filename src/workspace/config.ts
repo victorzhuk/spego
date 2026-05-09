@@ -34,6 +34,7 @@ export function defaultConfig(overrides: Partial<WorkspaceConfig> = {}): Workspa
     agents: overrides.agents ?? ['claude'],
     demo: overrides.demo ?? false,
     extraArtifactTypes: overrides.extraArtifactTypes ?? [],
+    deliveryAdapter: overrides.deliveryAdapter,
   });
 }
 
@@ -49,7 +50,15 @@ export async function readConfig(configPath: string): Promise<WorkspaceConfig> {
     }
     throw err;
   }
-  const data = YAML.parse(raw) ?? {};
+  let data: unknown;
+  try {
+    data = YAML.parse(raw) ?? {};
+  } catch (err) {
+    throw new SpegoError('VALIDATION_FAILED', `Invalid YAML in workspace config at ${configPath}`, {
+      path: configPath,
+      cause: (err as Error).message,
+    });
+  }
   const parsed = workspaceConfigSchema.safeParse(data);
   if (!parsed.success) {
     throw new SpegoError('VALIDATION_FAILED', 'Invalid workspace config', {

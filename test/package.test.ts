@@ -113,7 +113,7 @@ describe('built CLI runs', () => {
   });
 
   it('--version outputs version matching package.json', () => {
-    let output = '';
+    let output: string;
     try {
       output = execSync(`node ${path.join(ROOT, 'dist', 'cli.js')} --version`, {
         encoding: 'utf8',

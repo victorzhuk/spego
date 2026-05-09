@@ -181,7 +181,7 @@ export async function rebuildIndex(
   db.exec(`DROP TABLE IF EXISTS revisions; DROP TABLE IF EXISTS artifacts;`);
   ensureIndexSchema(db);
 
-  let typeDirs: string[] = [];
+  let typeDirs: string[];
   try {
     typeDirs = await fs.readdir(paths.artifactsRoot);
   } catch (err) {

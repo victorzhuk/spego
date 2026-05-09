@@ -83,7 +83,7 @@ async function resolveEpicStatus(
   changeName: string,
   changeRelPath: string,
 ): Promise<{ total: number; done: number; status: DeliveryStatus; warnings?: string[] }> {
-  const cli = await fetchCliStatus(changeName);
+  const cli = await fetchCliStatus(projectRoot, changeName);
   if (cli && typeof cli.taskCount === 'number' && typeof cli.tasksDone === 'number') {
     const total = cli.taskCount as number;
     const done = cli.tasksDone as number;

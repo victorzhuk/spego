@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import { revisionFilePath, type WorkspacePaths } from '../workspace/paths.js';
-import { atomicWriteFile, parseArtifactFile } from '../artifacts/storage.js';
-import { renderArtifactFile } from '../artifacts/storage.js';
+import { atomicWriteFile, parseArtifactFile, renderArtifactFile } from '../artifacts/storage.js';
 import type { ArtifactFrontmatter } from '../artifacts/types.js';
 import { SpegoError } from '../errors.js';
 

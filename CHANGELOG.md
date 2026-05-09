@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1] - 2026-05-09
+
+### Fixed
+- `npm test` now builds before running tests (self-contained on clean checkout).
+- `defaultConfig()` now passes `deliveryAdapter` overrides through to the schema.
+- `initWorkspace()` now re-throws config errors that are not `WORKSPACE_NOT_FOUND`.
+- Generator now prints a warning to stderr for unsupported agent targets instead of silently skipping.
+- `fetchCliStatus()` now runs `openspec` in the project root directory.
+- `readConfig()` now wraps YAML parse errors as `VALIDATION_FAILED` SpegoError.
+- Merged duplicate import in `revisions.ts`.
+- Fixed all 17 ESLint warnings (unused imports, `prefer-const`, useless assignments).
+
 ## [0.2.0] - 2026-05-09
 
 ### Added

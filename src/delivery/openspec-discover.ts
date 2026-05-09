@@ -43,11 +43,11 @@ export async function discoverChanges(projectRoot: string): Promise<DiscoveredCh
   for (const entry of entries) {
     const fullPath = join(changesDir, entry);
     const metaPath = join(fullPath, META_FILE);
-    let isDir = false;
+    let s;
     try {
-      isDir = (await stat(fullPath)).isDirectory();
+      s = await stat(fullPath);
     } catch { continue; }
-    if (!isDir) continue;
+    if (!s.isDirectory()) continue;
 
     let hasMeta = false;
     try {
@@ -70,9 +70,10 @@ export async function discoverChanges(projectRoot: string): Promise<DiscoveredCh
   return results;
 }
 
-export async function fetchCliStatus(changeName: string): Promise<Record<string, unknown> | null> {
+export async function fetchCliStatus(projectRoot: string, changeName: string): Promise<Record<string, unknown> | null> {
   try {
     const { stdout } = await execFile('openspec', ['status', '--change', changeName, '--json'], {
+      cwd: projectRoot,
       timeout: 5000,
     });
     return JSON.parse(stdout) as Record<string, unknown>;

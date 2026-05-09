@@ -10,7 +10,7 @@ import { defaultConfig } from '../src/workspace/config.js';
 import { makeTempProject } from './helpers.js';
 
 describe('delivery', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -196,7 +196,7 @@ describe('delivery', () => {
 
   describe('5.4 CLI status fallback', () => {
     it('fetchCliStatus returns null when CLI is unavailable', async () => {
-      const result = await fetchCliStatus('any-change');
+      const result = await fetchCliStatus('/tmp', 'any-change');
       expect(result).toBeNull();
     });
 

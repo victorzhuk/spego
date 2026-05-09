@@ -5,10 +5,10 @@ import { makeTempProject } from './helpers.js';
 import { ClaudeGenerator } from '../src/generator/claude.js';
 import { writeGeneratedFile } from '../src/generator/write.js';
 import { COMMAND_REGISTRY, getCommandByName } from '../src/commands/registry.js';
-import { isSpegoGenerated, SPEGO_GENERATED_MARKER } from '../src/generator/markers.js';
+import { SPEGO_GENERATED_MARKER } from '../src/generator/markers.js';
 
 describe('Claude skill generation', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -71,7 +71,7 @@ describe('Claude skill generation', () => {
 });
 
 describe('User file preservation', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
@@ -112,7 +112,7 @@ describe('User file preservation', () => {
 });
 
 describe('Deterministic regeneration', () => {
-  let cleanups: Array<() => Promise<void>> = [];
+  const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
     for (const fn of cleanups.splice(0)) await fn();
