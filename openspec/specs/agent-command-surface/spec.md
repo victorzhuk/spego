@@ -4,12 +4,12 @@
 The system SHALL expose agent-callable commands for each supported artifact type.
 
 #### Scenario: Update PRD through command surface
-- **WHEN** an agent invokes `/spego:prd update` with valid input
-- **THEN** the command updates the PRD artifact through the artifact engine
+- **WHEN** an agent invokes `spego update --id <id> --body <content>`
+- **THEN** the command updates the artifact through the artifact engine
 - **AND** it returns the updated artifact in markdown by default
 
 #### Scenario: Get architecture as JSON
-- **WHEN** an agent invokes `/spego:architecture get --format json`
+- **WHEN** an agent invokes `spego read --type architecture --slug <slug> --json`
 - **THEN** the command returns structured JSON with metadata and content
 
 ### Requirement: Expose project view command

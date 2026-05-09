@@ -7,6 +7,10 @@ import { viewArtifacts } from './export/view.js';
 import path from 'node:path';
 import { renderArtifactFile } from './artifacts/storage.js';
 import { SpegoError } from './errors.js';
+import { COMMAND_REGISTRY } from './commands/registry.js';
+import { generateAll } from './generator/index.js';
+import { resolveWorkspacePaths } from './workspace/paths.js';
+import { readConfig } from './workspace/config.js';
 
 function output(json: boolean, payload: unknown, human?: () => string): void {
   if (json) {
@@ -52,6 +56,32 @@ export function buildProgram(): Command {
     .description('Agent-first product orchestration: artifact engine')
     .option('--json', 'emit JSON output', false)
     .version('0.1.0');
+
+  program.configureOutput({
+    writeErr: (str: string) => {
+      const json = program.opts().json as boolean;
+      if (!json) {
+        process.stderr.write(str);
+      }
+    },
+  });
+
+  program.exitOverride((err) => {
+    const json = program.opts().json as boolean;
+    if (json) {
+      process.stderr.write(
+        `${JSON.stringify({ error: { code: 'VALIDATION_FAILED', message: err.message } }, null, 2)}\n`,
+      );
+    }
+    process.exit(2);
+  });
+
+  program
+    .command('commands')
+    .description('List available spego commands with metadata (JSON)')
+    .action(() => {
+      process.stdout.write(JSON.stringify(COMMAND_REGISTRY, null, 2) + '\n');
+    });
 
   // ---------- init ----------
   program
@@ -224,7 +254,7 @@ export function buildProgram(): Command {
           id: record.frontmatter.id,
           revision: record.frontmatter.revision,
           path: record.path,
-        }, () => `Updated ${record.frontmatter.id} → revision ${record.frontmatter.revision}`);
+        }, () => `# ${record.frontmatter.title}\n\n${record.body}`);
       } catch (err) {
         fail(err, json);
       } finally {
@@ -324,6 +354,28 @@ export function buildProgram(): Command {
 
   // ---------- index rebuild ----------
   const indexCmd = program.command('index').description('Index maintenance');
+
+  // ---------- regenerate ----------
+  program
+    .command('regenerate')
+    .description('Regenerate agent skill and command files')
+    .option('--cwd <dir>', 'project root')
+    .action(async (opts) => {
+      const json = program.opts().json as boolean;
+      try {
+        const projectRoot = path.resolve(opts.cwd ?? process.cwd());
+        const wsPaths = resolveWorkspacePaths(projectRoot);
+        const config = await readConfig(wsPaths.configPath);
+        const reports = await generateAll(projectRoot, config.agents);
+        output(json, reports, () =>
+          reports
+            .flatMap((r) => r.files.map((f) => `[${r.target}] ${f.action}: ${f.path}`))
+            .join('\n'),
+        );
+      } catch (err) {
+        fail(err, json);
+      }
+    });
   indexCmd
     .command('rebuild')
     .description('Rebuild the SQLite index from markdown files')

@@ -4,6 +4,8 @@ import { resolveWorkspacePaths, type WorkspacePaths } from './paths.js';
 import { defaultConfig, readConfig, writeConfig, type WorkspaceConfig } from './config.js';
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
 import { openIndexDb, ensureIndexSchema, closeIndexDb } from '../index/db.js';
+import { generateAll } from '../generator/index.js';
+import type { GenerationReport } from '../generator/types.js';
 
 export interface InitOptions {
   /** Project root containing (or to contain) `.spego/`. Defaults to cwd. */
@@ -26,6 +28,7 @@ export interface InitSummary {
   createdPaths: string[];
   alreadyInitialized: boolean;
   config: WorkspaceConfig;
+  generationReports: GenerationReport[];
 }
 
 async function ensureDir(dir: string, created: string[]): Promise<void> {
@@ -93,6 +96,11 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   // We can't easily detect "newly created" for the db file without a stat
   // beforehand; treat its presence as informational rather than tracked.
 
+  let generationReports: GenerationReport[] = [];
+  if (config.agents.length > 0) {
+    generationReports = await generateAll(projectRoot, config.agents);
+  }
+
   return {
     projectRoot: paths.projectRoot,
     workspaceRoot: paths.workspaceRoot,
@@ -103,6 +111,7 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
     createdPaths: created,
     alreadyInitialized: existingConfig !== null,
     config,
+    generationReports,
   };
 }
 

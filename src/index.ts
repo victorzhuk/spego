@@ -53,3 +53,9 @@ export type {
 export { SpegoError } from './errors.js';
 export type { SpegoErrorCode } from './errors.js';
 export { validateMetaForType, hasTypeSchema, ARTIFACT_META_SCHEMAS } from './artifacts/schemas.js';
+export { COMMAND_REGISTRY, getCommandByName } from './commands/registry.js';
+export type { CommandMeta, InputField } from './commands/registry.js';
+export { generateAll, registerGenerator, getGenerator, availableTargets } from './generator/index.js';
+export { ClaudeGenerator } from './generator/claude.js';
+export type { TargetGenerator, GenerationReport, GeneratedFile, FileAction } from './generator/types.js';
+export { SPEGO_GENERATED_MARKER, isSpegoGenerated, wrapWithMarker } from './generator/markers.js';
