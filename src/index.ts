@@ -59,3 +59,11 @@ export { generateAll, registerGenerator, getGenerator, availableTargets } from '
 export { ClaudeGenerator } from './generator/claude.js';
 export type { TargetGenerator, GenerationReport, GeneratedFile, FileAction } from './generator/types.js';
 export { SPEGO_GENERATED_MARKER, isSpegoGenerated, wrapWithMarker } from './generator/markers.js';
+export { resolveAdapter } from './delivery/index.js';
+export type {
+  DeliveryAdapter,
+  DeliveryEpicLink,
+  DeliveryItemStatus,
+  DeliveryStatus,
+  DeliveryTaskSummary,
+} from './delivery/index.js';

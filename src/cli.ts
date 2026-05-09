@@ -11,6 +11,8 @@ import { COMMAND_REGISTRY } from './commands/registry.js';
 import { generateAll } from './generator/index.js';
 import { resolveWorkspacePaths } from './workspace/paths.js';
 import { readConfig } from './workspace/config.js';
+import { resolveAdapter } from './delivery/index.js';
+import type { DeliveryEpicLink, DeliveryTaskSummary } from './delivery/index.js';
 
 function output(json: boolean, payload: unknown, human?: () => string): void {
   if (json) {
@@ -28,6 +30,16 @@ async function readBodyOption(opts: {
 }): Promise<string | undefined> {
   if (opts.bodyFile) return fs.readFile(opts.bodyFile, 'utf8');
   return opts.body;
+}
+
+function renderEpic(epic: DeliveryEpicLink): string {
+  const progress = epic.taskCount != null ? ` (${epic.tasksDone ?? 0}/${epic.taskCount} tasks)` : '';
+  return `- **${epic.externalId}** [${epic.status}]${progress}\n  title: ${epic.title}\n  source: ${epic.sourcePath}`;
+}
+
+function renderTask(task: DeliveryTaskSummary): string {
+  const check = task.status === 'done' ? 'x' : ' ';
+  return `- [${check}] ${task.title}`;
 }
 
 function fail(err: unknown, json: boolean): never {
@@ -376,6 +388,79 @@ export function buildProgram(): Command {
         fail(err, json);
       }
     });
+  // ---------- epics ----------
+  program
+    .command('epics')
+    .description('List epics or get a single epic')
+    .argument('[action]', 'list (default) or get')
+    .option('--change <name>', 'get a single epic by name')
+    .option('--cwd <dir>', 'project root')
+    .action(async (action, opts) => {
+      const json = program.opts().json as boolean;
+      try {
+        if (action && !['list', 'get'].includes(action)) {
+          throw new SpegoError('DELIVERY_READ_ONLY',
+            `Cannot '${action}' delivery epics through spego. Use the OpenSpec CLI for delivery mutations.`,
+            { attemptedAction: action, suggestedTool: 'openspec' });
+        }
+        const projectRoot = path.resolve(opts.cwd ?? process.cwd());
+        const wsPaths = resolveWorkspacePaths(projectRoot);
+        const config = await readConfig(wsPaths.configPath);
+        const adapter = resolveAdapter(projectRoot, config);
+
+        if (opts.change) {
+          const epic = await adapter.getEpic(opts.change);
+          output(json, epic, () => renderEpic(epic));
+        } else {
+          const epics = await adapter.listEpics();
+          output(json, epics, () =>
+            epics.length === 0
+              ? 'No epics.'
+              : `## Epics (${adapter.name})\n\n` + epics.map(renderEpic).join('\n\n'),
+          );
+        }
+      } catch (err) {
+        fail(err, json);
+      }
+    });
+
+  // ---------- tasks ----------
+  program
+    .command('tasks')
+    .description('List tasks for a change or get a single task')
+    .argument('[action]', 'list (default) or get')
+    .requiredOption('--change <name>', 'the epic/change name')
+    .option('--task <id>', 'get a single task by id')
+    .option('--cwd <dir>', 'project root')
+    .action(async (action, opts) => {
+      const json = program.opts().json as boolean;
+      try {
+        if (action && !['list', 'get'].includes(action)) {
+          throw new SpegoError('DELIVERY_READ_ONLY',
+            `Cannot '${action}' delivery tasks through spego. Use the OpenSpec CLI for delivery mutations.`,
+            { attemptedAction: action, suggestedTool: 'openspec' });
+        }
+        const projectRoot = path.resolve(opts.cwd ?? process.cwd());
+        const wsPaths = resolveWorkspacePaths(projectRoot);
+        const config = await readConfig(wsPaths.configPath);
+        const adapter = resolveAdapter(projectRoot, config);
+
+        if (opts.task) {
+          const task = await adapter.getTask(opts.change, opts.task);
+          output(json, task, () => renderTask(task));
+        } else {
+          const tasks = await adapter.listTasks(opts.change);
+          output(json, tasks, () =>
+            tasks.length === 0
+              ? `No tasks for ${opts.change}.`
+              : `## Tasks: ${opts.change} (${adapter.name})\n\n` + tasks.map(renderTask).join('\n'),
+          );
+        }
+      } catch (err) {
+        fail(err, json);
+      }
+    });
+
   indexCmd
     .command('rebuild')
     .description('Rebuild the SQLite index from markdown files')

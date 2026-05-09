@@ -21,7 +21,7 @@ spego owns product orchestration artifacts. OpenSpec owns change proposals, delt
 
 ### Adapter contract is read-oriented
 
-The MVP adapter supports `listEpics`, `getEpic`, `listTasks`, `getTask`, and `getStatus`. Writes remain in the owning delivery tool.
+The MVP adapter supports `listEpics`, `getEpic`, `listTasks`, and `getTask`. Status is embedded in epic and task summaries rather than exposed as a separate method. Writes remain in the owning delivery tool.
 
 Alternative considered: full CRUD adapter. That increases scope and risks conflicting task state between tools.
 

@@ -11,7 +11,10 @@ export type SpegoErrorCode =
   | 'REVISION_CONFLICT'
   | 'REVISION_NOT_FOUND'
   | 'WRITE_FAILED'
-  | 'INDEX_REBUILD_FAILED';
+  | 'INDEX_REBUILD_FAILED'
+  | 'DELIVERY_ADAPTER_NOT_FOUND'
+  | 'DELIVERY_ADAPTER_ERROR'
+  | 'DELIVERY_READ_ONLY';
 
 export interface SpegoErrorDetails {
   [key: string]: unknown;

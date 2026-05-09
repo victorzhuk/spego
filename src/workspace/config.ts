@@ -19,6 +19,10 @@ export const workspaceConfigSchema = z
     extraArtifactTypes: z.array(z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, {
       message: 'Artifact type must be lowercase alphanumeric with hyphens, starting with alphanumeric',
     })).default([]),
+    deliveryAdapter: z.object({
+      name: z.string().default('openspec'),
+      options: z.record(z.string(), z.unknown()).default({}),
+    }).default({ name: 'openspec', options: {} }),
   })
   .strict();
 
