@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.2] - 2026-05-09
+
+### Fixed
+- Corrected `package.json` license from MIT to Apache-2.0 to match LICENSE file.
+
 ## [0.2.1] - 2026-05-09
 
 ### Fixed

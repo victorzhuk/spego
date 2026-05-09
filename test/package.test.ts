@@ -20,9 +20,9 @@ describe('package.json metadata', () => {
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it('license is MIT', async () => {
+  it('license is Apache-2.0', async () => {
     const pkg = await readPkg();
-    expect(pkg.license).toBe('MIT');
+    expect(pkg.license).toBe('Apache-2.0');
   });
 
   it('repository.url contains victorzhuk/spego', async () => {
