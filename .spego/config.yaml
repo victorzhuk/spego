@@ -1,8 +1,0 @@
-version: 1
-agents:
-  - claude
-demo: false
-extraArtifactTypes: []
-deliveryAdapter:
-  name: openspec
-  options: {}

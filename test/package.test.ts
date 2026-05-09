@@ -50,10 +50,11 @@ describe('package.json metadata', () => {
     expect(pkg.types).toBe('./dist/index.d.ts');
   });
 
-  it('files includes dist and README.md', async () => {
+  it('files includes dist, README.md, and CHANGELOG.md', async () => {
     const pkg = await readPkg();
     expect(pkg.files).toContain('dist');
     expect(pkg.files).toContain('README.md');
+    expect(pkg.files).toContain('CHANGELOG.md');
   });
 
   it('engines.node is >=22.14.0', async () => {
@@ -85,6 +86,10 @@ describe('npm pack output', () => {
 
   it('includes LICENSE', () => {
     expect(packEntries).toContain('LICENSE');
+  });
+
+  it('includes CHANGELOG.md', () => {
+    expect(packEntries).toContain('CHANGELOG.md');
   });
 
   it('excludes src/ files', () => {

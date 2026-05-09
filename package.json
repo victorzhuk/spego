@@ -1,6 +1,6 @@
 {
   "name": "@zhuk/spego",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agent-first product orchestration: markdown-first artifact engine with SQLite indexing.",
   "type": "module",
   "bin": {
@@ -10,7 +10,8 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

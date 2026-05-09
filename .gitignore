@@ -1,5 +1,6 @@
 .claude
 .opencode
+.spego
 
 node_modules
 dist

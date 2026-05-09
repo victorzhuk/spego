@@ -67,7 +67,7 @@ export function buildProgram(): Command {
     .name('spego')
     .description('Agent-first product orchestration: artifact engine')
     .option('--json', 'emit JSON output', false)
-    .version('0.1.0');
+    .version('0.2.0');
 
   program.configureOutput({
     writeErr: (str: string) => {
