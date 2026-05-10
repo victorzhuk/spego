@@ -35,9 +35,9 @@ describe('package.json metadata', () => {
     expect(pkg.publishConfig.access).toBe('public');
   });
 
-  it('bin.spego points to ./dist/cli.js', async () => {
+  it('bin.spego points to dist/cli.js', async () => {
     const pkg = await readPkg();
-    expect(pkg.bin.spego).toBe('./dist/cli.js');
+    expect(pkg.bin.spego).toBe('dist/cli.js');
   });
 
   it('main points to ./dist/index.js', async () => {

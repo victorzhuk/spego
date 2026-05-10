@@ -1,6 +1,6 @@
 {
   "name": "@zhuk/spego",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Agent-first product orchestration: markdown-first artifact engine with SQLite indexing.",
   "type": "module",
   "bin": {

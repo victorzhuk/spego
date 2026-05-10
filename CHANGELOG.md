@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4] - 2026-05-10
+
+### Fixed
+- Test expectation updated to match `dist/cli.js` bin path (no `./` prefix).
+- CLI `--version` now reads from `package.json` instead of hardcoded string.
+- Regenerated `package-lock.json` metadata.
+
 ## [0.2.3] - 2026-05-10
 
 ### Fixed

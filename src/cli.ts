@@ -13,6 +13,7 @@ import { resolveWorkspacePaths } from './workspace/paths.js';
 import { readConfig } from './workspace/config.js';
 import { resolveAdapter } from './delivery/index.js';
 import type { DeliveryEpicLink, DeliveryTaskSummary } from './delivery/index.js';
+import pkg from '../package.json' with { type: 'json' };
 
 function output(json: boolean, payload: unknown, human?: () => string): void {
   if (json) {
@@ -67,7 +68,7 @@ export function buildProgram(): Command {
     .name('spego')
     .description('Agent-first product orchestration: artifact engine')
     .option('--json', 'emit JSON output', false)
-    .version('0.2.2');
+    .version(pkg.version);
 
   program.configureOutput({
     writeErr: (str: string) => {
