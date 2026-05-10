@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3] - 2026-05-10
+
+### Fixed
+- Removed `./` prefix from `bin` entry so npm publishes the CLI correctly.
+
 ## [0.2.2] - 2026-05-09
 
 ### Fixed

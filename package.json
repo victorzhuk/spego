@@ -1,10 +1,10 @@
 {
   "name": "@zhuk/spego",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Agent-first product orchestration: markdown-first artifact engine with SQLite indexing.",
   "type": "module",
   "bin": {
-    "spego": "./dist/cli.js"
+    "spego": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
