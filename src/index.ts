@@ -58,7 +58,7 @@ export type { CommandMeta, InputField } from './commands/registry.js';
 export { generateAll, registerGenerator, getGenerator, availableTargets } from './generator/index.js';
 export { ClaudeGenerator } from './generator/claude.js';
 export type { TargetGenerator, GenerationReport, GeneratedFile, FileAction } from './generator/types.js';
-export { SPEGO_GENERATED_MARKER, isSpegoGenerated, wrapWithMarker } from './generator/markers.js';
+export { SPEGO_GENERATED_YAML_KEY, isSpegoGenerated, isLegacySpegoGenerated, wrapWithMarker } from './generator/markers.js';
 export { resolveAdapter } from './delivery/index.js';
 export type {
   DeliveryAdapter,

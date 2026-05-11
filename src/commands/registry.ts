@@ -133,10 +133,12 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'tasks',
-    description: 'List tasks',
+    description: 'List tasks for a change',
     slashName: '/spego:tasks',
     category: 'planning',
-    inputSchema: {},
+    inputSchema: {
+      change: { name: 'change', type: 'string', required: true, description: 'Change or epic name' },
+    },
     outputModes: ['markdown', 'json'],
   },
 ];

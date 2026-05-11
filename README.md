@@ -64,7 +64,7 @@ deliveryAdapter:
 
 For Claude agent targets, `spego init` generates:
 
-- `.claude/skills/` — skill definitions for spego commands
+- `.claude/skills/spego-<command>/SKILL.md` — skill definitions following Claude Code conventions
 - `.claude/commands/spego/` — slash command wrappers
 
 Run `spego regenerate` to update generated files without reinitializing the workspace.

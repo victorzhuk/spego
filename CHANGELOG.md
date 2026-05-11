@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0] - 2026-05-11
+
+### Changed
+- Claude skills now generate as `.claude/skills/spego-<command>/SKILL.md` directories (was flat `.claude/skills/spego-<command>.md` files).
+- Spego-generated marker moved into YAML frontmatter (`spego_generated: true`, `spego_version: N`) instead of HTML comment prefix.
+- Skill descriptions now include "when to use" wording.
+- CLI flags in generated skill docs use kebab-case (e.g., `--body-file` instead of `--bodyFile`).
+
+### Added
+- `spego tasks` command now requires `--change` input in its metadata.
+- Legacy flat-file cleanup: regeneration removes old flat `spego-<command>.md` files.
+- Marker functions (`wrapWithMarker`, `isSpegoGenerated`, `isLegacySpegoGenerated`) exported from public API.
+
+### Fixed
+- Legacy HTML-comment-marked files are now recognized as spego-generated during regeneration (was silently skipped).
+- `wrapWithMarker` now throws if content lacks YAML frontmatter instead of silently returning unmarked content.
+- `isSpegoGenerated` now only matches the marker inside YAML frontmatter, not anywhere in the file body.
+- User file protection now checks both new (YAML) and legacy (HTML comment) markers.
+
 ## [0.2.4] - 2026-05-10
 
 ### Fixed

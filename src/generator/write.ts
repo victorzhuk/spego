@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { isSpegoGenerated, wrapWithMarker } from './markers.js';
+import { isSpegoGenerated, isLegacySpegoGenerated, wrapWithMarker } from './markers.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { FileAction } from './types.js';
 
@@ -19,7 +19,7 @@ export async function writeGeneratedFile(
   }
 
   if (existing !== null) {
-    if (!isSpegoGenerated(existing)) {
+    if (!isSpegoGenerated(existing) && !isLegacySpegoGenerated(existing)) {
       return 'skipped';
     }
     if (marked.trim() === existing.trim()) {

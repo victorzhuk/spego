@@ -1,6 +1,6 @@
 export const GENERATOR_VERSION = 1;
 
-export type FileAction = 'created' | 'updated' | 'unchanged' | 'skipped';
+export type FileAction = 'created' | 'updated' | 'unchanged' | 'skipped' | 'cleaned';
 
 export interface GeneratedFile {
   path: string;

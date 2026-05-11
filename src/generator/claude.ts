@@ -1,24 +1,29 @@
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { COMMAND_REGISTRY } from '../commands/registry.js';
 import type { CommandMeta } from '../commands/registry.js';
 import { writeGeneratedFile } from './write.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { TargetGenerator, GenerationReport, GeneratedFile } from './types.js';
+import { isLegacySpegoGenerated } from './markers.js';
+
+function toKebab(name: string): string {
+  return name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
 
 function renderSkillTemplate(cmd: CommandMeta): string {
   const fields = Object.values(cmd.inputSchema);
   const options = fields
-    .map((f) => `- \`--${f.name}\` (${f.type}${f.required ? ', required' : ', optional'}): ${f.description}`)
+    .map((f) => `- \`--${toKebab(f.name)}\` (${f.type}${f.required ? ', required' : ', optional'}): ${f.description}`)
     .join('\n');
-  const triggers = [`spego ${cmd.name}`, cmd.description];
+  const lowerDesc = cmd.description.toLowerCase();
   return [
     '---',
     `name: spego-${cmd.name}`,
-    `description: ${cmd.description}`,
-    `triggers: [${triggers.map((t) => `"${t}"`).join(', ')}]`,
+    `description: ${cmd.description}. Use when the user asks to ${lowerDesc} or mentions "spego ${cmd.name}".`,
     '---',
     '',
-    `Use \`spego ${cmd.name}\` to ${cmd.description.toLowerCase()}.`,
+    `Use \`spego ${cmd.name}\` to ${lowerDesc}.`,
     '',
     '## Usage',
     '',
@@ -47,7 +52,7 @@ function renderSkillTemplate(cmd: CommandMeta): string {
 function renderCommandTemplate(cmd: CommandMeta): string {
   const fields = Object.values(cmd.inputSchema);
   const argsYaml = fields
-    .map((f) => `  ${f.name}: { type: ${f.type}, required: ${f.required}, description: "${f.description}" }`)
+    .map((f) => `  ${toKebab(f.name)}: { type: ${f.type}, required: ${f.required}, description: "${f.description}" }`)
     .join('\n');
   return [
     '---',
@@ -68,6 +73,26 @@ function renderCommandTemplate(cmd: CommandMeta): string {
   ].join('\n');
 }
 
+async function cleanupLegacyFlatSkills(skillsDir: string): Promise<GeneratedFile[]> {
+  const cleaned: GeneratedFile[] = [];
+  let entries: string[];
+  try {
+    entries = await fs.readdir(skillsDir);
+  } catch {
+    return cleaned;
+  }
+  for (const entry of entries) {
+    if (!entry.startsWith('spego-') || !entry.endsWith('.md')) continue;
+    const filePath = path.join(skillsDir, entry);
+    const content = await fs.readFile(filePath, 'utf8');
+    if (isLegacySpegoGenerated(content)) {
+      await fs.unlink(filePath);
+      cleaned.push({ path: filePath, action: 'cleaned' });
+    }
+  }
+  return cleaned;
+}
+
 export class ClaudeGenerator implements TargetGenerator {
   readonly targetName = 'claude';
 
@@ -76,8 +101,12 @@ export class ClaudeGenerator implements TargetGenerator {
     const skillsDir = path.join(projectRoot, '.claude', 'skills');
     const commandsDir = path.join(projectRoot, '.claude', 'commands', 'spego');
 
+    const cleaned = await cleanupLegacyFlatSkills(skillsDir);
+    files.push(...cleaned);
+
     for (const cmd of COMMAND_REGISTRY) {
-      const skillPath = path.join(skillsDir, `spego-${cmd.name}.md`);
+      const skillDir = path.join(skillsDir, `spego-${cmd.name}`);
+      const skillPath = path.join(skillDir, 'SKILL.md');
       const skillContent = renderSkillTemplate(cmd);
       const skillAction = await writeGeneratedFile(skillPath, skillContent);
       files.push({ path: skillPath, action: skillAction });
