@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1] - 2026-05-13
+
+### Fixed
+- Replaced hardcoded local path in authoring workflow test with repo-relative root so tests pass on CI.
+
 ## [0.6.0] - 2026-05-13
 
 ### Added

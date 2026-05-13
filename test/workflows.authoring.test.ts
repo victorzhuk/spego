@@ -5,6 +5,8 @@ import { makeTempProject } from './helpers.js';
 import { ClaudeGenerator } from '../src/generator/claude.js';
 import { WORKFLOW_REGISTRY, getWorkflowByName } from '../src/workflows/registry.js';
 
+const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
+
 const AUTHORING_WORKFLOWS = ['help', 'brainstorm-deep', 'elicit'] as const;
 
 describe('Authoring workflow registry entries', () => {
@@ -126,7 +128,7 @@ describe('Authoring workflow generated skill content', () => {
   it('spego workflows CLI lists at least 8 workflows', async () => {
     const { execSync } = await import('node:child_process');
     const result = execSync('npx tsx src/cli.ts workflows --json', {
-      cwd: '/home/zhuk/Projects/own/spego',
+      cwd: PROJECT_ROOT,
       encoding: 'utf8',
     });
     const jsonMatch = result.match(/\[[\s\S]*\]/);
