@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0] - 2026-05-13
+
+### Added
+- `review-edge-cases` workflow: method-driven edge-case enumeration (Path-tracer, Boundary-checker, Concurrency-skeptic personas). Outputs `qa` artifact with JSON findings array.
+- `editorial-prose` workflow: clinical copy-edit pass (Copy-editor persona). Applies confirmed edits in place via `spego update --expected-revision`. Outputs `qa` summary artifact.
+- `editorial-structure` workflow: structural review without mutation (Structural editor persona). Outputs `qa` artifact with prioritized restructuring recommendations.
+- Review suite registry and content tests.
+- "Complementary reviews" guidance in README.
+
+## [0.4.0] - 2026-05-12
+
+### Added
+- Workflow skills as a first-class concept alongside command skills.
+- `WORKFLOW_REGISTRY` with two reference workflows: `brainstorm-party` and `review-adversarial`.
+- `spego workflows` command listing workflow metadata as JSON.
+- Generator emits workflow skill files at `.claude/skills/spego-<workflow>/SKILL.md`.
+- Legacy flat-file cleanup covers workflow skill names.
+- Workflow and command skill coexistence tests, CLI tests, and legacy cleanup tests.
+
 ## [0.3.0] - 2026-05-11
 
 ### Changed

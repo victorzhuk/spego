@@ -67,3 +67,5 @@ export type {
   DeliveryStatus,
   DeliveryTaskSummary,
 } from './delivery/index.js';
+export { WORKFLOW_REGISTRY, getWorkflowByName, listWorkflowNames } from './workflows/index.js';
+export type { WorkflowMeta, PersonaSpec, PhaseSpec, WorkflowInput, WorkflowOutput } from './workflows/index.js';

@@ -266,3 +266,35 @@ describe('CLI commands metadata', () => {
     expect(result[0].name).toBeTruthy();
   });
 });
+
+describe('CLI workflows command', () => {
+  it('returns JSON with all workflow entries', async () => {
+    const { stdout } = await cli(['workflows'], PROJECT_ROOT);
+    const result = JSON.parse(stdout);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(5);
+    const names = result.map((w: { name: string }) => w.name);
+    expect(names).toContain('brainstorm-party');
+    expect(names).toContain('review-adversarial');
+    expect(names).toContain('review-edge-cases');
+    expect(names).toContain('editorial-prose');
+    expect(names).toContain('editorial-structure');
+    for (const wf of result) {
+      expect(wf.personas.length).toBeGreaterThanOrEqual(1);
+      expect(wf.phases.length).toBeGreaterThanOrEqual(4);
+    }
+  });
+});
+
+describe('CLI commands regression with workflows', () => {
+  it('includes workflows command in commands list', async () => {
+    const { stdout } = await cli(['commands'], PROJECT_ROOT);
+    const result = JSON.parse(stdout);
+    const names = result.map((c: { name: string }) => c.name);
+    expect(names).toContain('workflows');
+    const prevCommands = ['init', 'create', 'read', 'update', 'delete', 'list', 'view', 'status', 'epics', 'tasks'];
+    for (const cmd of prevCommands) {
+      expect(names).toContain(cmd);
+    }
+  });
+});

@@ -2,6 +2,8 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { COMMAND_REGISTRY } from '../commands/registry.js';
 import type { CommandMeta } from '../commands/registry.js';
+import { WORKFLOW_REGISTRY } from '../workflows/registry.js';
+import type { WorkflowMeta } from '../workflows/types.js';
 import { writeGeneratedFile } from './write.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { TargetGenerator, GenerationReport, GeneratedFile } from './types.js';
@@ -73,6 +75,57 @@ function renderCommandTemplate(cmd: CommandMeta): string {
   ].join('\n');
 }
 
+function renderWorkflowSkillTemplate(meta: WorkflowMeta): string {
+  const personas = meta.personas
+    .map((p) => `### ${p.name} (${p.role})\n${p.angle}`)
+    .join('\n\n');
+  const phases = meta.phases
+    .map((p) => `### ${p.name}\n${p.instruction}`)
+    .join('\n\n');
+  const inputs = meta.inputs
+    .map((i) => `- **${i.name}** (${i.required ? 'required' : 'optional'}): ${i.description}`)
+    .join('\n');
+  const outputs = meta.outputs
+    .map((o) => `- **${o.artifactType}** (${o.required ? 'required' : 'optional'}): ${o.description}`)
+    .join('\n');
+  const safety = meta.safety.map((s) => `- ${s}`).join('\n');
+  return [
+    '---',
+    `name: spego-${meta.name}`,
+    `description: ${meta.description}`,
+    '---',
+    '',
+    '## Personas',
+    '',
+    personas,
+    '',
+    '## Phases',
+    '',
+    phases,
+    '',
+    '## Inputs',
+    '',
+    inputs || '(none)',
+    '',
+    '## Outputs',
+    '',
+    outputs || '(none)',
+    '',
+    '## When to Use',
+    '',
+    `Use this workflow when you need to ${meta.description.charAt(0).toLowerCase()}${meta.description.slice(1)}.`,
+    '',
+    '## When NOT to Use',
+    '',
+    'Do not use this workflow when you already have a clear, unambiguous solution, when a simple review suffices, or when the artifact is trivial and doesn\'t warrant multi-persona analysis.',
+    '',
+    '## Safety',
+    '',
+    safety,
+    '',
+  ].join('\n');
+}
+
 async function cleanupLegacyFlatSkills(skillsDir: string): Promise<GeneratedFile[]> {
   const cleaned: GeneratedFile[] = [];
   let entries: string[];
@@ -115,6 +168,14 @@ export class ClaudeGenerator implements TargetGenerator {
       const cmdContent = renderCommandTemplate(cmd);
       const cmdAction = await writeGeneratedFile(cmdPath, cmdContent);
       files.push({ path: cmdPath, action: cmdAction });
+    }
+
+    for (const wf of WORKFLOW_REGISTRY) {
+      const skillDir = path.join(skillsDir, `spego-${wf.name}`);
+      const skillPath = path.join(skillDir, 'SKILL.md');
+      const skillContent = renderWorkflowSkillTemplate(wf);
+      const skillAction = await writeGeneratedFile(skillPath, skillContent);
+      files.push({ path: skillPath, action: skillAction });
     }
 
     return { target: this.targetName, files, version: GENERATOR_VERSION };

@@ -6,6 +6,7 @@ import { ClaudeGenerator } from '../src/generator/claude.js';
 import { writeGeneratedFile } from '../src/generator/write.js';
 import { wrapWithMarker, isSpegoGenerated } from '../src/generator/markers.js';
 import { COMMAND_REGISTRY, getCommandByName } from '../src/commands/registry.js';
+import { WORKFLOW_REGISTRY } from '../src/workflows/registry.js';
 
 describe('Claude skill generation', () => {
   const cleanups: Array<() => Promise<void>> = [];
@@ -65,7 +66,9 @@ describe('Claude skill generation', () => {
     const gen = new ClaudeGenerator();
     const report = await gen.generate(root);
 
-    expect(report.files.filter((f) => f.action !== 'cleaned').length).toBe(COMMAND_REGISTRY.length * 2);
+    const commandFiles = COMMAND_REGISTRY.length * 2;
+    const workflowFiles = WORKFLOW_REGISTRY.length;
+    expect(report.files.filter((f) => f.action !== 'cleaned').length).toBe(commandFiles + workflowFiles);
     expect(report.target).toBe('claude');
     expect(report.version).toBe(1);
   });

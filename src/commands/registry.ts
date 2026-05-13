@@ -141,6 +141,14 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     },
     outputModes: ['markdown', 'json'],
   },
+  {
+    name: 'workflows',
+    description: 'List available workflow skills',
+    slashName: '/spego:workflows',
+    category: 'planning',
+    inputSchema: {},
+    outputModes: ['json'],
+  },
 ];
 
 export function getCommandByName(name: string): CommandMeta | undefined {

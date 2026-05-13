@@ -8,6 +8,7 @@ import path from 'node:path';
 import { renderArtifactFile } from './artifacts/storage.js';
 import { SpegoError } from './errors.js';
 import { COMMAND_REGISTRY } from './commands/registry.js';
+import { WORKFLOW_REGISTRY } from './workflows/registry.js';
 import { generateAll } from './generator/index.js';
 import { resolveWorkspacePaths } from './workspace/paths.js';
 import { readConfig } from './workspace/config.js';
@@ -94,6 +95,21 @@ export function buildProgram(): Command {
     .description('List available spego commands with metadata (JSON)')
     .action(() => {
       process.stdout.write(JSON.stringify(COMMAND_REGISTRY, null, 2) + '\n');
+    });
+
+  program
+    .command('workflows')
+    .description('List available workflow skills (JSON)')
+    .action(() => {
+      const entries = WORKFLOW_REGISTRY.map((w) => ({
+        name: w.name,
+        description: w.description,
+        personas: w.personas,
+        phases: w.phases,
+        inputs: w.inputs,
+        outputs: w.outputs,
+      }));
+      process.stdout.write(JSON.stringify(entries, null, 2) + '\n');
     });
 
   // ---------- init ----------
