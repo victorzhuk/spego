@@ -21,6 +21,7 @@ export default tseslint.config(
             'test/generator.workflows.test.ts',
             'test/workflows.registry.test.ts',
             'test/workflows.review-suite.test.ts',
+            'test/workflows.authoring.test.ts',
           ],
           maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 20,
         },

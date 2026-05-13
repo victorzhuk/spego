@@ -19,6 +19,7 @@ export interface WorkflowOutput {
   artifactType: string;
   required: boolean;
   description: string;
+  kind?: 'create' | 'update' | 'none';
 }
 
 export interface WorkflowMeta {

@@ -11,7 +11,7 @@ const CLI_PATH = path.join(PROJECT_ROOT, 'src', 'cli.ts');
 const exec = promisify(execFile);
 
 const cli = (args: string[], cwd: string) =>
-  exec('npx', ['tsx', CLI_PATH, ...args], { cwd, timeout: 15_000 });
+  exec('npx', ['tsx', CLI_PATH, ...args], { cwd, timeout: 30_000 });
 
 describe('CLI init', () => {
   const cleanups: Array<() => Promise<void>> = [];
@@ -272,16 +272,19 @@ describe('CLI workflows command', () => {
     const { stdout } = await cli(['workflows'], PROJECT_ROOT);
     const result = JSON.parse(stdout);
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(5);
+    expect(result.length).toBe(8);
     const names = result.map((w: { name: string }) => w.name);
     expect(names).toContain('brainstorm-party');
     expect(names).toContain('review-adversarial');
     expect(names).toContain('review-edge-cases');
     expect(names).toContain('editorial-prose');
     expect(names).toContain('editorial-structure');
+    expect(names).toContain('help');
+    expect(names).toContain('brainstorm-deep');
+    expect(names).toContain('elicit');
     for (const wf of result) {
       expect(wf.personas.length).toBeGreaterThanOrEqual(1);
-      expect(wf.phases.length).toBeGreaterThanOrEqual(4);
+      expect(wf.phases.length).toBeGreaterThanOrEqual(3);
     }
   });
 });

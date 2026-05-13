@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.0] - 2026-05-13
+
+### Added
+- `help` workflow: read-only orientation skill that inspects workspace state and recommends next steps via in-chat recommendations.
+- `brainstorm-deep` workflow: single-persona, high-volume ideation targeting 50-100 ideas with clustering and ranking. Outputs `brainstorm` artifact.
+- `elicit` workflow: iterative refinement using named methods (clarify, sharpen, generalize, specialize, stress-test, contextualize, simplify, formalize) with optimistic concurrency. Maximum 5 cycles per session.
+- `kind` field on `WorkflowOutput` to distinguish `create`, `update`, and `none` output types.
+- "Authoring loop" guidance and "brainstorm-deep vs brainstorm-party" matrix in README.
+- Authoring workflow registry and content tests.
+
 ## [0.5.0] - 2026-05-13
 
 ### Added

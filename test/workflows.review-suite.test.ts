@@ -40,7 +40,7 @@ describe('Review suite registry entries', () => {
   });
 
   it('registry now has five entries total', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(5);
+    expect(WORKFLOW_REGISTRY).toHaveLength(8);
   });
 });
 

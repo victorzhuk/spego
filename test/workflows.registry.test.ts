@@ -4,8 +4,17 @@ import { ARTIFACT_META_SCHEMAS } from '../src/artifacts/schemas.js';
 
 describe('Workflow registry', () => {
   it('contains both workflows', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(5);
-    expect(listWorkflowNames()).toEqual(['brainstorm-party', 'review-adversarial', 'review-edge-cases', 'editorial-prose', 'editorial-structure']);
+    expect(WORKFLOW_REGISTRY).toHaveLength(8);
+    expect(listWorkflowNames()).toEqual([
+      'brainstorm-party',
+      'review-adversarial',
+      'review-edge-cases',
+      'editorial-prose',
+      'editorial-structure',
+      'help',
+      'brainstorm-deep',
+      'elicit',
+    ]);
   });
 
   it('each workflow has at least 3 personas', () => {
@@ -19,23 +28,26 @@ describe('Workflow registry', () => {
     }
   });
 
-  it('each workflow has at least 4 phases including a final record phase', () => {
+  it('each workflow has at least 3 phases with a terminal phase', () => {
     for (const wf of WORKFLOW_REGISTRY) {
-      expect(wf.phases.length).toBeGreaterThanOrEqual(4);
+      expect(wf.phases.length).toBeGreaterThanOrEqual(3);
       const lastPhase = wf.phases[wf.phases.length - 1];
-      expect(lastPhase.name).toBe('record');
+      const allowedTerminalPhases = ['record', 'recommend', 'summarize'];
+      expect(allowedTerminalPhases).toContain(lastPhase.name);
     }
   });
 
-  it('each workflow has at least 1 required input', () => {
+  it('each workflow has at least 1 required input (except help which is read-only)', () => {
     for (const wf of WORKFLOW_REGISTRY) {
+      if (wf.name === 'help') continue;
       const required = wf.inputs.filter((i) => i.required);
       expect(required.length).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it('each workflow declares at least 1 output referencing a known artifact type', () => {
+  it('each mutating workflow declares at least 1 output referencing a known artifact type', () => {
     for (const wf of WORKFLOW_REGISTRY) {
+      if (wf.name === 'help') continue;
       const knownOutputs = wf.outputs.filter((o) => o.artifactType in ARTIFACT_META_SCHEMAS);
       expect(knownOutputs.length).toBeGreaterThanOrEqual(1);
     }
@@ -95,5 +107,36 @@ describe('Workflow registry', () => {
     expect(wf.inputs.find((i) => i.name === 'target_audience')?.required).toBe(false);
     expect(wf.inputs.find((i) => i.name === 'length_target')?.required).toBe(false);
     expect(wf.outputs.find((o) => o.artifactType === 'qa')?.required).toBe(true);
+  });
+
+  it('help has expected shape', () => {
+    const wf = getWorkflowByName('help')!;
+    expect(wf.personas.map((p) => p.name)).toEqual(['Guide']);
+    expect(wf.phases.map((p) => p.name)).toEqual(['inspect-state', 'synthesize', 'recommend']);
+    expect(wf.inputs.find((i) => i.name === 'query')?.required).toBe(false);
+    expect(wf.outputs.every((o) => o.kind === 'none')).toBe(true);
+    expect(wf.safety).toContainEqual(expect.stringContaining('read-only'));
+  });
+
+  it('brainstorm-deep has expected shape', () => {
+    const wf = getWorkflowByName('brainstorm-deep')!;
+    expect(wf.personas.map((p) => p.name)).toEqual(['Ideator']);
+    expect(wf.phases.map((p) => p.name)).toEqual(['frame', 'expand', 'prune', 'record']);
+    expect(wf.inputs.find((i) => i.name === 'topic')?.required).toBe(true);
+    expect(wf.inputs.find((i) => i.name === 'target_count')?.required).toBe(false);
+    expect(wf.inputs.find((i) => i.name === 'seedArtifactId')?.required).toBe(false);
+    expect(wf.outputs.find((o) => o.artifactType === 'brainstorm')?.required).toBe(true);
+  });
+
+  it('elicit has expected shape', () => {
+    const wf = getWorkflowByName('elicit')!;
+    expect(wf.personas.map((p) => p.name)).toEqual(['Refiner']);
+    expect(wf.phases.map((p) => p.name)).toEqual(['read', 'select-method', 'propose', 'confirm', 'apply', 'summarize']);
+    expect(wf.inputs.find((i) => i.name === 'artifactRef')?.required).toBe(true);
+    expect(wf.inputs.find((i) => i.name === 'methods')?.required).toBe(false);
+    expect(wf.inputs.find((i) => i.name === 'target_audience')?.required).toBe(false);
+    expect(wf.outputs.find((o) => o.artifactType === 'qa')?.required).toBe(false);
+    const updateOutput = wf.outputs.find((o) => o.artifactType === 'update');
+    expect(updateOutput?.kind).toBe('update');
   });
 });

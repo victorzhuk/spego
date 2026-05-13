@@ -104,6 +104,43 @@ Structural review without mutation. A single Structural editor persona outlines 
 
 Use when content is correct but organization needs improvement.
 
+### help
+
+Orientation workflow that reads workspace state and recommends next steps. A single Guide persona runs `spego status`, `spego list`, and `spego epics` to inspect the workspace, then applies a recommendation rubric to suggest the most impactful action. Produces no artifact — recommendations are delivered in chat only.
+
+Use when starting a new session, unsure what to do next, or asking "what should I work on?".
+
+### brainstorm-deep
+
+Single-persona, high-volume ideation targeting 50-100 ideas on a focused topic. One Ideator persona generates breadth, then clusters, deduplicates, and ranks the output. Outputs a `brainstorm` artifact.
+
+Use when you have a focused problem and want maximum idea throughput without persona debate.
+
+**When to use brainstorm-deep vs brainstorm-party:**
+
+| Scenario | Use |
+|----------|-----|
+| Focused problem, need volume | `brainstorm-deep` |
+| Broad problem, need diverse perspectives | `brainstorm-party` |
+| One voice, fast iteration | `brainstorm-deep` |
+| Multiple viewpoints, stress-test ideas | `brainstorm-party` |
+
+### elicit
+
+Iterative refinement of an existing artifact using named methods (clarify, sharpen, generalize, specialize, stress-test, contextualize, simplify, formalize). A single Refiner persona proposes changes, confirms with the user, and applies via `spego update --expected-revision`. Maximum 5 cycles per session. Outputs a `qa` summary and in-place updates of the source artifact.
+
+Use when you have a draft that needs systematic improvement.
+
+### Authoring loop
+
+The recommended authoring sequence combines all workflow skills:
+
+1. **Orient** — Run `spego-help` to understand workspace state and get recommendations.
+2. **Ideate** — Run `spego-brainstorm-party` (multi-perspective breadth) or `spego-brainstorm-deep` (single-voice volume) to explore the problem space.
+3. **Capture** — Run `spego create --type prd` (or `architecture`, `design`, etc.) to persist the output.
+4. **Refine** — Run `spego-elicit` to iteratively improve the draft with structured methods.
+5. **Review** — Run `spego-review-adversarial` and `spego-review-edge-cases` for technical coverage, or `spego-editorial-prose` / `spego-editorial-structure` for communication quality.
+
 ### Invocation
 
 All workflow skills are generated at `.claude/skills/spego-<workflow>/SKILL.md` during `spego init`. The agent picks them up automatically based on the skill description.
