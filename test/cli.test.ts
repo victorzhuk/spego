@@ -534,16 +534,16 @@ describe('CLI dual output modes', () => {
     expect(result.deletedAt).toBeTruthy();
   });
 
-  it('regenerate human output contains 🛠️ Skill regeneration and is not JSON', async () => {
+  it('skills human output contains 🛠️ Skill regeneration and is not JSON', async () => {
     const root = await setup();
-    const { stdout } = await cli(['regenerate', '--cwd', root], root);
+    const { stdout } = await cli(['skills', '--cwd', root], root);
     expect(stdout).toContain('🛠️ Skill regeneration');
     expect(() => JSON.parse(stdout)).toThrow();
   });
 
-  it('regenerate --json output parses as JSON array of reports', async () => {
+  it('skills --json output parses as JSON array of reports', async () => {
     const root = await setup();
-    const { stdout } = await cli(['--json', 'regenerate', '--cwd', root], root);
+    const { stdout } = await cli(['--json', 'skills', '--cwd', root], root);
     const result = JSON.parse(stdout);
     expect(Array.isArray(result)).toBe(true);
     if (result.length > 0) {

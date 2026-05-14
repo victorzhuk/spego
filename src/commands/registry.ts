@@ -124,6 +124,16 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     outputModes: ['markdown', 'json'],
   },
   {
+    name: 'skills',
+    description: 'Regenerate agent skill and command files',
+    slashName: '/spego:skills',
+    category: 'workspace',
+    inputSchema: {
+      cwd: { name: 'cwd', type: 'string', required: false, description: 'Project root' },
+    },
+    outputModes: ['markdown', 'json'],
+  },
+  {
     name: 'epics',
     description: 'List epics',
     slashName: '/spego:epics',

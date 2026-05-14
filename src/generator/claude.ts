@@ -7,7 +7,7 @@ import type { WorkflowMeta } from '../workflows/types.js';
 import { writeGeneratedFile } from './write.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { TargetGenerator, GenerationReport, GeneratedFile } from './types.js';
-import { isLegacySpegoGenerated } from './markers.js';
+import { isLegacySpegoGenerated, isSpegoGenerated } from './markers.js';
 
 function toKebab(name: string): string {
   return name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
@@ -140,7 +140,7 @@ async function cleanupLegacyFlatSkills(skillsDir: string): Promise<GeneratedFile
     const content = await fs.readFile(filePath, 'utf8');
     if (isLegacySpegoGenerated(content)) {
       await fs.unlink(filePath);
-      cleaned.push({ path: filePath, action: 'cleaned' });
+      cleaned.push({ path: filePath, action: 'removed' });
     }
   }
   return cleaned;
@@ -156,6 +156,9 @@ export class ClaudeGenerator implements TargetGenerator {
 
     const cleaned = await cleanupLegacyFlatSkills(skillsDir);
     files.push(...cleaned);
+
+    const legacyCleaned = await this.cleanupLegacyRegeneratePaths(skillsDir, commandsDir);
+    files.push(...legacyCleaned);
 
     for (const cmd of COMMAND_REGISTRY) {
       const skillDir = path.join(skillsDir, `spego-${cmd.name}`);
@@ -179,5 +182,31 @@ export class ClaudeGenerator implements TargetGenerator {
     }
 
     return { target: this.targetName, files, version: GENERATOR_VERSION };
+  }
+
+  private async cleanupLegacyRegeneratePaths(
+    skillsDir: string,
+    commandsDir: string,
+  ): Promise<GeneratedFile[]> {
+    const cleaned: GeneratedFile[] = [];
+    const legacyPaths = [
+      path.join(skillsDir, 'spego-regenerate', 'SKILL.md'),
+      path.join(commandsDir, 'regenerate.md'),
+    ];
+    for (const filePath of legacyPaths) {
+      let content: string;
+      try {
+        content = await fs.readFile(filePath, 'utf8');
+      } catch {
+        continue;
+      }
+      if (isSpegoGenerated(content)) {
+        await fs.unlink(filePath);
+        cleaned.push({ path: filePath, action: 'removed' });
+      } else {
+        cleaned.push({ path: filePath, action: 'skipped' });
+      }
+    }
+    return cleaned;
   }
 }

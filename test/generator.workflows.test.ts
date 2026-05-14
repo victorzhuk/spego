@@ -118,8 +118,8 @@ describe('Workflow legacy flat-file cleanup', () => {
     await expect(fs.access(oldPath)).rejects.toThrow();
     await expect(fs.access(oldPath2)).rejects.toThrow();
 
-    expect(report.files.some((f) => f.action === 'cleaned' && f.path === oldPath)).toBe(true);
-    expect(report.files.some((f) => f.action === 'cleaned' && f.path === oldPath2)).toBe(true);
+    expect(report.files.some((f) => f.action === 'removed' && f.path === oldPath)).toBe(true);
+    expect(report.files.some((f) => f.action === 'removed' && f.path === oldPath2)).toBe(true);
 
     const newSkillPath = path.join(skillsDir, 'spego-brainstorm-party', 'SKILL.md');
     await expect(fs.stat(newSkillPath)).resolves.toBeTruthy();

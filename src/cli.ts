@@ -488,28 +488,46 @@ export function buildProgram(): Command {
   // ---------- index rebuild ----------
   const indexCmd = program.command('index').description('Index maintenance');
 
-  // ---------- skills (formerly regenerate) ----------
+  // ---------- skills ----------
+  async function runSkillsCommand(json: boolean, cwd?: string): Promise<void> {
+    const projectRoot = path.resolve(cwd ?? process.cwd());
+    const wsPaths = resolveWorkspacePaths(projectRoot);
+    const config = await readConfig(wsPaths.configPath);
+    const reports = await generateAll(projectRoot, config.agents);
+    output(json, reports, () => {
+      const lines: string[] = [renderHeader('🛠️', 'Skill regeneration'), ''];
+      for (const r of reports) {
+        lines.push(`[${r.target}]`);
+        for (const f of r.files) {
+          lines.push(`  ${f.action}  ${f.path}`);
+        }
+      }
+      return lines.join('\n');
+    });
+  }
+
   program
-    .command('regenerate')
+    .command('skills')
     .description('Regenerate agent skill and command files')
     .option('--cwd <dir>', 'project root')
     .action(async (opts) => {
       const json = program.opts().json as boolean;
       try {
-        const projectRoot = path.resolve(opts.cwd ?? process.cwd());
-        const wsPaths = resolveWorkspacePaths(projectRoot);
-        const config = await readConfig(wsPaths.configPath);
-        const reports = await generateAll(projectRoot, config.agents);
-        output(json, reports, () => {
-          const lines: string[] = [renderHeader('🛠️', 'Skill regeneration'), ''];
-          for (const r of reports) {
-            lines.push(`[${r.target}]`);
-            for (const f of r.files) {
-              lines.push(`  ${f.action}  ${f.path}`);
-            }
-          }
-          return lines.join('\n');
-        });
+        await runSkillsCommand(json, opts.cwd);
+      } catch (err) {
+        fail(err, json);
+      }
+    });
+
+  program
+    .command('regenerate', { hidden: true })
+    .description('Regenerate agent skill and command files')
+    .option('--cwd <dir>', 'project root')
+    .action(async (opts) => {
+      const json = program.opts().json as boolean;
+      deprecate(json, "'spego regenerate' is now 'spego skills'");
+      try {
+        await runSkillsCommand(json, opts.cwd);
       } catch (err) {
         fail(err, json);
       }

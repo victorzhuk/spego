@@ -68,7 +68,7 @@ describe('Claude skill generation', () => {
 
     const commandFiles = COMMAND_REGISTRY.length * 2;
     const workflowFiles = WORKFLOW_REGISTRY.length;
-    expect(report.files.filter((f) => f.action !== 'cleaned').length).toBe(commandFiles + workflowFiles);
+    expect(report.files.filter((f) => f.action !== 'removed').length).toBe(commandFiles + workflowFiles);
     expect(report.target).toBe('claude');
     expect(report.version).toBe(1);
   });
@@ -163,12 +163,12 @@ describe('Deterministic regeneration', () => {
     const report2 = await gen.generate(root);
 
     for (const f of report2.files) {
-      if (f.action === 'cleaned') continue;
+      if (f.action === 'removed') continue;
       expect(f.action).toBe('unchanged');
     }
 
     for (const f of report1.files) {
-      if (f.action === 'cleaned') continue;
+      if (f.action === 'removed') continue;
       const content1 = await fs.readFile(f.path, 'utf8');
       const match = report2.files.find((f2) => f2.path === f.path);
       const content2 = await fs.readFile(match!.path, 'utf8');
@@ -212,7 +212,7 @@ describe('Legacy flat-file cleanup', () => {
 
     await expect(fs.access(oldPath)).rejects.toThrow();
 
-    expect(report.files.some((f) => f.action === 'cleaned' && f.path === oldPath)).toBe(true);
+    expect(report.files.some((f) => f.action === 'removed' && f.path === oldPath)).toBe(true);
 
     const newSkillPath = path.join(skillsDir, 'spego-create', 'SKILL.md');
     await expect(fs.stat(newSkillPath)).resolves.toBeTruthy();

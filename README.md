@@ -24,7 +24,7 @@ spego init --agents claude --demo false
 | `spego view` | Export bundle as markdown or JSON |
 | `spego commands` | List command metadata |
 | `spego workflows` | List workflow skills metadata |
-| `spego regenerate` | Regenerate agent skill files |
+| `spego skills` | Regenerate agent skill files |
 | `spego epics` | List delivery epics |
 | `spego tasks --change <name>` | List tasks for a change |
 | `spego index rebuild` | Rebuild SQLite index from files |
@@ -79,7 +79,7 @@ For Claude agent targets, `spego init` generates:
 - `.claude/skills/spego-<command>/SKILL.md` — skill definitions following Claude Code conventions
 - `.claude/commands/spego/` — slash command wrappers
 
-Run `spego regenerate` to update generated files without reinitializing the workspace.
+Run `spego skills` to update generated files without reinitializing the workspace.
 
 ## Workflow Skills
 
