@@ -1,9 +1,10 @@
 # Changelog
 
-## [0.6.1] - 2026-05-13
+## [0.6.2] - 2026-05-14
 
 ### Fixed
 - Replaced hardcoded local path in authoring workflow test with repo-relative root so tests pass on CI.
+- Use lightweight git tag for npm trusted publishing (OIDC) compatibility.
 
 ## [0.6.0] - 2026-05-13
 
