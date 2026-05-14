@@ -124,8 +124,8 @@ describe('built CLI runs', () => {
     expect(output).toBe(pkgVersion);
   });
 
-  it('commands outputs valid JSON with array of commands', () => {
-    const output = execSync(`node ${path.join(ROOT, 'dist', 'cli.js')} commands`, {
+  it('commands --json outputs valid JSON with array of commands', () => {
+    const output = execSync(`node ${path.join(ROOT, 'dist', 'cli.js')} --json commands`, {
       encoding: 'utf8',
     });
     const result = JSON.parse(output);

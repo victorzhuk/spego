@@ -11,6 +11,7 @@ export default tseslint.config(
           allowDefaultProject: [
             'test/artifact-crud.test.ts',
             'test/cli.test.ts',
+            'test/cli.render.test.ts',
             'test/delivery.test.ts',
             'test/generator.test.ts',
             'test/helpers.ts',

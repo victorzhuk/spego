@@ -29,7 +29,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       force: { name: 'force', type: 'boolean', required: false, description: 'Overwrite config without deleting artifacts' },
       demo: { name: 'demo', type: 'boolean', required: false, description: 'Seed demo artifacts' },
     },
-    outputModes: ['json'],
+    outputModes: ['markdown', 'json'],
   },
   {
     name: 'create',
@@ -147,7 +147,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     slashName: '/spego:workflows',
     category: 'planning',
     inputSchema: {},
-    outputModes: ['json'],
+    outputModes: ['markdown', 'json'],
   },
 ];
 

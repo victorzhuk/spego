@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **CLI output modes**: every command now emits pretty human-friendly output by default and JSON when the global `--json` flag is supplied. Human output uses bordered boxes (`╭─ ─╮`), aligned tables, single-emoji section headers (`📦 📄 🛠️ 🧭 📚 ✅`), and `────` dividers. Errors render as `⚠️  [CODE] message` in human mode and as the existing `{ error: { code, message, details } }` envelope in JSON mode.
+- **`spego commands` and `spego workflows` default-mode flip**: these commands used to print JSON unconditionally; they now print human output by default. Agents and scripts that pipe their stdout MUST pass `--json` to keep getting JSON.
+
+### Deprecated
+- **`spego view --format <fmt>`**: superseded by the global `--json` flag. Continues to work for one minor release; emits a single `deprecated:` warning line to stderr in human mode. Will be removed in the next minor release.
+
 ## [0.6.2] - 2026-05-14
 
 ### Fixed

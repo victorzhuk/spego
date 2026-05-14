@@ -22,14 +22,25 @@ spego init --agents claude --demo false
 | `spego delete --id <uuid>` | Soft-delete (preserves history) |
 | `spego list` | List artifacts |
 | `spego view` | Export bundle as markdown or JSON |
-| `spego commands` | List command metadata (JSON) |
-| `spego workflows` | List workflow skills metadata (JSON) |
+| `spego commands` | List command metadata |
+| `spego workflows` | List workflow skills metadata |
 | `spego regenerate` | Regenerate agent skill files |
 | `spego epics` | List delivery epics |
 | `spego tasks --change <name>` | List tasks for a change |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
-All commands accept `--json` for structured output and `--cwd <dir>` to set the project root.
+All commands accept `--cwd <dir>` to set the project root.
+
+### Output modes
+
+Every spego command speaks two output modes:
+
+- **Human (default)** — pretty, scannable output for terminals. Section headers use a single emoji prefix (`📦 📄 🛠️ 🧭 📚 ✅`), summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
+- **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr.
+
+Agents calling spego MUST pass `--json` so they get parseable output. Humans normally do not.
+
+The legacy `spego view --format markdown|json` flag is **deprecated** and will be removed in the next minor release. Use the global `--json` flag instead. The old flag still works during the deprecation window and prints a single `deprecated:` warning line to stderr.
 
 ## Architecture
 
