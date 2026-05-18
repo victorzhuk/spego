@@ -61,7 +61,7 @@ describe('CLI skills command', () => {
 
   it('--help lists skills and does not list regenerate', async () => {
     const root = await setup();
-    let output = '';
+    let output: string;
     try {
       const result = await cli(['--help'], root);
       output = result.stdout;
