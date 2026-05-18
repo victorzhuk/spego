@@ -44,6 +44,25 @@ describe('CLI skills command', () => {
     expect(Array.isArray(result[0].files)).toBe(true);
   });
 
+  it('skills --json does not emit warnings for unsupported agents', async () => {
+    const root = await setup();
+    const configPath = path.join(root, '.spego', 'config.yaml');
+    const rawConfig = await fs.readFile(configPath, 'utf8');
+    const updatedConfig = rawConfig.replace(
+      'agents:\n  - claude\n',
+      'agents:\n  - claude\n  - ghost\n',
+    );
+    await fs.writeFile(configPath, updatedConfig, 'utf8');
+
+    const { stdout, stderr } = await cli(['--json', 'skills', '--cwd', root], root);
+    const result = JSON.parse(stdout);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].target).toBe('claude');
+    expect(result).toHaveLength(1);
+    expect(stderr).not.toContain('warning: no generator registered for target "ghost", skipping');
+  });
+
   it('regenerate hidden alias still works and emits deprecation warning', async () => {
     const root = await setup();
     const { stdout, stderr } = await cli(['regenerate', '--cwd', root], root);

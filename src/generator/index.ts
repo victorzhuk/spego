@@ -17,15 +17,23 @@ export function availableTargets(): string[] {
 
 registerGenerator(new ClaudeGenerator());
 
+export interface GenerateAllOptions {
+  emitWarnings?: boolean;
+}
+
 export async function generateAll(
   projectRoot: string,
   targets: string[],
+  options: GenerateAllOptions = {},
 ): Promise<GenerationReport[]> {
+  const emitWarnings = options.emitWarnings ?? true;
   const reports: GenerationReport[] = [];
   for (const target of targets) {
     const gen = getGenerator(target);
     if (!gen) {
-      process.stderr.write(`warning: no generator registered for target "${target}", skipping\n`);
+      if (emitWarnings) {
+        process.stderr.write(`warning: no generator registered for target "${target}", skipping\n`);
+      }
       continue;
     }
     reports.push(await gen.generate(projectRoot));

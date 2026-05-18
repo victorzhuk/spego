@@ -493,7 +493,7 @@ export function buildProgram(): Command {
     const projectRoot = path.resolve(cwd ?? process.cwd());
     const wsPaths = resolveWorkspacePaths(projectRoot);
     const config = await readConfig(wsPaths.configPath);
-    const reports = await generateAll(projectRoot, config.agents);
+    const reports = await generateAll(projectRoot, config.agents, { emitWarnings: !json });
     output(json, reports, () => {
       const lines: string[] = [renderHeader('🛠️', 'Skill regeneration'), ''];
       for (const r of reports) {
