@@ -21,6 +21,13 @@ The system SHALL ship a `help` workflow skill that inspects workspace state via 
 - **THEN** its body mentions every other workflow currently present in `WORKFLOW_REGISTRY` at least once
 - **AND** its body includes mappings from observable workspace states to specific workflow recommendations
 
+#### Scenario: Active OpenSpec changes are prioritized
+- **WHEN** the generated `spego-help` skill is rendered
+- **AND** the inspected `spego epics --json` output includes active OpenSpec changes
+- **THEN** its recommendation rubric includes combined OpenSpec and spego workflows before unrelated artifact-creation recommendations
+- **AND** it maps brainstorm, review, verification-report, and retro needs to `spego-change-brainstorm`, `spego-change-review`, `spego-change-verify-report`, and `spego-change-retro`
+- **AND** it preserves artifact-centric recommendations when no active OpenSpec changes exist
+
 ### Requirement: Provide deep brainstorm workflow skill
 The system SHALL ship a `brainstorm-deep` workflow skill that drives single-persona, high-volume ideation and persists results as a `brainstorm` artifact.
 

@@ -22,6 +22,7 @@ export default tseslint.config(
             'test/view.test.ts',
             'test/generator.workflows.test.ts',
             'test/workflows.registry.test.ts',
+            'test/workflows.combined-openspec.test.ts',
             'test/workflows.review-suite.test.ts',
             'test/workflows.authoring.test.ts',
           ],

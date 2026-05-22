@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - 2026-05-22
+
+### Added
+- Combined OpenSpec + spego workflow skills: `change-brainstorm`, `change-review`, `change-verify-report`, and `change-retro`.
+- README guidance for before/during/after OpenSpec change lanes with spego persistence checkpoints.
+
 ## [0.7.0] - 2026-05-14
 
 ### Changed

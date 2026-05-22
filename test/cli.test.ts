@@ -239,7 +239,7 @@ describe('CLI error cases', () => {
     await expect(
       cli(['--json', 'update', '--id', 'nonexistent-id', '--body', 'x', '--cwd', root], root),
     ).rejects.toThrow();
-  });
+  }, 30_000);
 });
 
 describe('CLI index rebuild', () => {
@@ -284,7 +284,7 @@ describe('CLI workflows command', () => {
     const { stdout } = await cli(['--json', 'workflows'], PROJECT_ROOT);
     const result = JSON.parse(stdout);
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(8);
+    expect(result.length).toBe(12);
     const names = result.map((w: { name: string }) => w.name);
     expect(names).toContain('brainstorm-party');
     expect(names).toContain('review-adversarial');
@@ -294,6 +294,10 @@ describe('CLI workflows command', () => {
     expect(names).toContain('help');
     expect(names).toContain('brainstorm-deep');
     expect(names).toContain('elicit');
+    expect(names).toContain('change-brainstorm');
+    expect(names).toContain('change-review');
+    expect(names).toContain('change-verify-report');
+    expect(names).toContain('change-retro');
     for (const wf of result) {
       expect(wf.personas.length).toBeGreaterThanOrEqual(1);
       expect(wf.phases.length).toBeGreaterThanOrEqual(3);

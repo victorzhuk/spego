@@ -39,8 +39,8 @@ describe('Review suite registry entries', () => {
     }
   });
 
-  it('registry now has five entries total', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(8);
+  it('registry includes the review suite in the current total', () => {
+    expect(WORKFLOW_REGISTRY).toHaveLength(12);
   });
 });
 

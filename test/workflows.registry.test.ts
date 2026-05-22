@@ -3,8 +3,8 @@ import { WORKFLOW_REGISTRY, getWorkflowByName, listWorkflowNames } from '../src/
 import { ARTIFACT_META_SCHEMAS } from '../src/artifacts/schemas.js';
 
 describe('Workflow registry', () => {
-  it('contains both workflows', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(8);
+  it('contains registered workflows', () => {
+    expect(WORKFLOW_REGISTRY).toHaveLength(12);
     expect(listWorkflowNames()).toEqual([
       'brainstorm-party',
       'review-adversarial',
@@ -14,6 +14,10 @@ describe('Workflow registry', () => {
       'help',
       'brainstorm-deep',
       'elicit',
+      'change-brainstorm',
+      'change-review',
+      'change-verify-report',
+      'change-retro',
     ]);
   });
 

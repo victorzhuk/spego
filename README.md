@@ -72,6 +72,21 @@ deliveryAdapter:
   options: {}
 ```
 
+## OpenSpec Delivery View
+
+The default delivery adapter is OpenSpec. `spego epics` exposes active OpenSpec changes as delivery epics, and `spego tasks --change <name>` exposes checklist items from the change's `tasks.md`.
+
+The adapter is read-only. It observes OpenSpec state but does not create, continue, apply, verify, sync, or archive OpenSpec changes.
+
+| Source | spego view |
+|--------|------------|
+| `openspec/changes/<name>/proposal.md` | Epic title |
+| `openspec/changes/<name>/tasks.md` | Task summaries |
+| `openspec status --change <name> --json` | Preferred status source |
+| Filesystem parsing | Fallback when the OpenSpec CLI is unavailable |
+
+Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
+
 ## Generated Files
 
 For Claude agent targets, `spego init` generates:
@@ -135,6 +150,42 @@ Use when you have a focused problem and want maximum idea throughput without per
 | Broad problem, need diverse perspectives | `brainstorm-party` |
 | One voice, fast iteration | `brainstorm-deep` |
 | Multiple viewpoints, stress-test ideas | `brainstorm-party` |
+
+### Combined OpenSpec + spego workflows
+
+OpenSpec prompts and spego workflow skills are separate surfaces:
+
+- OPSX/OpenSpec prompts live under `.claude/commands/opsx/` and `.claude/skills/openspec-*/`.
+- spego-generated commands and workflow skills live under `.claude/commands/spego/` and `.claude/skills/spego-*/`.
+
+OpenSpec owns change execution and lifecycle state: proposal, design, specs, tasks, apply, verify, sync, and archive. spego owns durable product-thinking artifacts: `brainstorm`, `qa`, `risk`, and `retro`. The OpenSpec delivery adapter exposed through `spego epics` and `spego tasks` is read-only.
+
+Use combined workflows when an OpenSpec change needs durable thinking around it:
+
+| Lane | OpenSpec action | spego action |
+|------|-----------------|--------------|
+| Before implementation | Create or continue a change with OPSX/OpenSpec, then read `proposal.md`, `design.md`, specs, and `tasks.md` | `spego-change-brainstorm` creates a `brainstorm` artifact |
+| During implementation | Keep task state and artifact mutations in OPSX/OpenSpec | `spego-change-review` creates `qa` or `risk` findings |
+| Before archive | Run OPSX/OpenSpec verification | `spego-change-verify-report` creates a `qa` verification report |
+| After completion | Archive or complete the OpenSpec change | `spego-change-retro` creates a `retro` artifact |
+
+Example read-only context commands:
+
+```sh
+spego epics --json
+spego tasks --change <change-name> --json
+```
+
+Example spego persistence checkpoints:
+
+```sh
+spego --json create --type brainstorm --title "<change-name> brainstorm" --body "<brainstorm output>"
+spego --json create --type qa --title "<change-name> review" --body "<quality findings>"
+spego --json create --type risk --title "<change-name> risks" --body "<risk findings>"
+spego --json create --type retro --title "<change-name> retro" --body "<retrospective>"
+```
+
+If a combined workflow discovers that OpenSpec artifacts need to change, use the matching OPSX/OpenSpec command. Do not mutate OpenSpec lifecycle state through spego.
 
 ### elicit
 
