@@ -46,26 +46,25 @@ describe('CLI Help and Version exits', () => {
     expect(stderr).toBe('');
   });
 
-  it('exits non-zero and prints validation error to stderr on real argument validation error', async () => {
-    await expect(cli(['--nope'])).rejects.toMatchObject({
-      code: 2,
-    });
+  it('exits with code 2 and prints validation error to stderr on real argument validation error', async () => {
+    await expect(cli(['--nope'])).rejects.toMatchObject({ code: 2 });
     try {
       await cli(['--nope']);
-    } catch (err: any) {
+    } catch (e) {
+      const err = e as { stderr: string };
       expect(err.stderr).toContain('[VALIDATION_FAILED]');
     }
   });
 
-  it('exits non-zero and prints json validation error to stderr on real argument validation error in json mode', async () => {
-    await expect(cli(['--json', '--nope'])).rejects.toMatchObject({
-      code: 2,
-    });
+  it('exits with code 2 and prints json validation error to stderr on real argument validation error in json mode', async () => {
+    await expect(cli(['--json', '--nope'])).rejects.toMatchObject({ code: 2 });
     try {
       await cli(['--json', '--nope']);
-    } catch (err: any) {
+    } catch (e) {
+      const err = e as { stderr: string };
       const parsed = JSON.parse(err.stderr);
       expect(parsed.error.code).toBe('VALIDATION_FAILED');
+      expect(typeof parsed.error.details).toBe('object');
     }
   });
 });

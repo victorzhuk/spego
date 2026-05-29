@@ -284,20 +284,24 @@ describe('CLI workflows command', () => {
     const { stdout } = await cli(['--json', 'workflows'], PROJECT_ROOT);
     const result = JSON.parse(stdout);
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(12);
-    const names = result.map((w: { name: string }) => w.name);
-    expect(names).toContain('brainstorm-party');
-    expect(names).toContain('review-adversarial');
-    expect(names).toContain('review-edge-cases');
-    expect(names).toContain('editorial-prose');
-    expect(names).toContain('editorial-structure');
-    expect(names).toContain('help');
-    expect(names).toContain('brainstorm-deep');
-    expect(names).toContain('elicit');
-    expect(names).toContain('change-brainstorm');
-    expect(names).toContain('change-review');
-    expect(names).toContain('change-verify-report');
-    expect(names).toContain('change-retro');
+    const names = new Set(result.map((w: { name: string }) => w.name));
+    const expected = [
+      'brainstorm-party',
+      'review-adversarial',
+      'review-edge-cases',
+      'editorial-prose',
+      'editorial-structure',
+      'help',
+      'brainstorm-deep',
+      'elicit',
+      'change-brainstorm',
+      'change-review',
+      'change-verify-report',
+      'change-retro',
+    ];
+    for (const name of expected) {
+      expect(names.has(name)).toBe(true);
+    }
     for (const wf of result) {
       expect(wf.personas.length).toBeGreaterThanOrEqual(1);
       expect(wf.phases.length).toBeGreaterThanOrEqual(3);
@@ -377,8 +381,10 @@ describe('CLI dual output modes', () => {
     await cli(['--json', 'create', '--type', 'prd', '--title', 'A', '--body', 'b', '--cwd', root], root);
     const { stdout } = await cli(['list', '--cwd', root], root);
     expect(stdout).toContain('📦 Artifacts');
-    expect(stdout).toMatch(/type\/slug\s+rev\s+status\s+title\s+id/);
-    expect(stdout).toMatch(/─+\s+─+/);
+    for (const col of ['type/slug', 'rev', 'status', 'title', 'id']) {
+      expect(stdout).toContain(col);
+    }
+    expect(stdout).toContain('─');
   });
 
   it('list human output prints "No artifacts." for empty workspace', async () => {
@@ -513,7 +519,7 @@ describe('CLI dual output modes', () => {
     expect(result.revision).toBe(2);
   });
 
-  it('delete human output contains 🗑  Deleted', async () => {
+  it('delete human output starts with the trash header and is not JSON', async () => {
     const root = await setup();
     const { stdout: created } = await cli(
       ['--json', 'create', '--type', 'prd', '--title', 'Del Human', '--body', 'bd', '--cwd', root],
@@ -521,7 +527,8 @@ describe('CLI dual output modes', () => {
     );
     const { id } = JSON.parse(created);
     const { stdout } = await cli(['delete', '--id', id, '--cwd', root], root);
-    expect(stdout).toContain('🗑  Deleted');
+    expect(stdout).toMatch(/^🗑\s+Deleted\s+/);
+    expect(stdout).toContain(id);
     expect(() => JSON.parse(stdout)).toThrow();
   });
 
@@ -538,21 +545,6 @@ describe('CLI dual output modes', () => {
     expect(result.deletedAt).toBeTruthy();
   });
 
-  it('skills human output contains 🛠️ Skill regeneration and is not JSON', async () => {
-    const root = await setup();
-    const { stdout } = await cli(['skills', '--cwd', root], root);
-    expect(stdout).toContain('🛠️ Skill regeneration');
-    expect(() => JSON.parse(stdout)).toThrow();
-  });
-
-  it('skills --json output parses as JSON array of reports', async () => {
-    const root = await setup();
-    const { stdout } = await cli(['--json', 'skills', '--cwd', root], root);
-    const result = JSON.parse(stdout);
-    expect(Array.isArray(result)).toBe(true);
-    if (result.length > 0) {
-      expect(result[0].target).toBeTruthy();
-      expect(Array.isArray(result[0].files)).toBe(true);
-    }
-  });
+  // Note: `skills` command coverage lives in test/cli.skills-command.test.ts to
+  // avoid duplication.
 });

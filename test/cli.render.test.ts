@@ -6,6 +6,7 @@ import {
   renderDivider,
   truncate,
   padRight,
+  intersperseBundleDividers,
 } from '../src/cli/render.js';
 
 describe('truncate', () => {
@@ -117,5 +118,21 @@ describe('renderDivider', () => {
   it('clamps non-positive width to 1', () => {
     expect(renderDivider(0)).toBe('─');
     expect(renderDivider(-5)).toBe('─');
+  });
+});
+
+describe('intersperseBundleDividers', () => {
+  it('returns single-section markdown unchanged', () => {
+    const md = '# Type\n\n## Title\n\nbody\n';
+    expect(intersperseBundleDividers(md)).toBe(md);
+  });
+
+  it('inserts a divider between consecutive `## ` sections', () => {
+    const md = '# Type\n\n## A\n\nbody-a\n\n## B\n\nbody-b\n';
+    const out = intersperseBundleDividers(md);
+    const dividerLines = out.split('\n').filter((line) => /^─+$/.test(line));
+    expect(dividerLines.length).toBeGreaterThanOrEqual(1);
+    expect(out).toContain('## A');
+    expect(out).toContain('## B');
   });
 });

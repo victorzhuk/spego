@@ -9,10 +9,15 @@ export default tseslint.config(
       parserOptions: {
         projectService: {
           allowDefaultProject: [
+            'test/_cli-helpers.ts',
             'test/artifact-crud.test.ts',
             'test/cli.test.ts',
+            'test/cli-help-exit.test.ts',
             'test/cli.render.test.ts',
             'test/cli.skills-command.test.ts',
+            'test/cli.parity.test.ts',
+            'test/cli.epics-tasks.test.ts',
+            'test/cli.gap-fill.test.ts',
             'test/delivery.test.ts',
             'test/generator.test.ts',
             'test/helpers.ts',
@@ -26,7 +31,7 @@ export default tseslint.config(
             'test/workflows.review-suite.test.ts',
             'test/workflows.authoring.test.ts',
           ],
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 20,
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 30,
         },
         tsconfigRootDir: import.meta.dirname,
       },

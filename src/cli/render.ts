@@ -101,3 +101,26 @@ export function renderHeader(emoji: string, label: string): string {
 export function renderDivider(width: number = 60): string {
   return '─'.repeat(Math.max(1, width));
 }
+
+/**
+ * Insert `─` dividers between consecutive artifact sections in a markdown
+ * bundle. A section boundary is any line that starts with `## `; the first
+ * such line is left untouched, every subsequent boundary is preceded by
+ * `\n<divider>\n\n`.
+ */
+export function intersperseBundleDividers(markdown: string): string {
+  const lines = markdown.split('\n');
+  const out: string[] = [];
+  let seenFirstSection = false;
+  const divider = renderDivider();
+  for (const line of lines) {
+    if (line.startsWith('## ')) {
+      if (seenFirstSection) {
+        out.push('', divider, '');
+      }
+      seenFirstSection = true;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
