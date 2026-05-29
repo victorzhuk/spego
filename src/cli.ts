@@ -152,6 +152,15 @@ export function buildProgram(): Command {
   });
 
   program.exitOverride((err) => {
+    // Treat help and version commands as successful exits
+    if (
+      err.code === 'commander.help' ||
+      err.code === 'commander.helpDisplayed' ||
+      err.code === 'commander.version'
+    ) {
+      process.exit(err.exitCode ?? 0);
+    }
+
     const json = program.opts().json as boolean;
     if (json) {
       process.stderr.write(
@@ -160,7 +169,7 @@ export function buildProgram(): Command {
     } else {
       process.stderr.write(`⚠️  [VALIDATION_FAILED] ${err.message}\n`);
     }
-    process.exit(2);
+    process.exit(err.exitCode ?? 2);
   });
 
   // ---------- meta: commands ----------
@@ -654,6 +663,16 @@ export function buildProgram(): Command {
 }
 
 const program = buildProgram();
-program.parseAsync(process.argv).catch((err) => {
-  fail(err, program.opts().json as boolean);
-});
+// If running from node directly, we want to parse the CLI arguments.
+// But we check if we have any arguments. If no arguments are passed, we show help and exit 0.
+const args = process.argv;
+if (args.length <= 2) {
+  // Mock '--help' execution to let commander handle it cleanly or just call program.help()
+  program.parseAsync([...args, '--help']).catch((err) => {
+    fail(err, program.opts().json as boolean);
+  });
+} else {
+  program.parseAsync(args).catch((err) => {
+    fail(err, program.opts().json as boolean);
+  });
+}
