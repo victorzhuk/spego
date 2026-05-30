@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0] - 2026-05-29
+
+### Changed
+- Refactored the CLI into shared runtime helpers and per-command registrars, reducing duplicated JSON/output/error/engine lifecycle code while preserving public command names and flags.
+- `spego update --json` now returns the artifact `frontmatter`, `body`, and `path` in addition to the existing `id` and `revision` fields, matching `spego read --json` for agent parsing.
+- Human output is more consistent across commands: `create`, `delete`, and `index rebuild` now use the same section-header style as the rest of the CLI.
+- JSON validation errors now always include `details: {}` and exit with code 2, matching other structured CLI failures.
+
+### Added
+- Shared body input handling for `spego create` and `spego update`, including stdin support through `--body-file -`.
+- End-to-end CLI coverage for `epics`, `tasks`, read selectors, revision reads, optimistic concurrency, view filters, body-file/stdin input, uninitialized status JSON, registry parity, and validation error envelopes.
+- OpenSpec change `2026-05-29-clean-cli-command-surface` documenting and validating the CLI cleanup.
+
+### Fixed
+- `npm run lint` now includes `test/cli-help-exit.test.ts` and the new CLI test files in ESLint project-service configuration.
+- Installed package `spego` bin symlinks now execute the CLI entrypoint correctly.
+
 ## [0.8.0] - 2026-05-22
 
 ### Added

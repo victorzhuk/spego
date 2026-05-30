@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 const ROOT = process.cwd();
@@ -122,6 +123,18 @@ describe('built CLI runs', () => {
       output = (err as { stdout: string }).stdout.trim();
     }
     expect(output).toBe(pkgVersion);
+  });
+
+  it('installed bin symlink outputs version matching package.json', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'spego-bin-'));
+    try {
+      const binPath = path.join(dir, 'spego');
+      await fs.symlink(path.join(ROOT, 'dist', 'cli.js'), binPath);
+      const output = execFileSync(binPath, ['--version'], { encoding: 'utf8' }).trim();
+      expect(output).toBe(pkgVersion);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('commands --json outputs valid JSON with array of commands', () => {

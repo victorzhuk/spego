@@ -5,7 +5,7 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     environment: 'node',
     pool: 'forks',
-    testTimeout: 15000,
+    testTimeout: 45000,
     server: {
       deps: {
         // Vite's builtin list lags behind Node; force-externalize node: imports

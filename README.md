@@ -35,12 +35,16 @@ All commands accept `--cwd <dir>` to set the project root.
 
 Every spego command speaks two output modes:
 
-- **Human (default)** — pretty, scannable output for terminals. Section headers use a single emoji prefix (`📦 📄 🛠️ 🧭 📚 ✅`), summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
-- **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr.
+- **Human (default)** — pretty, scannable output for terminals. Section headers use a single emoji prefix (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑`), summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
+- **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr; `details` is always an object.
 
 Agents calling spego MUST pass `--json` so they get parseable output. Humans normally do not.
 
 The legacy `spego view --format markdown|json` flag is **deprecated** and will be removed in the next minor release. Use the global `--json` flag instead. The old flag still works during the deprecation window and prints a single `deprecated:` warning line to stderr.
+
+`spego read --json` and `spego update --json` both return artifact records with `frontmatter`, `body`, and `path`; `update` also keeps the compatibility fields `id` and `revision`.
+
+`spego create` and `spego update` accept body content through `--body`, `--body-file <path>`, or stdin via `--body-file -`.
 
 ## Architecture
 
