@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-05-30
+
+### Fixed
+- `npm run build` now sets executable mode (`chmod 0o755`) on `dist/cli.js` after TypeScript compilation, fixing `EACCES` failures when CI executes the installed `spego` bin symlink on clean checkouts.
+
 ## [0.10.0] - 2026-05-30
 
 ### Added
