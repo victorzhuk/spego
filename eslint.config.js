@@ -18,6 +18,8 @@ export default tseslint.config(
             'test/cli.parity.test.ts',
             'test/cli.epics-tasks.test.ts',
             'test/cli.gap-fill.test.ts',
+            'test/cli.orchestrate.test.ts',
+            'test/orchestration.test.ts',
             'test/delivery.test.ts',
             'test/generator.test.ts',
             'test/helpers.ts',

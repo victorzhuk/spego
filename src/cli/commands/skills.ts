@@ -7,6 +7,7 @@ import type { Command } from 'commander';
 import { resolveWorkspacePaths } from '../../workspace/paths.js';
 import { readConfig } from '../../workspace/config.js';
 import { generateAll } from '../../generator/index.js';
+import { emitOrchestrationAssets } from '../../orchestration/emit.js';
 import { renderHeader } from '../render.js';
 import { deprecate } from '../output.js';
 import { runCommand } from '../runtime.js';
@@ -19,6 +20,7 @@ async function runSkills(cwd: string | undefined, json: boolean): Promise<{
   const wsPaths = resolveWorkspacePaths(projectRoot);
   const config = await readConfig(wsPaths.configPath);
   const reports = await generateAll(projectRoot, config.agents, { emitWarnings: !json });
+  reports.push(await emitOrchestrationAssets(projectRoot));
   const human = (): string => {
     const lines: string[] = [renderHeader('🛠️', 'Skill regeneration'), ''];
     for (const r of reports) {

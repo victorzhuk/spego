@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.10.0] - 2026-05-30
+
+### Added
+- **Multi-agent orchestration** (`spego orchestrate --change <name>`): a manager → swarm → verifier pipeline that executes a planned OpenSpec change through the OpenCode REST API, ported to TypeScript under `src/orchestration/`. Supports `sequential`/`parallel`/`adaptive` scheduling, an in-process per-task file gate, a test-backed verdict, and run-artifact persistence under a configurable work dir.
+- `orchestration` block in `.spego/config.yaml` (server URL, model tiers, max parallelism, work dir) with `SPEGO_ORCHESTRATION_*` and `OPENCODE_*` environment overrides. Model identifiers are fully configurable with no fictional defaults.
+- `spego init` / `spego skills` now emit the OpenCode agent prompts (`ultramanager`, `ultraworker`, `ultraverifier`) and the `orchestrate` command under `.opencode/`.
+- OpenSpec change `add-ultracode-orchestration` documenting and validating the capability.
+
+### Changed
+- Archived the completed OpenSpec changes `2026-05-29-clean-cli-command-surface` and `add-ultracode-orchestration`, syncing their delta specs into the main specs tree.
+
 ## [0.9.1] - 2026-05-30
 
 Maintenance release: cleaned up the v0.9.0 commit history. No functional changes.

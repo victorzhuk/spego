@@ -6,6 +6,7 @@ import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
 import { SpegoError } from '../errors.js';
 import { openIndexDb, ensureIndexSchema, closeIndexDb } from '../index/db.js';
 import { generateAll } from '../generator/index.js';
+import { emitOrchestrationAssets } from '../orchestration/emit.js';
 import type { GenerationReport } from '../generator/types.js';
 
 export interface InitOptions {
@@ -105,6 +106,7 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   if (config.agents.length > 0) {
     generationReports = await generateAll(projectRoot, config.agents);
   }
+  generationReports.push(await emitOrchestrationAssets(projectRoot));
 
   return {
     projectRoot: paths.projectRoot,

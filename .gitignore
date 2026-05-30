@@ -1,5 +1,7 @@
 .claude
 .opencode
+!ultracode/.opencode
+!ultracode/.opencode/**
 .spego
 
 node_modules

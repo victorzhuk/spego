@@ -58,8 +58,9 @@ describe('CLI skills command', () => {
     const result = JSON.parse(stdout);
 
     expect(Array.isArray(result)).toBe(true);
-    expect(result[0].target).toBe('claude');
-    expect(result).toHaveLength(1);
+    const targets = result.map((r: { target: string }) => r.target);
+    expect(targets).toContain('claude');
+    expect(targets).not.toContain('ghost');
     expect(stderr).not.toContain('warning: no generator registered for target "ghost", skipping');
   });
 

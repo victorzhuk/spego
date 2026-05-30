@@ -27,6 +27,7 @@ spego init --agents claude --demo false
 | `spego skills` | Regenerate agent skill files |
 | `spego epics` | List delivery epics |
 | `spego tasks --change <name>` | List tasks for a change |
+| `spego orchestrate --change <name>` | Run the multi-agent orchestration pipeline for a change |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.
@@ -74,6 +75,15 @@ extraArtifactTypes: []
 deliveryAdapter:
   name: openspec
   options: {}
+orchestration:
+  serverUrl: http://127.0.0.1:4096
+  models:
+    manager: ""
+    worker: ""
+    verifier: ""
+    fallback: ""
+  maxParallel: 4
+  workDir: .spego/orchestration
 ```
 
 ## OpenSpec Delivery View
@@ -90,6 +100,47 @@ The adapter is read-only. It observes OpenSpec state but does not create, contin
 | Filesystem parsing | Fallback when the OpenSpec CLI is unavailable |
 
 Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
+
+## Orchestration
+
+`spego orchestrate --change <name>` executes a planned OpenSpec change through a multi-agent pipeline (ported from the `ultracode/` reference implementation), driven over the OpenCode REST API:
+
+1. **Manager** decomposes the change requirement into a validated `TaskBreakdown`.
+2. **Swarm** implements each sub-task in isolated sessions — `sequential`, `parallel`, or `adaptive` (dependency-tier) mode — under a per-task file gate that reverts out-of-scope edits.
+3. **Verifier** runs the test command, checks acceptance criteria, and emits a verdict.
+
+Run artifacts (`breakdown.json`, `result_<id>.json`, `swarm.log`, `verdict.json`) are written under the configured work dir (default `.spego/orchestration/<change>/`).
+
+Orchestration consumes the change read-only and never mutates OpenSpec lifecycle state (apply/verify/sync/archive); it may modify the working tree as workers implement sub-tasks.
+
+### Prerequisites
+
+- A reachable OpenCode server: `opencode serve --port 4096`.
+- Configured model identifiers — there are no fictional defaults baked into the code.
+
+### Configuration
+
+Add an `orchestration` block to `.spego/config.yaml`:
+
+```yaml
+orchestration:
+  serverUrl: http://127.0.0.1:4096
+  models:
+    manager: <provider/model>
+    worker: <provider/model>
+    verifier: <provider/model>
+    fallback: <provider/model>
+  maxParallel: 4
+  workDir: .spego/orchestration
+```
+
+Environment overrides: `SPEGO_ORCHESTRATION_SERVER_URL` (or `OPENCODE_BASE_URL`), `SPEGO_ORCHESTRATION_MODEL_{MANAGER,WORKER,VERIFIER,FALLBACK}`, `SPEGO_ORCHESTRATION_MAX_PARALLEL`, `SPEGO_ORCHESTRATION_WORK_DIR`, and `OPENCODE_SERVER_USERNAME`/`OPENCODE_SERVER_PASSWORD` for basic auth.
+
+`spego init` / `spego skills` emit the OpenCode agent prompts and the `orchestrate` command under `.opencode/`.
+
+```sh
+spego orchestrate --change <change-name> --json
+```
 
 ## Generated Files
 

@@ -69,3 +69,25 @@ export type {
 } from './delivery/index.js';
 export { WORKFLOW_REGISTRY, getWorkflowByName, listWorkflowNames } from './workflows/index.js';
 export type { WorkflowMeta, PersonaSpec, PhaseSpec, WorkflowInput, WorkflowOutput } from './workflows/index.js';
+export {
+  orchestrateChange,
+  OpenCodeClient,
+  parseBreakdown,
+  buildDependencyTiers,
+  runSwarm,
+  detectFileGateViolations,
+  enforceFileGate,
+  resolveOrchestrationConfig,
+  assertModelsConfigured,
+} from './orchestration/index.js';
+export type {
+  OrchestrateOptions,
+  OpenCodeApi,
+  ExecutionMode,
+  SubTask,
+  TaskBreakdown,
+  SubtaskResult,
+  Verdict,
+  OrchestrationOutcome,
+  OrchestrationRuntimeConfig,
+} from './orchestration/index.js';

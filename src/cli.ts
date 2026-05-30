@@ -19,6 +19,7 @@ import { registerView } from './cli/commands/view.js';
 import { registerIndex } from './cli/commands/index-rebuild.js';
 import { registerSkills } from './cli/commands/skills.js';
 import { registerDelivery } from './cli/commands/delivery.js';
+import { registerOrchestrate } from './cli/commands/orchestrate.js';
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -55,6 +56,7 @@ export function buildProgram(): Command {
   registerIndex(program);
   registerSkills(program);
   registerDelivery(program);
+  registerOrchestrate(program);
 
   return program;
 }
