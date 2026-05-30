@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.1] - 2026-05-30
+
+Maintenance release: cleaned up the v0.9.0 commit history. No functional changes.
+
 ## [0.9.0] - 2026-05-29
 
 ### Changed
