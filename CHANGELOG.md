@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+## [0.11.0] - 2026-05-31
+
+### Changed
+- OpenCode is now a first-class generated target. Workspaces can list `opencode` in `.spego/config.yaml` to emit `/spego-apply`, `/spego-verify`, and `/spego-explore` command files under `.opencode/commands/`.
+- Spego no longer exposes daemon-backed `spego orchestrate`; apply/verify/explore workflows now run inside the active OpenCode instance.
+- `/spego-apply` now defines explicit current-session phases (select, load context, plan tasks, execute work, verify results, update task checkboxes, summarize status) and allows OpenCode-native subagents only inside the active instance.
+- `/spego-verify` and `/spego-explore` now state they run entirely inside the active OpenCode instance.
+- Build now cleans `dist/` before TypeScript compilation to prevent stale daemon-backed files from being packaged.
+- Generated OpenCode commands now clean up stale `opsx-*` commands and `openspec-*` skills when they carry the `spego_generated: true` marker.
+
+### Removed
+- Removed Spego-owned OpenCode REST orchestration code and stopped writing new `orchestration` server/model config blocks.
+- Removed `ultracode/` sample directory (daemon-backed multi-agent orchestrator that no longer aligns with Spego's local CLI architecture).
+
 ## [0.10.1] - 2026-05-30
 
 ### Fixed

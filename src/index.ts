@@ -57,6 +57,7 @@ export { COMMAND_REGISTRY, getCommandByName } from './commands/registry.js';
 export type { CommandMeta, InputField } from './commands/registry.js';
 export { generateAll, registerGenerator, getGenerator, availableTargets } from './generator/index.js';
 export { ClaudeGenerator } from './generator/claude.js';
+export { OpencodeGenerator } from './generator/opencode.js';
 export type { TargetGenerator, GenerationReport, GeneratedFile, FileAction } from './generator/types.js';
 export { SPEGO_GENERATED_YAML_KEY, isSpegoGenerated, isLegacySpegoGenerated, wrapWithMarker } from './generator/markers.js';
 export { resolveAdapter } from './delivery/index.js';
@@ -69,25 +70,3 @@ export type {
 } from './delivery/index.js';
 export { WORKFLOW_REGISTRY, getWorkflowByName, listWorkflowNames } from './workflows/index.js';
 export type { WorkflowMeta, PersonaSpec, PhaseSpec, WorkflowInput, WorkflowOutput } from './workflows/index.js';
-export {
-  orchestrateChange,
-  OpenCodeClient,
-  parseBreakdown,
-  buildDependencyTiers,
-  runSwarm,
-  detectFileGateViolations,
-  enforceFileGate,
-  resolveOrchestrationConfig,
-  assertModelsConfigured,
-} from './orchestration/index.js';
-export type {
-  OrchestrateOptions,
-  OpenCodeApi,
-  ExecutionMode,
-  SubTask,
-  TaskBreakdown,
-  SubtaskResult,
-  Verdict,
-  OrchestrationOutcome,
-  OrchestrationRuntimeConfig,
-} from './orchestration/index.js';

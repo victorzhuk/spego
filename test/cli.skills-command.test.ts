@@ -197,4 +197,33 @@ describe('CLI skills command', () => {
     await expect(fs.access(legacySkillPath)).resolves.toBeUndefined();
     await expect(fs.access(legacyCmdPath)).resolves.toBeUndefined();
   });
+
+  it('removes generated spego-orchestrate Claude wrappers when present', async () => {
+    const root = await setup();
+    const legacySkillDir = path.join(root, '.claude', 'skills', 'spego-orchestrate');
+    const legacySkillPath = path.join(legacySkillDir, 'SKILL.md');
+    const legacyCmdDir = path.join(root, '.claude', 'commands', 'spego');
+    const legacyCmdPath = path.join(legacyCmdDir, 'orchestrate.md');
+
+    await fs.mkdir(legacySkillDir, { recursive: true });
+    await fs.writeFile(
+      legacySkillPath,
+      '---\nspego_generated: true\nspego_version: 1\n---\nTest',
+    );
+    await fs.mkdir(legacyCmdDir, { recursive: true });
+    await fs.writeFile(
+      legacyCmdPath,
+      '---\nspego_generated: true\nspego_version: 1\n---\nTest',
+    );
+
+    const { stdout } = await cli(['--json', 'skills', '--cwd', root], root);
+    const reports = JSON.parse(stdout);
+    const allFiles = reports.flatMap((r: { files: { path: string; action: string }[] }) => r.files);
+    const removed = allFiles.filter(
+      (f: { path: string; action: string }) => f.action === 'removed' && f.path.includes('orchestrate'),
+    );
+    expect(removed).toHaveLength(2);
+    await expect(fs.access(legacySkillPath)).rejects.toThrow();
+    await expect(fs.access(legacyCmdPath)).rejects.toThrow();
+  });
 });

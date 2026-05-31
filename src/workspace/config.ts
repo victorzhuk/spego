@@ -23,26 +23,18 @@ export const workspaceConfigSchema = z
       name: z.string().default('openspec'),
       options: z.record(z.string(), z.unknown()).default({}),
     }).default({ name: 'openspec', options: {} }),
-    /**
-     * Multi-agent orchestration backend (OpenCode). Model identifiers default
-     * to empty — they MUST be supplied here or via SPEGO_ORCHESTRATION_MODEL_*.
-     */
+    /** Legacy block accepted for old workspaces; new configs do not write it. */
     orchestration: z.object({
-      serverUrl: z.string().default('http://127.0.0.1:4096'),
+      serverUrl: z.string().optional(),
       models: z.object({
-        manager: z.string().default(''),
-        worker: z.string().default(''),
-        verifier: z.string().default(''),
-        fallback: z.string().default(''),
-      }).default({ manager: '', worker: '', verifier: '', fallback: '' }),
-      maxParallel: z.number().int().positive().default(4),
-      workDir: z.string().default('.spego/orchestration'),
-    }).default({
-      serverUrl: 'http://127.0.0.1:4096',
-      models: { manager: '', worker: '', verifier: '', fallback: '' },
-      maxParallel: 4,
-      workDir: '.spego/orchestration',
-    }),
+        manager: z.string().optional(),
+        worker: z.string().optional(),
+        verifier: z.string().optional(),
+        fallback: z.string().optional(),
+      }).optional(),
+      maxParallel: z.number().int().positive().optional(),
+      workDir: z.string().optional(),
+    }).optional(),
   })
   .strict();
 

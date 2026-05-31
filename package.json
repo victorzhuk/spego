@@ -1,6 +1,6 @@
 {
   "name": "@zhuk/spego",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Agent-first product orchestration: markdown-first artifact engine with SQLite indexing.",
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/make-cli-executable.mjs",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/make-cli-executable.mjs",
     "spego": "tsx src/cli.ts",
     "pretest": "npm run build",
     "test": "vitest run",

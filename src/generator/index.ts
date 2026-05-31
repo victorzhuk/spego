@@ -1,5 +1,6 @@
 import type { TargetGenerator, GenerationReport } from './types.js';
 import { ClaudeGenerator } from './claude.js';
+import { OpencodeGenerator } from './opencode.js';
 
 const GENERATORS: Map<string, TargetGenerator> = new Map();
 
@@ -16,6 +17,7 @@ export function availableTargets(): string[] {
 }
 
 registerGenerator(new ClaudeGenerator());
+registerGenerator(new OpencodeGenerator());
 
 export interface GenerateAllOptions {
   emitWarnings?: boolean;

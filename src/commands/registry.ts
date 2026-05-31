@@ -159,18 +159,6 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     inputSchema: {},
     outputModes: ['markdown', 'json'],
   },
-  {
-    name: 'orchestrate',
-    description: 'Run the multi-agent orchestration pipeline for an OpenSpec change',
-    slashName: '/spego:orchestrate',
-    category: 'planning',
-    inputSchema: {
-      change: { name: 'change', type: 'string', required: true, description: 'OpenSpec change name to orchestrate' },
-      mode: { name: 'mode', type: 'string', required: false, description: 'sequential | parallel | adaptive' },
-      skipVerify: { name: 'skipVerify', type: 'boolean', required: false, description: 'Skip the verifier step' },
-    },
-    outputModes: ['markdown', 'json'],
-  },
 ];
 
 export function getCommandByName(name: string): CommandMeta | undefined {

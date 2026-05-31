@@ -4,7 +4,7 @@ import { COMMAND_REGISTRY } from '../commands/registry.js';
 import type { CommandMeta } from '../commands/registry.js';
 import { WORKFLOW_REGISTRY } from '../workflows/registry.js';
 import type { WorkflowMeta } from '../workflows/types.js';
-import { writeGeneratedFile } from './write.js';
+import { writeGeneratedFile, removeGeneratedFile } from './write.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { TargetGenerator, GenerationReport, GeneratedFile } from './types.js';
 import { isLegacySpegoGenerated, isSpegoGenerated } from './markers.js';
@@ -160,6 +160,9 @@ export class ClaudeGenerator implements TargetGenerator {
     const legacyCleaned = await this.cleanupLegacyRegeneratePaths(skillsDir, commandsDir);
     files.push(...legacyCleaned);
 
+    const removedOrchestrate = await this.cleanupRemovedOrchestratePaths(skillsDir, commandsDir);
+    files.push(...removedOrchestrate);
+
     for (const cmd of COMMAND_REGISTRY) {
       const skillDir = path.join(skillsDir, `spego-${cmd.name}`);
       const skillPath = path.join(skillDir, 'SKILL.md');
@@ -206,6 +209,22 @@ export class ClaudeGenerator implements TargetGenerator {
       } else {
         cleaned.push({ path: filePath, action: 'skipped' });
       }
+    }
+    return cleaned;
+  }
+
+  private async cleanupRemovedOrchestratePaths(
+    skillsDir: string,
+    commandsDir: string,
+  ): Promise<GeneratedFile[]> {
+    const cleaned: GeneratedFile[] = [];
+    const removedPaths = [
+      path.join(skillsDir, 'spego-orchestrate', 'SKILL.md'),
+      path.join(commandsDir, 'orchestrate.md'),
+    ];
+    for (const filePath of removedPaths) {
+      const action = await removeGeneratedFile(filePath);
+      if (action) cleaned.push({ path: filePath, action });
     }
     return cleaned;
   }

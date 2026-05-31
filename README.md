@@ -7,7 +7,7 @@ Agent-first product orchestration: markdown-first artifact engine with SQLite in
 ```sh
 npm install
 npm run build
-spego init --agents claude --demo false
+spego init --agents claude,opencode --demo false
 ```
 
 ## Commands
@@ -27,7 +27,6 @@ spego init --agents claude --demo false
 | `spego skills` | Regenerate agent skill files |
 | `spego epics` | List delivery epics |
 | `spego tasks --change <name>` | List tasks for a change |
-| `spego orchestrate --change <name>` | Run the multi-agent orchestration pipeline for a change |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.
@@ -70,20 +69,12 @@ Workspace config lives at `.spego/config.yaml`:
 version: 1
 agents:
   - claude
+  - opencode
 demo: false
 extraArtifactTypes: []
 deliveryAdapter:
   name: openspec
   options: {}
-orchestration:
-  serverUrl: http://127.0.0.1:4096
-  models:
-    manager: ""
-    worker: ""
-    verifier: ""
-    fallback: ""
-  maxParallel: 4
-  workDir: .spego/orchestration
 ```
 
 ## OpenSpec Delivery View
@@ -101,46 +92,19 @@ The adapter is read-only. It observes OpenSpec state but does not create, contin
 
 Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
 
-## Orchestration
+## OpenCode Workflows
 
-`spego orchestrate --change <name>` executes a planned OpenSpec change through a multi-agent pipeline (ported from the `ultracode/` reference implementation), driven over the OpenCode REST API:
+When `opencode` is listed in `.spego/config.yaml` agents, `spego init` and `spego skills` generate static OpenCode commands under `.opencode/commands/`:
 
-1. **Manager** decomposes the change requirement into a validated `TaskBreakdown`.
-2. **Swarm** implements each sub-task in isolated sessions — `sequential`, `parallel`, or `adaptive` (dependency-tier) mode — under a per-task file gate that reverts out-of-scope edits.
-3. **Verifier** runs the test command, checks acceptance criteria, and emits a verdict.
+- `/spego-apply` implements pending tasks from an OpenSpec change in the active OpenCode instance.
+- `/spego-verify` checks completeness, correctness, coherence, and tests before archive.
+- `/spego-explore` enters a read-only exploration stance for ideas, problems, or OpenSpec changes.
 
-Run artifacts (`breakdown.json`, `result_<id>.json`, `swarm.log`, `verdict.json`) are written under the configured work dir (default `.spego/orchestration/<change>/`).
+`/spego-apply` runs as a phased current-session workflow: select the change, load context, plan tasks, execute work, verify results, update task checkboxes, and summarize status. It may use OpenCode-native subagents only inside the active OpenCode instance for independent investigation, implementation review, or verification.
 
-Orchestration consumes the change read-only and never mutates OpenSpec lifecycle state (apply/verify/sync/archive); it may modify the working tree as workers implement sub-tasks.
+Spego does not start or control OpenCode through `opencode serve`, does not call the OpenCode REST API, does not create external OpenCode sessions, and does not own model selection. Configure models, variants, agents, and permissions in OpenCode itself.
 
-### Prerequisites
-
-- A reachable OpenCode server: `opencode serve --port 4096`.
-- Configured model identifiers — there are no fictional defaults baked into the code.
-
-### Configuration
-
-Add an `orchestration` block to `.spego/config.yaml`:
-
-```yaml
-orchestration:
-  serverUrl: http://127.0.0.1:4096
-  models:
-    manager: <provider/model>
-    worker: <provider/model>
-    verifier: <provider/model>
-    fallback: <provider/model>
-  maxParallel: 4
-  workDir: .spego/orchestration
-```
-
-Environment overrides: `SPEGO_ORCHESTRATION_SERVER_URL` (or `OPENCODE_BASE_URL`), `SPEGO_ORCHESTRATION_MODEL_{MANAGER,WORKER,VERIFIER,FALLBACK}`, `SPEGO_ORCHESTRATION_MAX_PARALLEL`, `SPEGO_ORCHESTRATION_WORK_DIR`, and `OPENCODE_SERVER_USERNAME`/`OPENCODE_SERVER_PASSWORD` for basic auth.
-
-`spego init` / `spego skills` emit the OpenCode agent prompts and the `orchestrate` command under `.opencode/`.
-
-```sh
-spego orchestrate --change <change-name> --json
-```
+There are no `spego apply`, `spego verify`, `spego explore`, or `spego orchestrate` CLI commands. Apply, verify, and explore are generated OpenCode workflows; spego remains the local artifact engine and read-only OpenSpec delivery view.
 
 ## Generated Files
 
@@ -149,7 +113,15 @@ For Claude agent targets, `spego init` generates:
 - `.claude/skills/spego-<command>/SKILL.md` — skill definitions following Claude Code conventions
 - `.claude/commands/spego/` — slash command wrappers
 
+For OpenCode targets, `spego init` generates:
+
+- `.opencode/commands/spego-apply.md`
+- `.opencode/commands/spego-verify.md`
+- `.opencode/commands/spego-explore.md`
+
 Run `spego skills` to update generated files without reinitializing the workspace.
+
+During regeneration, Spego removes stale generated OpenCode compatibility files such as old `opsx-*` commands, `openspec-*` skills, and retired orchestration assets only when they carry the `spego_generated: true` marker. User-owned OpenCode files without that marker are preserved and reported as skipped.
 
 ## Workflow Skills
 

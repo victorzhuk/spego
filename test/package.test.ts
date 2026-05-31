@@ -104,6 +104,21 @@ describe('npm pack output', () => {
   it('excludes .spego/ files', () => {
     expect(packEntries.every((f) => !f.startsWith('.spego/'))).toBe(true);
   });
+
+  it('excludes stale orchestration output', () => {
+    expect(packEntries.every((f) => !f.startsWith('dist/orchestration/'))).toBe(true);
+    expect(packEntries.every((f) => !f.includes('commands/orchestrate'))).toBe(true);
+  });
+});
+
+describe('built dist is free of stale orchestration files', () => {
+  it('dist/orchestration/ does not exist after build', async () => {
+    await expect(fs.access(path.join(ROOT, 'dist', 'orchestration'))).rejects.toThrow();
+  });
+
+  it('dist/cli/commands/orchestrate.js does not exist after build', async () => {
+    await expect(fs.access(path.join(ROOT, 'dist', 'cli', 'commands', 'orchestrate.js'))).rejects.toThrow();
+  });
 });
 
 describe('built CLI runs', () => {

@@ -32,3 +32,19 @@ export async function writeGeneratedFile(
   await fs.writeFile(absPath, marked, 'utf8');
   return 'created';
 }
+
+export async function removeGeneratedFile(absPath: string): Promise<FileAction | null> {
+  let existing: string;
+  try {
+    existing = await fs.readFile(absPath, 'utf8');
+  } catch {
+    return null;
+  }
+
+  if (!isSpegoGenerated(existing) && !isLegacySpegoGenerated(existing)) {
+    return 'skipped';
+  }
+
+  await fs.unlink(absPath);
+  return 'removed';
+}

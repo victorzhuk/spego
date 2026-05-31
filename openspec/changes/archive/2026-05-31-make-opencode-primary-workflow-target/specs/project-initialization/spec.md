@@ -1,8 +1,4 @@
-## Purpose
-
-Define initialization and status behavior for local `.spego/` workspaces.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Initialize spego workspace
 The system SHALL initialize a local `.spego/` workspace in the current project without requiring interactive prompts when arguments are provided. Newly written workspace config SHALL include local spego settings and configured agent targets, and SHALL NOT include daemon-backed OpenCode orchestration server/model settings.
@@ -27,15 +23,3 @@ The system SHALL initialize a local `.spego/` workspace in the current project w
 - **WHEN** an existing `.spego/config.yaml` contains an `orchestration` block from an older version
 - **THEN** workspace config parsing succeeds
 - **AND** the parsed local spego behavior does not require OpenCode server URL or model identifiers
-
-### Requirement: Report workspace status
-The system SHALL report whether the current project has a valid spego workspace.
-
-#### Scenario: Valid workspace
-- **WHEN** an agent requests workspace status
-- **THEN** the system reports initialized status, config path, artifact root, index path, and configured agents
-
-#### Scenario: Missing workspace
-- **WHEN** an agent requests workspace status outside a spego project
-- **THEN** the system reports that initialization is required
-- **AND** it includes the command needed to initialize the project

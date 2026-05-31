@@ -23,4 +23,12 @@ describe('CLI registry/program parity', () => {
       expect(meta.outputModes).toContain('json');
     }
   });
+
+  it('does not expose OpenCode workflow commands as spego CLI commands', () => {
+    const names = new Set(COMMAND_REGISTRY.map((cmd) => cmd.name));
+    expect(names.has('orchestrate')).toBe(false);
+    expect(names.has('apply')).toBe(false);
+    expect(names.has('verify')).toBe(false);
+    expect(names.has('explore')).toBe(false);
+  });
 });
