@@ -97,6 +97,7 @@ export class ArtifactEngine {
   const known = knownArtifactTypes(config);
   for (const t of known) {
    await rejectIfSymlink(artifactTypeDir(paths, t));
+   await rejectIfSymlink(path.join(paths.revisionsRoot, t));
   }
 
   const db = openIndexDb(paths.indexDbPath);
