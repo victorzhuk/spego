@@ -131,6 +131,48 @@ describe('workspace symlink containment', () => {
       expect(err).toBeInstanceOf(SpegoError);
       expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
     });
+
+    it('open rejects when .spego replaced with symlink to outside dir', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await initWorkspace({ projectRoot: root, agents: ['claude'] });
+      const outside = path.join(root, 'outside-spego');
+      await fs.mkdir(outside, { recursive: true });
+      await fs.rm(path.join(root, WS_DIR), { recursive: true, force: true });
+      await fs.symlink(outside, path.join(root, WS_DIR));
+
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+    });
+
+    it('open rejects when artifacts type dir is symlink to outside', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await initWorkspace({ projectRoot: root, agents: ['claude'] });
+      const outside = path.join(root, 'outside-prd');
+      await fs.mkdir(outside, { recursive: true });
+      const prdDir = path.join(root, WS_DIR, 'artifacts', 'prd');
+      await fs.rm(prdDir, { recursive: true, force: true });
+      await fs.symlink(outside, prdDir);
+
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+    });
+
+    it('open rejects dangling revisions type dir symlink', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await initWorkspace({ projectRoot: root, agents: ['claude'] });
+      const prdRevisions = path.join(root, WS_DIR, 'revisions', 'prd');
+      await fs.rm(prdRevisions, { recursive: true, force: true });
+      await fs.symlink(path.join(root, 'missing-prd-revisions'), prdRevisions);
+
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+    });
   });
 
   describe('4.2 — symlinked leaf file rejection', () => {
