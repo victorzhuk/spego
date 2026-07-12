@@ -5,8 +5,7 @@ Agent-first product orchestration: markdown-first artifact engine with SQLite in
 ## Quick Start
 
 ```sh
-npm install
-npm run build
+npm install --global @zhuk/spego
 spego init --agents claude,opencode --demo false
 ```
 
