@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Security
+- Reject symlinked workspace paths and artifact files so Spego cannot read or write outside `.spego`.
 
 ## [0.11.0] - 2026-05-31
 
