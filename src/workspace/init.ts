@@ -53,6 +53,18 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   const paths = resolveWorkspacePaths(projectRoot);
   const created: string[] = [];
 
+  // Reject symlinked existing owned components before any I/O.
+  await rejectIfSymlink(paths.workspaceRoot);
+  await rejectIfSymlink(paths.artifactsRoot);
+  await rejectIfSymlink(paths.revisionsRoot);
+  await rejectIfSymlink(paths.indexRoot);
+
+  // Reject symlinked built-in type dirs that already exist.
+  for (const t of BUILTIN_ARTIFACT_TYPES) {
+    await rejectIfSymlink(path.join(paths.artifactsRoot, t));
+    await rejectIfSymlink(path.join(paths.revisionsRoot, t));
+  }
+
   // Detect prior workspace state before any side effects.
   let existingConfig: WorkspaceConfig | null;
   try {
@@ -63,17 +75,6 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
     } else {
       throw err;
     }
-  }
-
-  // Reject symlinked existing owned components.
-  await rejectIfSymlink(paths.workspaceRoot);
-  await rejectIfSymlink(paths.artifactsRoot);
-  await rejectIfSymlink(paths.revisionsRoot);
-
-  // Reject symlinked built-in type dirs that already exist.
-  for (const t of BUILTIN_ARTIFACT_TYPES) {
-    await rejectIfSymlink(path.join(paths.artifactsRoot, t));
-    await rejectIfSymlink(path.join(paths.revisionsRoot, t));
   }
 
   // Workspace + subdirs.
