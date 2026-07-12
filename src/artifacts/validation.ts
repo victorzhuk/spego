@@ -70,10 +70,10 @@ export function validateArtifactMeta(type: string, meta: unknown): Record<string
   try {
     return validateMetaForType(type, meta);
   } catch (err) {
-    if (err instanceof Error && 'issues' in err) {
+    if (err instanceof z.ZodError) {
       throw new SpegoError('VALIDATION_FAILED', `Invalid metadata for artifact type: ${type}`, {
         type,
-        issues: (err as { issues: unknown[] }).issues,
+        issues: err.issues,
       });
     }
     throw err;

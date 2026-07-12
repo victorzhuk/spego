@@ -5,7 +5,7 @@ import { makeTempProject } from './helpers.js';
 import { ClaudeGenerator } from '../src/generator/claude.js';
 import { writeGeneratedFile } from '../src/generator/write.js';
 import { wrapWithMarker, isSpegoGenerated } from '../src/generator/markers.js';
-import { COMMAND_REGISTRY, getCommandByName } from '../src/commands/registry.js';
+import { COMMAND_REGISTRY, getCommandByName } from '../src/command-meta/registry.js';
 import { WORKFLOW_REGISTRY } from '../src/workflows/registry.js';
 
 describe('Claude skill generation', () => {

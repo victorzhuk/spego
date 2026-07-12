@@ -4,9 +4,6 @@ import { z } from 'zod';
 import { SpegoError } from '../errors.js';
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
 
-export const SUPPORTED_AGENTS = ['claude', 'cursor', 'opencode', 'amp'] as const;
-export type SupportedAgent = (typeof SUPPORTED_AGENTS)[number];
-
 export const workspaceConfigSchema = z
   .object({
     /** Schema version. Bump when config layout changes. */
@@ -23,18 +20,6 @@ export const workspaceConfigSchema = z
       name: z.string().default('openspec'),
       options: z.record(z.string(), z.unknown()).default({}),
     }).default({ name: 'openspec', options: {} }),
-    /** Legacy block accepted for old workspaces; new configs do not write it. */
-    orchestration: z.object({
-      serverUrl: z.string().optional(),
-      models: z.object({
-        manager: z.string().optional(),
-        worker: z.string().optional(),
-        verifier: z.string().optional(),
-        fallback: z.string().optional(),
-      }).optional(),
-      maxParallel: z.number().int().positive().optional(),
-      workDir: z.string().optional(),
-    }).optional(),
   })
   .strict();
 
@@ -70,6 +55,14 @@ export async function readConfig(configPath: string): Promise<WorkspaceConfig> {
       path: configPath,
       cause: (err as Error).message,
     });
+  }
+  // Reject legacy orchestration block that users must delete from config.
+  if (typeof data === 'object' && data !== null && 'orchestration' in data) {
+    throw new SpegoError(
+      'VALIDATION_FAILED',
+      `Legacy orchestration block found in workspace config at ${configPath}. Delete the orchestration property from the config file.`,
+      { path: configPath },
+    );
   }
   const parsed = workspaceConfigSchema.safeParse(data);
   if (!parsed.success) {

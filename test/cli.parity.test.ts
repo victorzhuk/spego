@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildProgram } from '../src/cli.js';
-import { COMMAND_REGISTRY } from '../src/commands/registry.js';
+import { COMMAND_REGISTRY } from '../src/command-meta/registry.js';
 
 describe('CLI registry/program parity', () => {
   it('every COMMAND_REGISTRY entry maps to a registered Commander command', () => {

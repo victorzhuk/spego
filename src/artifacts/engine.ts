@@ -26,7 +26,6 @@ import { writeRevisionSnapshot, readRevisionSnapshot } from '../index/revisions.
 import { makeSlug, uniqueSlug } from './slug.js';
 import {
  artifactFrontmatterSchema,
- type ArtifactFrontmatter,
  type ArtifactRecord,
 } from './types.js';
 import {
@@ -288,19 +287,8 @@ export class ArtifactEngine {
   return rebuildIndex(this.db, this.paths, known);
  }
 
- // ------------------------------------------------------------ frontmatter
-
- /**
-  * Direct accessor used by the export module. Resolves the latest record
-  * for an indexed entry without re-querying SQLite.
-  */
  async readForIndexed(indexed: IndexedArtifact): Promise<ArtifactRecord> {
   const file = await readArtifactFile(indexed.path);
   return { ...file, path: indexed.path };
- }
-
- /** Convenience accessor for callers that need the latest frontmatter. */
- static frontmatterFromRecord(record: ArtifactRecord): ArtifactFrontmatter {
-  return record.frontmatter;
  }
 }

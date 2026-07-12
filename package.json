@@ -6,8 +6,6 @@
   "bin": {
     "spego": "dist/cli.js"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "README.md",
@@ -20,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src test"
+    "lint": "eslint src test --max-warnings 0"
   },
   "dependencies": {
     "commander": "^12.1.0",

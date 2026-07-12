@@ -41,14 +41,14 @@ describe('package.json metadata', () => {
     expect(pkg.bin.spego).toBe('dist/cli.js');
   });
 
-  it('main points to ./dist/index.js', async () => {
+  it('no main entry point (CLI-only library surface)', async () => {
     const pkg = await readPkg();
-    expect(pkg.main).toBe('./dist/index.js');
+    expect(pkg.main).toBeUndefined();
   });
 
-  it('types points to ./dist/index.d.ts', async () => {
+  it('no types entry (CLI-only library surface)', async () => {
     const pkg = await readPkg();
-    expect(pkg.types).toBe('./dist/index.d.ts');
+    expect(pkg.types).toBeUndefined();
   });
 
   it('files includes dist, README.md, and CHANGELOG.md', async () => {
@@ -81,9 +81,10 @@ describe('npm pack output', () => {
     expect(packEntries).toContain('dist/cli.js');
   });
 
-  it('includes dist/index.js', () => {
-    expect(packEntries).toContain('dist/index.js');
+  it('excludes dist/index.js (CLI-only, no library surface)', () => {
+    expect(packEntries.every((f) => f !== 'dist/index.js')).toBe(true);
   });
+
 
   it('includes README.md', () => {
     expect(packEntries).toContain('README.md');

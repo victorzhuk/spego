@@ -4,7 +4,7 @@ import path from 'node:path';
 import { makeTempProject } from './helpers.js';
 import { ClaudeGenerator } from '../src/generator/claude.js';
 import { WORKFLOW_REGISTRY } from '../src/workflows/registry.js';
-import { COMMAND_REGISTRY } from '../src/commands/registry.js';
+import { COMMAND_REGISTRY } from '../src/command-meta/registry.js';
 
 describe('Workflow skill generation', () => {
   const cleanups: Array<() => Promise<void>> = [];

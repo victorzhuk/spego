@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { initWorkspace, workspaceStatus } from '../src/workspace/init.js';
 import { readConfig } from '../src/workspace/config.js';
+import { SpegoError } from '../src/errors.js';
 import { makeTempProject } from './helpers.js';
 
 describe('init', () => {
@@ -27,9 +28,6 @@ describe('init', () => {
     expect(summary.workspaceRoot).toBe(path.join(root, '.spego'));
     expect(summary.config.agents).toEqual(['claude']);
     expect(summary.config.demo).toBe(false);
-    expect(summary.config.orchestration).toBeUndefined();
-
-    // Filesystem assertions
     await expect(fs.stat(summary.configPath)).resolves.toBeTruthy();
     await expect(fs.stat(summary.indexPath)).resolves.toBeTruthy();
     await expect(fs.stat(path.join(summary.artifactsRoot, 'prd'))).resolves.toBeTruthy();
@@ -57,7 +55,7 @@ describe('init', () => {
     await expect(fs.stat(path.join(root, '.claude'))).rejects.toThrow();
   });
 
-  it('reads legacy orchestration config without requiring model settings', async () => {
+  it('rejects legacy orchestration config with VALIDATION_FAILED', async () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
@@ -87,9 +85,12 @@ describe('init', () => {
       'utf8',
     );
 
-    const config = await readConfig(summary.configPath);
-    expect(config.agents).toEqual(['claude']);
-    expect(config.orchestration?.serverUrl).toBe('http://127.0.0.1:4096');
+    const err = await readConfig(summary.configPath).catch((e) => e);
+    expect(err).toBeInstanceOf(SpegoError);
+    expect(err.code).toBe('VALIDATION_FAILED');
+    expect(err.message).toMatch(/orchestration/);
+    expect(err.message).toMatch(/[Dd]elete/);
+    await expect(workspaceStatus(root)).rejects.toThrow(/orchestration.*[Dd]elete/);
   });
 
   it('is idempotent on re-run', async () => {

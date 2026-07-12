@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { COMMAND_REGISTRY } from '../commands/registry.js';
-import type { CommandMeta } from '../commands/registry.js';
+import { COMMAND_REGISTRY } from '../command-meta/registry.js';
+import type { CommandMeta } from '../command-meta/registry.js';
 import { WORKFLOW_REGISTRY } from '../workflows/registry.js';
 import type { WorkflowMeta } from '../workflows/types.js';
 import { writeGeneratedFile, removeGeneratedFile } from './write.js';

@@ -5,6 +5,14 @@
 ### Security
 - Reject symlinked workspace paths and artifact files so Spego cannot read or write outside `.spego`.
 
+### Changed
+- Renamed `src/commands/` to `src/command-meta/` for clarity — only the metadata registry lives there, not command implementations.
+- Lint script now enforces zero warnings (`eslint src test --max-warnings 0`).
+
+### Removed
+- Removed `main` and `types` entry points and deleted `src/index.ts` — spego is CLI-only, not a library package.
+- Removed legacy `orchestration` config block acceptance from `readConfig()`; workspaces with stale `orchestration:` in `.spego/config.yaml` now get a `VALIDATION_FAILED` error telling them to delete the property.
+
 ## [0.11.0] - 2026-05-31
 
 ### Changed

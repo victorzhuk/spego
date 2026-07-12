@@ -163,7 +163,8 @@ export async function workspaceStatus(
       indexPath: paths.indexDbPath,
       agents: config.agents,
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof SpegoError && err.code !== 'WORKSPACE_NOT_FOUND') throw err;
     return {
       initialized: false,
       projectRoot: paths.projectRoot,
