@@ -58,6 +58,8 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   await rejectIfSymlink(paths.artifactsRoot);
   await rejectIfSymlink(paths.revisionsRoot);
   await rejectIfSymlink(paths.indexRoot);
+  await rejectIfSymlink(paths.configPath);
+  await rejectIfSymlink(paths.indexDbPath);
 
   // Reject symlinked built-in type dirs that already exist.
   for (const t of BUILTIN_ARTIFACT_TYPES) {

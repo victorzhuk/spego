@@ -98,19 +98,33 @@ export function assertContained(resolvedRoot: string, targetPath: string): void 
 
 /**
  * Realpath-verify that targetPath's parent is strictly within resolvedRoot.
- * For non-existent parents the string-level containment check is used since
- * there is no symlink to follow.
+ * For non-existent parents, walk up to the nearest existing ancestor and
+ * check containment — never reject a valid symlink alias before realpath.
  */
 export async function assertParentContained(
   resolvedRoot: string,
   targetPath: string,
 ): Promise<void> {
   const parent = path.dirname(targetPath);
-  assertContained(resolvedRoot, parent);
   try {
     const real = await fs.realpath(parent);
     assertContained(resolvedRoot, real);
+    return;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+  // Parent doesn't exist yet. Walk up to nearest existing ancestor.
+  let ancestor = parent;
+  for (;;) {
+    const grandparent = path.dirname(ancestor);
+    if (grandparent === ancestor) break;
+    try {
+      const realAncestor = await fs.realpath(ancestor);
+      assertContained(resolvedRoot, realAncestor);
+      return;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
+    ancestor = grandparent;
   }
 }

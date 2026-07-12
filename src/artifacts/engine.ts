@@ -67,6 +67,8 @@ export class ArtifactEngine {
     await rejectIfSymlink(paths.artifactsRoot);
     await rejectIfSymlink(paths.revisionsRoot);
     await rejectIfSymlink(paths.indexRoot);
+    await rejectIfSymlink(paths.configPath);
+    await rejectIfSymlink(paths.indexDbPath);
 
     // Resolve .spego realpath as containment root.
     const resolvedRoot = await resolveContainmentRoot(paths.workspaceRoot);
