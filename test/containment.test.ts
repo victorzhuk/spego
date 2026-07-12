@@ -125,9 +125,7 @@ describe('workspace symlink containment', () => {
       await fs.rm(okrDir, { recursive: true, force: true });
       await fs.symlink(path.join(root, 'missing-okr'), okrDir);
 
-      const engine = await ArtifactEngine.open({ projectRoot: root });
-      const err = await engine.create({ type: 'prd', title: 'X', body: 'x' }).catch((e: unknown) => e);
-      engine.close();
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(SpegoError);
       expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
     });
