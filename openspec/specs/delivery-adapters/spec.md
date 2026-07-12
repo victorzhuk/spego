@@ -1,3 +1,6 @@
+## Purpose
+Define read-only delivery adapter behavior for configuring, listing, and linking external epics and tasks.
+
 ## Requirements
 
 ### Requirement: Configure delivery adapter

@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define the workflow registry contract and built-in brainstorming and review skills with agent-facing safety and autonomy guardrails.
+
+## Requirements
 
 ### Requirement: Workflow registry as source of truth
 The system SHALL expose a `WORKFLOW_REGISTRY` describing every workflow skill with its name, description, ordered personas, ordered phases, declared inputs, and declared output artifact types.

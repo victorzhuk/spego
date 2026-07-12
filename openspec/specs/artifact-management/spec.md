@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define lifecycle operations for workspace artifacts, including validated creation, retrieval, revisioned updates, and soft deletion.
+
+## Requirements
 
 ### Requirement: Create artifact
 The system SHALL create a markdown artifact for a supported artifact type with validated frontmatter and content.

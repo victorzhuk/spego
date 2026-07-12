@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define workflow skills that guide artifact authoring, elicitation, help, and output selection.
+
+## Requirements
 
 ### Requirement: Provide help workflow skill
 The system SHALL ship a `help` workflow skill that inspects workspace state via the existing read-only CLI commands and recommends the next required and optional steps.

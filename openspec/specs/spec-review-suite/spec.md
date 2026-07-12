@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define workflow skills for reviewing and editing spego artifacts, including edge-case enumeration, copy editing, structural review, and complementary reviewer guidance.
+
+## Requirements
 
 ### Requirement: Provide edge-case review workflow skill
 The system SHALL ship a `review-edge-cases` workflow skill that mechanically enumerates branching paths in a source artifact and reports only unhandled paths.

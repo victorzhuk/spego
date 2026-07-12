@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define workflow guidance that combines OpenSpec change execution with spego artifacts, including change-oriented brainstorm, review, verification, and retro flows.
+
+## Requirements
 
 ### Requirement: Provide combined OpenSpec and spego workflow guidance
 The system SHALL document and expose agent workflow guidance for using OpenSpec change state together with spego artifacts.

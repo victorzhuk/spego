@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define validation for artifact types and content, plus resilient index rebuilding for invalid files.
+
+## Requirements
 
 ### Requirement: Validate artifact type
 The system SHALL accept only supported artifact types unless configuration explicitly registers an extension type.

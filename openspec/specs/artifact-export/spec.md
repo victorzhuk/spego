@@ -1,4 +1,7 @@
-## ADDED Requirements
+## Purpose
+Define artifact bundle export behavior, including format selection, filtering, and revision selection.
+
+## Requirements
 
 ### Requirement: Export artifact bundle
 The system SHALL export artifact bundles as markdown by default and JSON when requested.

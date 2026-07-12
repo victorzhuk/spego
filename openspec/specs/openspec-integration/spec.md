@@ -1,3 +1,6 @@
+## Purpose
+Define the delivery adapter contract for reading OpenSpec workspace metadata, change discovery, task parsing, and status classification as structured delivery links.
+
 ## Requirements
 
 ### Requirement: Discover OpenSpec workspace
