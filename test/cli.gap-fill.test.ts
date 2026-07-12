@@ -295,3 +295,71 @@ describe('CLI index rebuild header', () => {
     expect(stdout).toMatch(/╭─ Index rebuild/);
   });
 });
+
+describe('CLI input error contract', () => {
+  it('reports malformed --meta for create and update as validation failures', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    const createError = await expectCliFailure(
+      ['--json', 'create', '--type', 'prd', '--title', 'Bad meta', '--meta', '{', '--cwd', root],
+      root,
+    );
+    const createPayload = JSON.parse(createError.stderr);
+    expect(createPayload.error.code).toBe('VALIDATION_FAILED');
+    expect(createPayload.error.message).toContain('--meta');
+    expect(createError.code).toBe(2);
+    const created = await createArtifact(root, 'prd', 'Good meta', 'body');
+    const updateError = await expectCliFailure(
+      ['--json', 'update', '--id', created.id, '--meta', '{', '--cwd', root],
+      root,
+    );
+    const updatePayload = JSON.parse(updateError.stderr);
+    expect(updatePayload.error.code).toBe('VALIDATION_FAILED');
+    expect(updatePayload.error.message).toContain('--meta');
+    expect(updateError.code).toBe(2);
+  });
+
+  it('reports unreadable body files as validation failures', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    const missing = path.join(root, 'missing.md');
+    const error = await expectCliFailure(
+      ['--json', 'create', '--type', 'prd', '--title', 'Missing body', '--body-file', missing, '--cwd', root],
+      root,
+    );
+    const payload = JSON.parse(error.stderr);
+    expect(payload.error.code).toBe('VALIDATION_FAILED');
+    expect(payload.error.details.path).toBe(missing);
+    expect(error.code).toBe(2);
+  });
+
+  it('rejects invalid revisions before revision lookup', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    const created = await createArtifact(root, 'prd', 'Revision', 'body');
+    for (const command of ['read', 'view']) {
+      for (const revision of ['abc', '-1', '0', '1.5']) {
+        const error = await expectCliFailure(
+          ['--json', command, '--id', created.id, '--revision', revision, '--cwd', root],
+          root,
+        );
+        expect(JSON.parse(error.stderr).error.code).toBe('VALIDATION_FAILED');
+        expect(error.code).toBe(2);
+      }
+    }
+  });
+
+  it('preserves create markdown and --format json output', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    const { stdout } = await spawnCli(
+      ['--json', 'create', '--type', 'prd', '--title', 'Markdown payload', '--body', 'body', '--cwd', root],
+      root,
+    );
+    const created = JSON.parse(stdout);
+    expect(created.markdown).toBe(await fs.readFile(created.path, 'utf8'));
+    const view = await spawnCli(['view', '--format', 'json', '--cwd', root], root);
+    expect(JSON.parse(view.stdout).format).toBe('json');
+    expect(view.stderr).toContain('--format is deprecated');
+  });
+});

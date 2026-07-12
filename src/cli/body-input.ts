@@ -7,26 +7,36 @@
  */
 
 import fs from 'node:fs/promises';
+import { SpegoError } from '../errors.js';
 
 export interface BodyInputOptions {
-  body?: string;
-  bodyFile?: string;
+ body?: string;
+ bodyFile?: string;
 }
 
 async function readStdin(): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    let buf = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk: string) => {
-      buf += chunk;
-    });
-    process.stdin.on('end', () => resolve(buf));
-    process.stdin.on('error', reject);
+ return new Promise<string>((resolve, reject) => {
+  let buf = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk: string) => {
+   buf += chunk;
   });
+  process.stdin.on('end', () => resolve(buf));
+  process.stdin.on('error', reject);
+ });
 }
 
 export async function resolveBody(opts: BodyInputOptions): Promise<string | undefined> {
-  if (opts.bodyFile === '-') return readStdin();
-  if (opts.bodyFile) return fs.readFile(opts.bodyFile, 'utf8');
-  return opts.body;
+ if (opts.bodyFile === '-') return readStdin();
+ if (opts.bodyFile) {
+  try {
+   return await fs.readFile(opts.bodyFile, 'utf8');
+  } catch (err) {
+   throw new SpegoError('VALIDATION_FAILED', `Cannot read body file: ${opts.bodyFile}`, {
+    path: opts.bodyFile,
+    cause: err instanceof Error ? err.message : String(err),
+   });
+  }
+ }
+ return opts.body;
 }

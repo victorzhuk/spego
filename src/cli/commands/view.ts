@@ -6,53 +6,61 @@
  */
 
 import type { Command } from 'commander';
-import { ArtifactEngine } from '../../artifacts/engine.js';
+import { z } from 'zod';
+import { SpegoError } from '../../errors.js';
 import { viewArtifacts } from '../../export/view.js';
 import { intersperseBundleDividers, renderHeader } from '../render.js';
-import { deprecate, emitJson } from '../output.js';
-import { fail } from '../errors.js';
-import { getJsonMode } from '../runtime.js';
+import { deprecate } from '../output.js';
+import { getJsonMode, runEngineCommand } from '../runtime.js';
 
 export function registerView(program: Command): void {
-  program
-    .command('view')
-    .description('Export artifact bundle as markdown (default) or JSON via --json')
-    .option('--type <type>', 'filter by type')
-    .option('--id <id>', 'limit to a single artifact')
-    .option('--revision <n>', 'specific revision (requires --id)')
-    .option('--include-deleted', 'include soft-deleted artifacts', false)
-    .option('--format <fmt>', '[deprecated] markdown | json — use the global --json flag instead')
-    .option('--cwd <dir>', 'project root')
-    .action(async (opts) => {
-      const globalJson = getJsonMode(program);
-      if (opts.format !== undefined) {
-        deprecate(globalJson, '--format is deprecated; use the global --json flag');
-      }
-      const wantJson = globalJson || opts.format === 'json';
+ program
+  .command('view')
+  .description('Export artifact bundle as markdown (default) or JSON via --json')
+  .option('--type <type>', 'filter by type')
+  .option('--id <id>', 'limit to a single artifact')
+  .option('--revision <n>', 'specific revision (requires --id)')
+  .option('--include-deleted', 'include soft-deleted artifacts', false)
+  .option('--format <fmt>', '[deprecated] markdown | json — use the global --json flag instead')
+  .option('--cwd <dir>', 'project root')
+  .action(async (opts) => {
+   const globalJson = getJsonMode(program);
+   if (opts.format !== undefined) {
+    deprecate(globalJson, '--format is deprecated; use the global --json flag');
+   }
+   const wantJson = globalJson || opts.format === 'json';
 
-      let engine: ArtifactEngine;
-      try {
-        engine = await ArtifactEngine.open({ projectRoot: opts.cwd });
-      } catch (err) {
-        fail(err, wantJson);
+   let revision: number | undefined;
+   await runEngineCommand(
+    {
+     program,
+     cwd: opts.cwd,
+     jsonOverride: wantJson,
+     validate: () => {
+      if (opts.revision === undefined) return;
+      const result = z.coerce.number().int().positive().safeParse(opts.revision);
+      if (result.success) {
+       revision = result.data;
+       return;
       }
-      try {
-        const view = await viewArtifacts(engine, {
-          type: opts.type,
-          id: opts.id,
-          revision: opts.revision !== undefined ? Number(opts.revision) : undefined,
-          includeDeleted: opts.includeDeleted,
-        });
-        if (wantJson) {
-          emitJson(view.json);
-        } else {
-          const body = intersperseBundleDividers(view.markdown.content);
-          process.stdout.write(`${renderHeader('📦', 'Artifact bundle')}\n${body}`);
-        }
-      } catch (err) {
-        fail(err, wantJson);
-      } finally {
-        engine.close();
-      }
-    });
+      throw new SpegoError('VALIDATION_FAILED', 'Invalid --revision; expected a positive integer', {
+       option: '--revision',
+      });
+     },
+    },
+    async (engine) => {
+     const view = await viewArtifacts(engine, {
+      type: opts.type,
+      id: opts.id,
+      revision,
+      includeDeleted: opts.includeDeleted,
+     });
+     const body = intersperseBundleDividers(view.markdown.content);
+     return {
+      payload: view.json,
+      human: () => `${renderHeader('📦', 'Artifact bundle')}\n${body}`,
+     };
+    },
+   );
+  });
 }

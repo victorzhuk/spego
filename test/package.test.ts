@@ -69,8 +69,12 @@ describe('npm pack output', () => {
 
   beforeAll(async () => {
     const raw = execSync('npm pack --dry-run --json', { cwd: ROOT, encoding: 'utf8' });
-    const parsed = JSON.parse(raw);
-    packEntries = parsed[0].files.map((f: { path: string }) => f.path);
+    const parsed: unknown = JSON.parse(raw);
+    const pack = Array.isArray(parsed) ? parsed[0] : Object.values(parsed as Record<string, unknown>)[0];
+    if (!pack || typeof pack !== 'object' || !('files' in pack) || !Array.isArray(pack.files)) {
+      throw new Error('npm pack --dry-run --json returned no package file list');
+    }
+    packEntries = pack.files.map((file: { path: string }) => file.path);
   });
 
   it('includes dist/cli.js', () => {
