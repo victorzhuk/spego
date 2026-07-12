@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { resolveWorkspacePaths, resolveRealRoot, rejectIfSymlink, type WorkspacePaths } from './paths.js';
+import { resolveWorkspacePaths, rejectIfSymlink, type WorkspacePaths } from './paths.js';
 import { defaultConfig, readConfig, writeConfig, type WorkspaceConfig } from './config.js';
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
 import { SpegoError } from '../errors.js';
@@ -49,9 +49,8 @@ async function ensureDir(dir: string, created: string[]): Promise<void> {
 }
 
 export async function initWorkspace(options: InitOptions = {}): Promise<InitSummary> {
-  const rawRoot = path.resolve(options.projectRoot ?? process.cwd());
-  const resolvedRoot = await resolveRealRoot(rawRoot);
-  const paths = resolveWorkspacePaths(resolvedRoot);
+  const projectRoot = path.resolve(options.projectRoot ?? process.cwd());
+  const paths = resolveWorkspacePaths(projectRoot);
   const created: string[] = [];
 
   // Detect prior workspace state before any side effects.
@@ -70,6 +69,12 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
   await rejectIfSymlink(paths.workspaceRoot);
   await rejectIfSymlink(paths.artifactsRoot);
   await rejectIfSymlink(paths.revisionsRoot);
+
+  // Reject symlinked built-in type dirs that already exist.
+  for (const t of BUILTIN_ARTIFACT_TYPES) {
+    await rejectIfSymlink(path.join(paths.artifactsRoot, t));
+    await rejectIfSymlink(path.join(paths.revisionsRoot, t));
+  }
 
   // Workspace + subdirs.
   await ensureDir(paths.workspaceRoot, created);
@@ -109,7 +114,7 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
 
   let generationReports: GenerationReport[] = [];
   if (config.agents.length > 0) {
-    generationReports = await generateAll(resolvedRoot, config.agents);
+    generationReports = await generateAll(projectRoot, config.agents);
   }
 
   return {

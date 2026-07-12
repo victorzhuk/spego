@@ -62,16 +62,10 @@ export function revisionFilePath(
  return path.join(paths.revisionsRoot, type, `${slug}.r${revision}.md`);
 }
 
-/** Resolve the real (symlink-free) root. Falls back to path.resolve on non-existent paths. */
-export async function resolveRealRoot(projectRoot: string): Promise<string> {
- try {
-  return await fs.realpath(path.resolve(projectRoot));
- } catch (err) {
-  if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-   return path.resolve(projectRoot);
-  }
-  throw err;
- }
+/** Lstat-guard .spego then resolve realpath for containment root. */
+export async function resolveContainmentRoot(workspaceRoot: string): Promise<string> {
+ await rejectIfSymlink(workspaceRoot);
+ return fs.realpath(workspaceRoot);
 }
 
 /** Reject if target path exists and is a symbolic link; no-op if missing. */

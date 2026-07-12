@@ -5,7 +5,7 @@ import {
  artifactFilePath,
  artifactTypeDir,
  resolveWorkspacePaths,
- resolveRealRoot,
+ resolveContainmentRoot,
  rejectIfSymlink,
  type WorkspacePaths,
 } from '../workspace/paths.js';
@@ -69,12 +69,15 @@ export class ArtifactEngine {
 
  static async open(opts: EngineOptions = {}): Promise<ArtifactEngine> {
   const rawRoot = path.resolve(opts.projectRoot ?? process.cwd());
-  const resolvedRoot = await resolveRealRoot(rawRoot);
-  const paths = resolveWorkspacePaths(resolvedRoot);
+  const paths = resolveWorkspacePaths(rawRoot);
 
+  // Lstat-guard owned components before resolving containment root.
   await rejectIfSymlink(paths.workspaceRoot);
   await rejectIfSymlink(paths.artifactsRoot);
   await rejectIfSymlink(paths.revisionsRoot);
+
+  // Resolve .spego realpath as containment root.
+  const resolvedRoot = await resolveContainmentRoot(paths.workspaceRoot);
 
   let config: WorkspaceConfig;
   try {
@@ -89,6 +92,13 @@ export class ArtifactEngine {
    }
    throw err;
   }
+
+  // Reject symlinked type directories for all known types.
+  const known = knownArtifactTypes(config);
+  for (const t of known) {
+   await rejectIfSymlink(artifactTypeDir(paths, t));
+  }
+
   const db = openIndexDb(paths.indexDbPath);
   ensureIndexSchema(db);
   return new ArtifactEngine(paths, config, db, resolvedRoot);
