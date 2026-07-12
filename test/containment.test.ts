@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
@@ -13,11 +13,10 @@ describe('workspace symlink containment', () => {
   const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     for (const fn of cleanups.splice(0)) await fn();
   });
 
-  // Tasks 4.1–4.2 require source WORKSPACE_CONTAINMENT checks and are
-  // intentionally RED until the source shard lands.
 
   describe('4.1 — directory symlink rejection', () => {
     it('init rejects when .spego is a symlink', async () => {
@@ -207,6 +206,53 @@ describe('workspace symlink containment', () => {
       // No spego.db created outside the workspace.
       await expect(fs.stat(path.join(outside, 'spego.db'))).rejects.toThrow('ENOENT');
     });
+
+    it('init rejects dangling .spego/config.yaml symlink', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await fs.mkdir(path.join(root, WS_DIR), { recursive: true });
+      await fs.symlink(
+        path.join(root, 'nonexistent'),
+        path.join(root, WS_DIR, 'config.yaml'),
+      );
+
+      const err = await initWorkspace({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+
+      // Outside target remains absent.
+      await expect(fs.stat(path.join(root, 'nonexistent'))).rejects.toThrow('ENOENT');
+    });
+
+    it('open rejects dangling .spego/index/spego.db symlink', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await initWorkspace({ projectRoot: root, agents: ['claude'] });
+      const dbPath = path.join(root, WS_DIR, 'index', 'spego.db');
+      await fs.rm(dbPath);
+      await fs.symlink(path.join(root, 'missing.db'), dbPath);
+
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+
+      // Outside target remains absent.
+      await expect(fs.stat(path.join(root, 'missing.db'))).rejects.toThrow('ENOENT');
+    });
+
+    it('create succeeds when project root is a valid symlink alias', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      const alias = path.join(root, 'my-project');
+      await fs.symlink(root, alias);
+      await initWorkspace({ projectRoot: alias, agents: ['claude'] });
+      const engine = await ArtifactEngine.open({ projectRoot: alias });
+      const a = await engine.create({ type: 'prd', title: 'Fine', body: 'works' });
+      engine.close();
+
+      expect(a.frontmatter.title).toBe('Fine');
+      expect(a.frontmatter.slug).toBeTruthy();
+    });
   });
 
   describe('4.2 — symlinked leaf file rejection', () => {
@@ -367,6 +413,28 @@ describe('workspace symlink containment', () => {
       const target = path.join(dir, 'out.md');
       // Make target a directory so rename(2) fails with EISDIR.
       await fs.mkdir(target);
+
+      const err = await atomicWriteFile(target, 'content').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WRITE_FAILED');
+
+      const entries = await fs.readdir(dir);
+      expect(entries.filter((e) => e.endsWith('.tmp'))).toEqual([]);
+    });
+
+    it('removes temp file when fsync fails', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      const dir = path.join(root, 'sub');
+      await fs.mkdir(dir, { recursive: true });
+      const target = path.join(dir, 'out.md');
+
+      const mockHandle = {
+        writeFile: vi.fn().mockResolvedValue(undefined),
+        sync: vi.fn().mockRejectedValue(new Error('mock sync failure')),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(fs, 'open').mockResolvedValue(mockHandle as unknown as fs.FileHandle);
 
       const err = await atomicWriteFile(target, 'content').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(SpegoError);
