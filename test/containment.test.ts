@@ -73,7 +73,9 @@ describe('workspace symlink containment', () => {
       await fs.rm(prdDir, { recursive: true, force: true });
       await fs.symlink(outside, prdDir);
 
-      const err = await engine.create({ type: 'prd', title: 'X', body: 'x' }).catch((e: unknown) => e);
+      const err = await engine
+        .create({ type: 'prd', title: 'X', body: 'x' })
+        .catch((e: unknown) => e);
       engine.close();
       expect(err).toBeInstanceOf(SpegoError);
       expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
@@ -208,9 +210,7 @@ describe('workspace symlink containment', () => {
   });
 
   describe('4.2 — symlinked leaf file rejection', () => {
-    async function validFrontmatter(
-      id: string, slug: string, title: string,
-    ): Promise<string> {
+    async function validFrontmatter(id: string, slug: string, title: string): Promise<string> {
       return [
         '---',
         `id: "${id}"`,
@@ -238,7 +238,10 @@ describe('workspace symlink containment', () => {
       // Replace the artifact file with a symlink to an outside file sharing
       // the same id/slug so only the symlink check would flag it.
       const outside = path.join(root, 'outside-artifact.md');
-      await fs.writeFile(outside, await validFrontmatter(a.frontmatter.id, a.frontmatter.slug, 'Alpha'));
+      await fs.writeFile(
+        outside,
+        await validFrontmatter(a.frontmatter.id, a.frontmatter.slug, 'Alpha'),
+      );
       await fs.rm(a.path);
       await fs.symlink(outside, a.path);
 

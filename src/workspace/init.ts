@@ -144,7 +144,9 @@ export interface WorkspaceStatus {
   initCommand?: string;
 }
 
-export async function workspaceStatus(projectRoot: string = process.cwd()): Promise<WorkspaceStatus> {
+export async function workspaceStatus(
+  projectRoot: string = process.cwd(),
+): Promise<WorkspaceStatus> {
   const paths: WorkspacePaths = resolveWorkspacePaths(projectRoot);
   try {
     const config = await readConfig(paths.configPath);

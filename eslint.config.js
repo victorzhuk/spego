@@ -16,6 +16,7 @@ export default tseslint.config(
             'test/cli.render.test.ts',
             'test/cli.skills-command.test.ts',
             'test/cli.parity.test.ts',
+            'test/containment.test.ts',
             'test/cli.epics-tasks.test.ts',
             'test/cli.gap-fill.test.ts',
             'test/delivery.test.ts',

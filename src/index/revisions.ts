@@ -9,57 +9,55 @@ import { SpegoError } from '../errors.js';
  * `.spego/revisions/<type>/<slug>.r<n>.md`.
  */
 export async function writeRevisionSnapshot(
- paths: WorkspacePaths,
- frontmatter: ArtifactFrontmatter,
- body: string,
- resolvedRoot?: string,
+  paths: WorkspacePaths,
+  frontmatter: ArtifactFrontmatter,
+  body: string,
+  resolvedRoot?: string,
 ): Promise<string> {
- const dest = revisionFilePath(paths, frontmatter.type, frontmatter.slug, frontmatter.revision);
- await atomicWriteFile(dest, renderArtifactFile(frontmatter, body), resolvedRoot);
- return dest;
+  const dest = revisionFilePath(paths, frontmatter.type, frontmatter.slug, frontmatter.revision);
+  await atomicWriteFile(dest, renderArtifactFile(frontmatter, body), resolvedRoot);
+  return dest;
 }
 
 /** Read a previously snapshotted revision, rejecting symlinked files. */
 export async function readRevisionSnapshot(
- paths: WorkspacePaths,
- type: string,
- slug: string,
- revision: number,
+  paths: WorkspacePaths,
+  type: string,
+  slug: string,
+  revision: number,
 ): Promise<{ frontmatter: ArtifactFrontmatter; body: string; path: string }> {
- const file = revisionFilePath(paths, type, slug, revision);
- let stat;
- try {
-  stat = await fs.lstat(file);
- } catch (err) {
-  if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-   throw new SpegoError(
-    'REVISION_NOT_FOUND',
-    `Revision ${revision} not found for ${type}/${slug}`,
-    { type, slug, revision, path: file },
-   );
+  const file = revisionFilePath(paths, type, slug, revision);
+  let stat;
+  try {
+    stat = await fs.lstat(file);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new SpegoError(
+        'REVISION_NOT_FOUND',
+        `Revision ${revision} not found for ${type}/${slug}`,
+        { type, slug, revision, path: file },
+      );
+    }
+    throw err;
   }
-  throw err;
- }
- if (stat.isSymbolicLink()) {
-  throw new SpegoError(
-   'WORKSPACE_CONTAINMENT',
-   `Symlinked revision file at ${file}`,
-   { path: file },
-  );
- }
- let raw: string;
- try {
-  raw = await fs.readFile(file, 'utf8');
- } catch (err) {
-  if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-   throw new SpegoError(
-    'REVISION_NOT_FOUND',
-    `Revision ${revision} not found for ${type}/${slug}`,
-    { type, slug, revision, path: file },
-   );
+  if (stat.isSymbolicLink()) {
+    throw new SpegoError('WORKSPACE_CONTAINMENT', `Symlinked revision file at ${file}`, {
+      path: file,
+    });
   }
-  throw err;
- }
- const parsed = parseArtifactFile(raw, file);
- return { ...parsed, path: file };
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new SpegoError(
+        'REVISION_NOT_FOUND',
+        `Revision ${revision} not found for ${type}/${slug}`,
+        { type, slug, revision, path: file },
+      );
+    }
+    throw err;
+  }
+  const parsed = parseArtifactFile(raw, file);
+  return { ...parsed, path: file };
 }
