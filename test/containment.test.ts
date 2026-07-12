@@ -171,6 +171,40 @@ describe('workspace symlink containment', () => {
       expect(err).toBeInstanceOf(SpegoError);
       expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
     });
+
+    it('init rejects when index dir is a symlink to outside', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      const outside = path.join(root, 'outside-index');
+      await fs.mkdir(outside, { recursive: true });
+      await fs.mkdir(path.join(root, WS_DIR), { recursive: true });
+      await fs.symlink(outside, path.join(root, WS_DIR, 'index'));
+
+      const err = await initWorkspace({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+
+      // No spego.db created outside the workspace.
+      await expect(fs.stat(path.join(outside, 'spego.db'))).rejects.toThrow('ENOENT');
+    });
+
+    it('open rejects when index dir is a symlink to outside', async () => {
+      const { root, cleanup } = await makeTempProject();
+      cleanups.push(cleanup);
+      await initWorkspace({ projectRoot: root, agents: ['claude'] });
+      const outside = path.join(root, 'outside-index');
+      await fs.mkdir(outside, { recursive: true });
+      const indexDir = path.join(root, WS_DIR, 'index');
+      await fs.rm(indexDir, { recursive: true, force: true });
+      await fs.symlink(outside, indexDir);
+
+      const err = await ArtifactEngine.open({ projectRoot: root }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SpegoError);
+      expect((err as SpegoError).code).toBe('WORKSPACE_CONTAINMENT');
+
+      // No spego.db created outside the workspace.
+      await expect(fs.stat(path.join(outside, 'spego.db'))).rejects.toThrow('ENOENT');
+    });
   });
 
   describe('4.2 — symlinked leaf file rejection', () => {
