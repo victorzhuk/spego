@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- `epic` artifact type for mirroring OpenSpec changes with deps, links, requires, and gaps metadata.
+- `sprint-plan` metadata can list ordered OpenSpec changes, enforced to one non-closed sprint at a time.
+
 ## [0.12.0] - 2026-07-12
 
 ### Security

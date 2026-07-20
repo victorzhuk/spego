@@ -9,10 +9,10 @@ const CLI_PATH = path.join(PROJECT_ROOT, 'src', 'cli.ts');
 const exec = promisify(execFile);
 
 const cli = (args: string[]) =>
-  exec('npx', ['tsx', CLI_PATH, ...args], {
+  exec('npx', ['--silent', 'tsx', CLI_PATH, ...args], {
     cwd: PROJECT_ROOT,
     timeout: 30_000,
-    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    env: { ...process.env, NODE_NO_WARNINGS: '1', npm_config_loglevel: 'silent' },
   });
 
 describe('CLI Help and Version exits', () => {
@@ -31,6 +31,7 @@ describe('CLI Help and Version exits', () => {
   it('exits with 0 and prints subcommand help to stdout with no stderr noise', async () => {
     const { stdout, stderr } = await cli(['create', '--help']);
     expect(stdout).toContain('Create an artifact');
+    expect(stdout).toContain('epic');
     expect(stderr).toBe('');
   });
 

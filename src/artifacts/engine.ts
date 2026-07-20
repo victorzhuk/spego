@@ -43,6 +43,12 @@ export interface EngineOptions {
  projectRoot?: string;
 }
 
+function sprintChanges(meta: Record<string, unknown>): string[] | null {
+ const changes = meta.changes;
+ if (!Array.isArray(changes)) return null;
+ return changes.filter((change): change is string => typeof change === 'string');
+}
+
 /** Create with `await ArtifactEngine.open(opts)`; remember to `close()`. */
 export class ArtifactEngine {
  private closed = false;
@@ -107,6 +113,35 @@ export class ArtifactEngine {
   return renderArtifactFile(record.frontmatter, record.body);
  }
 
+ private assertSprintChangesAvailable(meta: Record<string, unknown>, selfId?: string): void {
+  const changes = sprintChanges(meta);
+  if (!changes || changes.length === 0) return;
+  const claimed = new Set(changes);
+
+  for (const row of listArtifacts(this.db, { type: 'sprint-plan' })) {
+   if (row.id === selfId) continue;
+   if (row.meta.status === 'closed') continue;
+   const ownerChanges = sprintChanges(row.meta);
+   if (!ownerChanges) continue;
+   const change = ownerChanges.find((name) => claimed.has(name));
+   if (!change) continue;
+
+   throw new SpegoError(
+    'VALIDATION_FAILED',
+    `Change "${change}" already belongs to non-closed sprint-plan ${row.slug}`,
+    {
+     change,
+     owner: {
+      id: row.id,
+      type: row.type,
+      slug: row.slug,
+      title: row.title,
+     },
+    },
+   );
+  }
+ }
+
  // ---------------------------------------------------------------- create
 
  async create(input: unknown): Promise<ArtifactRecord> {
@@ -127,6 +162,7 @@ export class ArtifactEngine {
    meta: validatedMeta,
   });
   const filePath = artifactFilePath(this.paths, fm.type, fm.slug);
+  if (fm.type === 'sprint-plan') this.assertSprintChangesAvailable(fm.meta);
 
   // File-first: write canonical + snapshot, then mirror to index.
   await atomicWriteFile(filePath, renderArtifactFile(fm, data.body), this.resolvedRoot);
@@ -223,6 +259,7 @@ export class ArtifactEngine {
    revision: current.frontmatter.revision + 1,
    updatedAt: new Date().toISOString(),
   });
+  if (fm.type === 'sprint-plan') this.assertSprintChangesAvailable(fm.meta, indexed.id);
 
   await atomicWriteFile(indexed.path, renderArtifactFile(fm, nextBody), this.resolvedRoot);
   const snapPath = await writeRevisionSnapshot(this.paths, fm, nextBody, this.resolvedRoot);

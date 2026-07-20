@@ -8,11 +8,16 @@
 import path from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
+import type { ArtifactEngine } from '../../artifacts/engine.js';
+import { makeSlug } from '../../artifacts/slug.js';
 import type { ArtifactRecord } from '../../artifacts/types.js';
+import { resolveAdapter, type DeliveryAdapter } from '../../delivery/index.js';
+import { assertWorkspace } from '../../delivery/openspec-discover.js';
 import { SpegoError } from '../../errors.js';
 import { renderDivider, renderHeader, renderTable } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 import { resolveBody } from '../body-input.js';
+import { assertEpicSlugActive } from '../epic-slug.js';
 
 function renderArtifactHeader(fm: ArtifactRecord['frontmatter']): string {
  return `📄 ${fm.type}/${fm.slug}  rev ${fm.revision}  (${fm.id})`;
@@ -41,11 +46,26 @@ function parseRevision(revision: string): number {
  });
 }
 
+
+async function resolveEpicAdapter(engine: ArtifactEngine): Promise<DeliveryAdapter | null> {
+ const adapter = resolveAdapter(engine.paths.projectRoot, engine.config);
+ try {
+  await assertWorkspace(engine.paths.projectRoot);
+ } catch (err) {
+  if (err instanceof SpegoError && err.code === 'DELIVERY_ADAPTER_ERROR') {
+   return null;
+  }
+  throw err;
+ }
+ return adapter;
+}
+
+
 export function registerArtifact(program: Command): void {
  program
   .command('create')
   .description('Create an artifact')
-  .requiredOption('--type <type>', 'artifact type, e.g. prd|api|architecture')
+  .requiredOption('--type <type>', 'artifact type, e.g. prd|epic|sprint-plan|api|architecture')
   .requiredOption('--title <title>', 'artifact title')
   .option('--slug <slug>', 'optional explicit slug')
   .option('--body <text>', 'inline markdown body')
@@ -65,6 +85,11 @@ export function registerArtifact(program: Command): void {
      },
     },
     async (engine) => {
+     if (opts.type === 'epic') {
+      const adapter = await resolveEpicAdapter(engine);
+      const slug = opts.slug ? makeSlug(opts.slug) : makeSlug(opts.title);
+      await assertEpicSlugActive(adapter, slug);
+     }
      const record = await engine.create({
       type: opts.type,
       title: opts.title,
@@ -154,6 +179,11 @@ export function registerArtifact(program: Command): void {
      },
     },
     async (engine) => {
+     const current = await engine.readById(opts.id);
+     if (current.frontmatter.type === 'epic') {
+      const adapter = await resolveEpicAdapter(engine);
+      await assertEpicSlugActive(adapter, current.frontmatter.slug);
+     }
      const patch: Record<string, unknown> = {};
      if (opts.title !== undefined) patch.title = opts.title;
      if (body !== undefined) patch.body = body;

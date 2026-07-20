@@ -20,11 +20,32 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
     tags: z.array(z.string()).optional(),
   }),
 
-  'sprint-plan': z.object({
-    sprint: z.string().optional(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    status: z.enum(['planned', 'active', 'closed']).optional(),
+  'sprint-plan': z
+    .object({
+      sprint: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+      status: z.enum(['planned', 'active', 'closed']).optional(),
+      tags: z.array(z.string()).optional(),
+      changes: z.array(z.string().min(1)).optional(),
+    })
+    .refine((meta) => !meta.changes || new Set(meta.changes).size === meta.changes.length, {
+      path: ['changes'],
+      message: 'changes must be unique within a sprint-plan',
+    }),
+
+  epic: z.object({
+    deps: z.array(z.string()).optional(),
+    links: z.array(z.string()).optional(),
+    requires: z.array(z.string().min(1)).optional(),
+    gaps: z
+      .array(
+        z.object({
+          flag: z.string().min(1),
+          note: z.string().optional(),
+        }),
+      )
+      .optional(),
     tags: z.array(z.string()).optional(),
   }),
 

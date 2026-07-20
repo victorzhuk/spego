@@ -56,7 +56,10 @@ The legacy `spego view --format markdown|json` flag is **deprecated** and will b
 
 ## Artifact Types
 
-Built-in: `prd`, `okr`, `retro`, `sprint-plan`, `brainstorm`, `usecases`, `design`, `api`, `architecture`, `decision`, `risk`, `qa`, `ceremony`
+Built-in: `prd`, `epic`, `okr`, `retro`, `sprint-plan`, `brainstorm`, `usecases`, `design`, `api`, `architecture`, `decision`, `risk`, `qa`, `ceremony`
+
+- `epic` mirrors an OpenSpec change. Its optional meta supports `deps`, `links`, `requires`, and `gaps`.
+- `sprint-plan` may include ordered `changes`; a change can belong to only one non-closed sprint-plan.
 
 Custom types can be registered via workspace config (`extraArtifactTypes`).
 

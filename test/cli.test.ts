@@ -11,10 +11,10 @@ const CLI_PATH = path.join(PROJECT_ROOT, 'src', 'cli.ts');
 const exec = promisify(execFile);
 
 const cli = (args: string[], cwd: string) =>
-  exec('npx', ['tsx', CLI_PATH, ...args], {
+  exec('npx', ['--silent', 'tsx', CLI_PATH, ...args], {
     cwd,
     timeout: 30_000,
-    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    env: { ...process.env, NODE_NO_WARNINGS: '1', npm_config_loglevel: 'silent' },
   });
 
 describe('CLI init', () => {

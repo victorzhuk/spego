@@ -11,6 +11,7 @@ export default tseslint.config(
           allowDefaultProject: [
             'test/_cli-helpers.ts',
             'test/artifact-crud.test.ts',
+            'test/artifact-schemas.test.ts',
             'test/cli.test.ts',
             'test/cli-help-exit.test.ts',
             'test/cli.render.test.ts',
@@ -19,7 +20,10 @@ export default tseslint.config(
             'test/containment.test.ts',
             'test/cli.epics-tasks.test.ts',
             'test/cli.gap-fill.test.ts',
+            'test/cli.epic-sprint.test.ts',
+            'test/epic-slug.test.ts',
             'test/delivery.test.ts',
+            'test/sprint-membership.test.ts',
             'test/generator.test.ts',
             'test/generator.opencode.test.ts',
             'test/helpers.ts',
