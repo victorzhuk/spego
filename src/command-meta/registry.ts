@@ -159,6 +159,17 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     inputSchema: {},
     outputModes: ['markdown', 'json'],
   },
+  {
+    name: 'mirror',
+    description: 'Show delivery mirror board',
+    slashName: '/spego:mirror',
+    category: 'planning',
+    inputSchema: {
+      graph: { name: 'graph', type: 'boolean', required: false, description: 'Show dependency graph' },
+      gaps: { name: 'gaps', type: 'boolean', required: false, description: 'Show gaps, missing artifacts, and blockers' },
+    },
+    outputModes: ['markdown', 'json'],
+  },
 ];
 
 export function getCommandByName(name: string): CommandMeta | undefined {

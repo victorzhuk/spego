@@ -26,6 +26,7 @@ spego init --agents claude,opencode --demo false
 | `spego skills` | Regenerate agent skill files |
 | `spego epics` | List delivery epics |
 | `spego tasks --change <name>` | List tasks for a change |
+| `spego mirror` | Show delivery mirror board |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.
@@ -93,6 +94,14 @@ The adapter is read-only. It observes OpenSpec state but does not create, contin
 | Filesystem parsing | Fallback when the OpenSpec CLI is unavailable |
 
 Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
+
+## Delivery Mirror
+
+`spego mirror` derives the delivery mirror on demand — it never writes artifacts or OpenSpec state. It combines active and archived OpenSpec changes with `epic` and `sprint-plan` artifacts into a sprint board: sprints in date order (undated last), changes in each sprint-plan's list order, per-change status, blockers, gaps, and missing artifacts (`requires` minus resolvable `links`). A change is blocked when a dependency is incomplete and not scheduled in the same or an earlier sprint.
+
+The default output is the human board. `--graph` shows dependency edges; `--gaps` focuses on gap flags and missing artifacts. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change or is `null` with a hint to groom.
+
+Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. Repair belongs to the groom workflow; mirror only reports.
 
 ## OpenCode Workflows
 
