@@ -34,14 +34,16 @@ The system SHALL parse OpenSpec `tasks.md` checklists into task summaries.
 - **WHEN** an OpenSpec change has no `tasks.md`
 - **THEN** the adapter reports the change with no tasks and a planning-incomplete status
 
-### Requirement: Use OpenSpec status when available
-The system SHALL prefer OpenSpec CLI status output when available and fall back to file parsing when needed.
+### Requirement: Derive status from the filesystem
+The system SHALL derive change status from `tasks.md` on disk and SHALL NOT spawn per-change CLI subprocesses.
 
-#### Scenario: CLI status succeeds
-- **WHEN** `openspec status --json` succeeds for a change
-- **THEN** the adapter uses that status to classify planning readiness
+#### Scenario: Status matches checkbox state
+- **WHEN** a change's `tasks.md` has all tasks checked
+- **THEN** the adapter reports the change as completed
+- **AND** when no tasks exist it reports planning-incomplete
+- **AND** otherwise it reports active
 
-#### Scenario: CLI status unavailable
-- **WHEN** the OpenSpec CLI is unavailable or status fails
-- **THEN** the adapter falls back to filesystem inspection
-- **AND** it includes a warning in the response
+#### Scenario: OpenSpec CLI absent
+- **WHEN** the `openspec` binary is not on PATH
+- **THEN** the adapter still returns correct statuses
+- **AND** no fallback warning is emitted
