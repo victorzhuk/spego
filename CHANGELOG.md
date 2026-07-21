@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-07-21
+
 ### Changed
 - `spego mirror` / `spego epics` resolve epic status from `tasks.md` on disk instead of spawning `openspec status` per change (~114x faster on multi-change workspaces) and discover changes once per render with parallelized filesystem reads.
 

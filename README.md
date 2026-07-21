@@ -89,9 +89,9 @@ The adapter is read-only. It observes OpenSpec state but does not create, contin
 | Source | spego view |
 |--------|------------|
 | `openspec/changes/<name>/proposal.md` | Epic title |
-| `openspec/changes/<name>/tasks.md` | Task summaries |
-| `openspec status --change <name> --json` | Preferred status source |
-| Filesystem parsing | Fallback when the OpenSpec CLI is unavailable |
+| `openspec/changes/<name>/tasks.md` | Task status and counts |
+
+The `openspec` binary is not required on PATH — mirror and epics resolve status entirely from `tasks.md` on disk.
 
 Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
 
