@@ -33,8 +33,8 @@ describe('Authoring workflow registry entries', () => {
     expect(methodsInput!.description).toContain('stress-test');
   });
 
-  it('registry now has twelve entries total', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(12);
+  it('registry now has thirteen entries total', () => {
+    expect(WORKFLOW_REGISTRY).toHaveLength(13);
   });
 });
 

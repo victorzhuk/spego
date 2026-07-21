@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { makeTempProject } from './helpers.js';
+import { setupInitialized } from './_cli-helpers.js';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
 const CLI_PATH = path.join(PROJECT_ROOT, 'src', 'cli.ts');
@@ -109,6 +110,28 @@ describe('CLI skills command', () => {
     expect(skill.isFile()).toBe(true);
     const cmd = await fs.stat(path.join(root, '.claude', 'commands', 'spego', 'skills.md'));
     expect(cmd.isFile()).toBe(true);
+  });
+
+  it('skills command creates spego-groom once then leaves it unchanged', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    const skillPath = path.join(root, '.claude', 'skills', 'spego-groom', 'SKILL.md');
+    await fs.rm(path.dirname(skillPath), { recursive: true, force: true });
+
+    type SkillReport = { files: Array<{ path: string; action: string }> };
+
+    const { stdout: first } = await cli(['--json', 'skills', '--cwd', root], root);
+    const firstGroom = (JSON.parse(first) as SkillReport[])
+      .flatMap((report) => report.files)
+      .find((file) => file.path === skillPath);
+    expect(firstGroom?.action).toBe('created');
+    await expect(fs.stat(skillPath)).resolves.toBeTruthy();
+
+    const { stdout: second } = await cli(['--json', 'skills', '--cwd', root], root);
+    const secondGroom = (JSON.parse(second) as SkillReport[])
+      .flatMap((report) => report.files)
+      .find((file) => file.path === skillPath);
+    expect(secondGroom?.action).toBe('unchanged');
   });
 
   it('removes legacy spego-regenerate paths when present', async () => {

@@ -196,13 +196,13 @@ OpenSpec prompts and spego workflow skills are separate surfaces:
 - OPSX/OpenSpec prompts live under `.claude/commands/opsx/` and `.claude/skills/openspec-*/`.
 - spego-generated commands and workflow skills live under `.claude/commands/spego/` and `.claude/skills/spego-*/`.
 
-OpenSpec owns change execution and lifecycle state: proposal, design, specs, tasks, apply, verify, sync, and archive. spego owns durable product-thinking artifacts: `brainstorm`, `qa`, `risk`, and `retro`. The OpenSpec delivery adapter exposed through `spego epics` and `spego tasks` is read-only.
+OpenSpec owns change execution and lifecycle state: proposal, design, specs, tasks, apply, verify, sync, and archive. spego owns durable product-thinking artifacts: `brainstorm`, `qa`, `risk`, and `retro`, plus delivery-mirror state: `epic` and `sprint-plan` written only by the groom workflow. The OpenSpec delivery adapter exposed through `spego epics` and `spego tasks` is read-only.
 
 Use combined workflows when an OpenSpec change needs durable thinking around it:
 
 | Lane | OpenSpec action | spego action |
 |------|-----------------|--------------|
-| Before implementation | Create or continue a change with OPSX/OpenSpec, then read `proposal.md`, `design.md`, specs, and `tasks.md` | `spego-change-brainstorm` creates a `brainstorm` artifact |
+| Before implementation | Create or continue a change with OPSX/OpenSpec, then read `proposal.md`, `design.md`, specs, and `tasks.md` | `spego-groom` grooms the delivery mirror; `spego-change-brainstorm` creates a `brainstorm` artifact |
 | During implementation | Keep task state and artifact mutations in OPSX/OpenSpec | `spego-change-review` creates `qa` or `risk` findings |
 | Before archive | Run OPSX/OpenSpec verification | `spego-change-verify-report` creates a `qa` verification report |
 | After completion | Archive or complete the OpenSpec change | `spego-change-retro` creates a `retro` artifact |
@@ -224,6 +224,18 @@ spego --json create --type retro --title "<change-name> retro" --body "<retrospe
 ```
 
 If a combined workflow discovers that OpenSpec artifacts need to change, use the matching OPSX/OpenSpec command. Do not mutate OpenSpec lifecycle state through spego.
+
+### groom
+
+Delivery-mirror workflow that reconciles active OpenSpec changes with `epic` and `sprint-plan` artifacts. One Groomer persona runs five phases:
+
+1. `orient` — read `spego mirror --json` and `spego epics --json`, then classify drift warnings.
+2. `sync` — create missing epics for ungroomed active changes and propose orphan-epic disposition.
+3. `analyze` — update deps, requires, supporting links, and gap notes on epics.
+4. `plan` — propose releasable, testable sprint groupings and create or update `sprint-plan` artifacts after confirmation.
+5. `summarize` — report epics, dispositions, sprint plans, and the next-change suggestion.
+
+Sole writer: groom persists mirror state only through `spego create` / `spego update` with `--expected-revision`; it never writes `openspec/` or mutates OpenSpec lifecycle. Orphan disposition and sprint closes require explicit confirmation; default is keep.
 
 ### elicit
 

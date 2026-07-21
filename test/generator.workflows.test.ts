@@ -88,6 +88,29 @@ describe('Workflow skill generation', () => {
       expect(f.action).toBe('unchanged');
     }
   });
+
+  it('spego-groom skill encodes the sole-writer contract and phases', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+
+    const gen = new ClaudeGenerator();
+    await gen.generate(root);
+
+    const skillPath = path.join(root, '.claude', 'skills', 'spego-groom', 'SKILL.md');
+    const content = await fs.readFile(skillPath, 'utf8');
+
+    expect(content).toContain('### orient');
+    expect(content).toContain('### sync');
+    expect(content).toContain('### analyze');
+    expect(content).toContain('### plan');
+    expect(content).toContain('### summarize');
+    expect(content).toContain('spego mirror --json');
+    expect(content).toContain('spego epics --json');
+    expect(content).toContain('--expected-revision');
+    expect(content).toMatch(/confirm/i);
+    expect(content).not.toMatch(/openspec (archive|apply|sync|task|proposal|spec|design)/i);
+    expect(content).not.toMatch(/(?:write|edit)[^\n]*openspec\/changes\//i);
+  });
 });
 
 describe('Workflow legacy flat-file cleanup', () => {

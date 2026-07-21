@@ -4,7 +4,7 @@ import { ARTIFACT_META_SCHEMAS } from '../src/artifacts/schemas.js';
 
 describe('Workflow registry', () => {
   it('contains registered workflows', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(12);
+    expect(WORKFLOW_REGISTRY).toHaveLength(13);
     expect(listWorkflowNames()).toEqual([
       'brainstorm-party',
       'review-adversarial',
@@ -18,6 +18,7 @@ describe('Workflow registry', () => {
       'change-review',
       'change-verify-report',
       'change-retro',
+      'groom',
     ]);
   });
 
@@ -41,9 +42,13 @@ describe('Workflow registry', () => {
     }
   });
 
-  it('each workflow has at least 1 required input (except help which is read-only)', () => {
+  it('each workflow has at least 1 required input (except workspace-wide sessions)', () => {
+    const requiredInputExemptions: Record<string, string> = {
+      help: 'read-only workspace orientation',
+      groom: 'workspace-wide delivery mirror session workflow',
+    };
     for (const wf of WORKFLOW_REGISTRY) {
-      if (wf.name === 'help') continue;
+      if (wf.name in requiredInputExemptions) continue;
       const required = wf.inputs.filter((i) => i.required);
       expect(required.length).toBeGreaterThanOrEqual(1);
     }
@@ -142,5 +147,18 @@ describe('Workflow registry', () => {
     expect(wf.outputs.find((o) => o.artifactType === 'qa')?.required).toBe(false);
     const updateOutput = wf.outputs.find((o) => o.artifactType === 'update');
     expect(updateOutput?.kind).toBe('update');
+  });
+
+  it('groom has expected shape', () => {
+    const wf = getWorkflowByName('groom')!;
+    expect(wf).toBeDefined();
+    expect(wf.personas.map((p) => p.name)).toEqual(['Groomer']);
+    expect(wf.phases.map((p) => p.name)).toEqual(['orient', 'sync', 'analyze', 'plan', 'summarize']);
+    expect(wf.inputs.every((i) => !i.required)).toBe(true);
+    expect(wf.outputs.find((o) => o.artifactType === 'epic')).toBeDefined();
+    expect(wf.outputs.find((o) => o.artifactType === 'sprint-plan')).toBeDefined();
+    const safety = wf.safety.join('\n');
+    expect(safety).toContain('openspec/');
+    expect(safety).toContain('--expected-revision');
   });
 });

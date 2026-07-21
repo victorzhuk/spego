@@ -298,6 +298,7 @@ describe('CLI workflows command', () => {
       'change-review',
       'change-verify-report',
       'change-retro',
+      'groom',
     ];
     for (const name of expected) {
       expect(names.has(name)).toBe(true);

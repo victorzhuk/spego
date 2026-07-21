@@ -40,7 +40,7 @@ describe('Review suite registry entries', () => {
   });
 
   it('registry includes the review suite in the current total', () => {
-    expect(WORKFLOW_REGISTRY).toHaveLength(12);
+    expect(WORKFLOW_REGISTRY).toHaveLength(13);
   });
 });
 
