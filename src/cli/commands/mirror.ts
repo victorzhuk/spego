@@ -3,7 +3,8 @@ import type { Command } from 'commander';
 import type { ArtifactEngine } from '../../artifacts/engine.js';
 import type { IndexedArtifact } from '../../index/indexer.js';
 import { resolveAdapter } from '../../delivery/index.js';
-import { discoverChanges } from '../../delivery/openspec-discover.js';
+import { assertWorkspace, discoverChanges } from '../../delivery/openspec-discover.js';
+import { listEpicsFromDiscovered } from '../../delivery/openspec-adapter.js';
 import {
   deriveMirror,
   filterMirrorGaps,
@@ -87,8 +88,15 @@ async function collectMirrorInput(
   projectRoot: string,
   adapter: DeliveryAdapter,
 ): Promise<MirrorInput> {
-  const adapterEpics = await adapter.listEpics();
+  if (adapter.name === 'openspec') await assertWorkspace(projectRoot);
   const discovered = await discoverChanges(projectRoot);
+  const adapterEpics =
+    adapter.name === 'openspec'
+      ? await listEpicsFromDiscovered(
+        projectRoot,
+        discovered.filter((change) => !change.archived),
+      )
+      : await adapter.listEpics();
   const adapterBySlug = new Map(adapterEpics.map((epic) => [epic.externalId, epic]));
   const seen = new Set<string>();
   const changes = discovered

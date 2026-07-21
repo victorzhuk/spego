@@ -1,10 +1,6 @@
-import { execFile as execFileCb } from 'node:child_process';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { promisify } from 'node:util';
 import { SpegoError } from '../errors.js';
-
-const execFile = promisify(execFileCb);
 
 const OPENSPEC_DIR = 'openspec';
 const CONFIG_FILE = 'config.yaml';
@@ -39,45 +35,34 @@ export async function discoverChanges(projectRoot: string): Promise<DiscoveredCh
     return [];
   }
 
-  const results: DiscoveredChange[] = [];
-  for (const entry of entries) {
-    const fullPath = join(changesDir, entry);
-    const metaPath = join(fullPath, META_FILE);
-    let s;
-    try {
-      s = await stat(fullPath);
-    } catch { continue; }
-    if (!s.isDirectory()) continue;
+  const discovered = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = join(changesDir, entry);
+      const metaPath = join(fullPath, META_FILE);
 
-    let hasMeta = false;
-    try {
-      hasMeta = (await stat(metaPath)).isFile();
-    } catch { /* no meta */ }
-    if (!hasMeta) continue;
+      let s;
+      try {
+        s = await stat(fullPath);
+      } catch {
+        return null;
+      }
+      if (!s.isDirectory()) return null;
 
-    let archived = false;
-    try {
-      const raw = await readFile(metaPath, 'utf8');
-      archived = /^(?:archived:\s*true)\s*$/m.test(raw);
-    } catch { /* ignore */ }
+      try {
+        if (!(await stat(metaPath)).isFile()) return null;
+      } catch {
+        return null;
+      }
 
-    results.push({
-      name: entry,
-      relPath: relative(projectRoot, fullPath),
-      archived,
-    });
-  }
-  return results;
-}
+      const raw = await readFile(metaPath, 'utf8').catch(() => '');
+      const archived = /^(?:archived:\s*true)\s*$/m.test(raw);
 
-export async function fetchCliStatus(projectRoot: string, changeName: string): Promise<Record<string, unknown> | null> {
-  try {
-    const { stdout } = await execFile('openspec', ['status', '--change', changeName, '--json'], {
-      cwd: projectRoot,
-      timeout: 5000,
-    });
-    return JSON.parse(stdout) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+      return {
+        name: entry,
+        relPath: relative(projectRoot, fullPath),
+        archived,
+      };
+    }),
+  );
+  return discovered.filter((item): item is DiscoveredChange => item !== null);
 }

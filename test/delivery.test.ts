@@ -1,9 +1,11 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createRequire } from 'node:module';
+import { performance } from 'node:perf_hooks';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { SpegoError } from '../src/errors.js';
 import { resolveAdapter } from '../src/delivery/resolve.js';
-import { assertWorkspace, discoverChanges, fetchCliStatus } from '../src/delivery/openspec-discover.js';
+import { assertWorkspace, discoverChanges } from '../src/delivery/openspec-discover.js';
 import { readProposalTitle, parseTasks } from '../src/delivery/openspec-parse.js';
 import { createOpenSpecAdapter } from '../src/delivery/openspec-adapter.js';
 import { defaultConfig } from '../src/workspace/config.js';
@@ -194,39 +196,111 @@ describe('delivery', () => {
     });
   });
 
-  describe('5.4 CLI status fallback', () => {
-    it('fetchCliStatus returns null when CLI is unavailable', async () => {
-      const result = await fetchCliStatus('/tmp', 'any-change');
-      expect(result).toBeNull();
-    });
-
-    it('resolveEpicStatus includes warning when CLI is unavailable', async () => {
-      const { root } = await setupChange('warn-test', {
-        tasks: '- [x] a\n- [ ] b\n',
-      });
-      const adapter = createOpenSpecAdapter(root);
-      const epics = await adapter.listEpics();
-      expect(epics).toHaveLength(1);
-      expect(epics[0]!.warnings).toContain('OpenSpec CLI status unavailable, using filesystem fallback');
-    });
-
-    it('resolveEpicStatus omits warning when CLI provides status', async () => {
-      const mock = vi.spyOn(await import('../src/delivery/openspec-discover.js'), 'fetchCliStatus').mockResolvedValue({ taskCount: 3, tasksDone: 2 });
-      try {
-        const { root } = await setupChange('cli-ok', {
-          tasks: '- [x] done\n',
+  describe('5.4 filesystem-only status resolution', () => {
+    it('uses no child_process execFile in listEpics, listTasks, and getEpic', async () => {
+      const childProcess = createRequire(import.meta.url)('node:child_process');
+      const execFileSpy = vi
+        .spyOn(childProcess, 'execFile')
+        .mockImplementation(() => {
+          throw new Error('execFile should not be called in filesystem-only status path');
         });
+
+      const originalPath = process.env.PATH ?? '';
+      process.env.PATH = '/does-not-exist';
+
+      const { root } = await setupOpenSpecWorkspace();
+      await setupOpenSpecChange(
+        root,
+        'checked',
+        { proposal: '# Checked\n', tasks: '- [x] done\n- [x] done\n' },
+      );
+      await setupOpenSpecChange(root, 'mixed', { proposal: '# Mixed\n', tasks: '- [x] done\n- [ ] todo\n' });
+      await setupOpenSpecChange(root, 'no-tasks-change', { proposal: '# No tasks\n' });
+      try {
         const adapter = createOpenSpecAdapter(root);
+
         const epics = await adapter.listEpics();
-        expect(epics).toHaveLength(1);
-        expect(epics[0]!.taskCount).toBe(3);
-        expect(epics[0]!.tasksDone).toBe(2);
-        expect(epics[0]!.warnings).toBeUndefined();
+        const checkedEpic = epics.find((epic) => epic.externalId === 'checked');
+        expect(epics).toHaveLength(3);
+        expect(checkedEpic?.tasksDone).toBe(2);
+        await adapter.listTasks('checked');
+        const epic = await adapter.getEpic('mixed');
+        expect(epic.externalId).toBe('mixed');
+        expect(epic.status).toBe('active');
+
+        expect(execFileSpy).toHaveBeenCalledTimes(0);
       } finally {
-        mock.mockRestore();
+        execFileSpy.mockRestore();
+        process.env.PATH = originalPath;
       }
     });
+
+
+    it('maps tasks.md status semantics without CLI in PATH', async () => {
+      const originalPath = process.env.PATH ?? '';
+      process.env.PATH = '/does-not-exist';
+
+      const { root } = await setupOpenSpecWorkspace();
+      await setupOpenSpecChange(root, 'all-checked', {
+        proposal: '# All Checked\n',
+        tasks: '- [x] done one\n- [x] done two\n',
+      });
+      await setupOpenSpecChange(root, 'no-tasks', { proposal: '# No Tasks\n' });
+      await setupOpenSpecChange(root, 'mixed', { proposal: '# Mixed\n', tasks: '- [x] done\n- [ ] todo\n' });
+
+      const adapter = createOpenSpecAdapter(root);
+      try {
+        const epics = await adapter.listEpics();
+
+        const statusById = new Map(epics.map((epic) => [epic.externalId, epic.status]));
+        expect(statusById.get('all-checked')).toBe('completed');
+        expect(statusById.get('no-tasks')).toBe('planning-incomplete');
+        expect(statusById.get('mixed')).toBe('active');
+      } finally {
+        process.env.PATH = originalPath;
+      }
+    });
+
+    it('resolves 20 changes in < 2s on filesystem status path', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      for (let i = 0; i < 20; i += 1) {
+        await setupOpenSpecChange(root, `change-${i + 1}`, {
+          proposal: `# Change ${i + 1}\n`,
+          tasks: i % 2 === 0 ? '- [x] alpha\n- [ ] beta\n' : '- [ ] alpha\n',
+        });
+      }
+
+      const adapter = createOpenSpecAdapter(root);
+      const start = performance.now();
+      const epics = await adapter.listEpics();
+      const duration = performance.now() - start;
+
+      expect(epics).toHaveLength(20);
+      expect(duration).toBeLessThan(2000);
+    });
+
+    async function setupOpenSpecChange(
+      root: string,
+      name: string,
+      opts: { proposal?: string; tasks?: string; archived?: boolean } = {},
+    ) {
+      const changeDir = path.join(root, 'openspec', 'changes', name);
+      await fs.mkdir(changeDir, { recursive: true });
+
+      const metaContent = opts.archived ? 'schema: spec-driven\narchived: true\n' : 'schema: spec-driven\n';
+      await fs.writeFile(path.join(changeDir, '.openspec.yaml'), metaContent, 'utf8');
+
+      if (opts.proposal !== undefined) {
+        await fs.writeFile(path.join(changeDir, 'proposal.md'), opts.proposal, 'utf8');
+      }
+
+      if (opts.tasks !== undefined) {
+        await fs.writeFile(path.join(changeDir, 'tasks.md'), opts.tasks, 'utf8');
+      }
+    }
   });
+
+
 
   describe('5.5 read-only rejection', () => {
     it('adapter has no mutation methods', () => {

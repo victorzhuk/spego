@@ -10,6 +10,12 @@
 
 ## [Unreleased]
 
+### Changed
+- `spego mirror` / `spego epics` resolve epic status from `tasks.md` on disk instead of spawning `openspec status` per change (~114x faster on multi-change workspaces) and discover changes once per render with parallelized filesystem reads.
+
+### Removed
+- Removed the per-change `openspec status` subprocess call and the "OpenSpec CLI status unavailable" fallback warning; mirror and epics no longer require the `openspec` binary on PATH.
+
 ## [0.12.0] - 2026-07-12
 
 ### Security
