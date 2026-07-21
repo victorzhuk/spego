@@ -1,12 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.0] - 2026-07-21
 
 ### Added
 - `epic` artifact type for mirroring OpenSpec changes with deps, links, requires, and gaps metadata.
 - `sprint-plan` metadata can list ordered OpenSpec changes, enforced to one non-closed sprint at a time.
 - `spego mirror` command deriving the delivery mirror (sprint board, blockers, gaps, drift warnings, next-change suggestion) from OpenSpec changes and `epic`/`sprint-plan` artifacts, with `--graph`, `--gaps`, and deterministic `--json` output.
 - `spego-groom` workflow skill for syncing delivery-mirror epics with active OpenSpec changes, analyzing deps/requires/gaps, and maintaining sprint plans.
+
+## [Unreleased]
 
 ## [0.12.0] - 2026-07-12
 
