@@ -388,10 +388,11 @@ describe('CLI dual output modes', () => {
     expect(stdout).toContain('─');
   });
 
-  it('list human output prints "No artifacts." for empty workspace', async () => {
+  it('list human output prints "No artifacts." under the section header for empty workspace', async () => {
     const root = await setup();
     const { stdout } = await cli(['list', '--cwd', root], root);
-    expect(stdout.trim()).toBe('No artifacts.');
+    expect(stdout).toContain('📦 Artifacts');
+    expect(stdout).toContain('No artifacts.');
   });
 
   it('read human output uses a header-and-divider format', async () => {

@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 import { ArtifactEngine } from '../../artifacts/engine.js';
 import { loadBoardState } from '../../delivery/load.js';
 import { initWorkspace, workspaceStatus } from '../../workspace/init.js';
-import { renderBox, renderHeader } from '../render.js';
+import { renderBox, renderSection } from '../render.js';
 import { runCommand } from '../runtime.js';
 
 const DRIFT_CODES = new Set([
@@ -81,7 +81,7 @@ export function registerWorkspace(program: Command): void {
             ['index', summary.indexPath],
             ['agents', summary.config.agents.join(', ')],
           ]);
-          return `${renderHeader('📦', headerLabel)}\n${box}`;
+          return renderSection('📦', headerLabel, box);
         };
         return { payload: summary, human };
       });
@@ -103,9 +103,9 @@ export function registerWorkspace(program: Command): void {
             ['artifacts', status.artifactsRoot ?? ''],
             ['index', status.indexPath ?? ''],
           ]);
-          const lines = [`${renderHeader('📦', 'Workspace ready')}\n${box}`];
-          if (drift && drift.warnings > 0) lines.push(driftLine(drift));
-          return lines.join('\n');
+          const blocks = [box];
+          if (drift && drift.warnings > 0) blocks.push(driftLine(drift));
+          return renderSection('📦', 'Workspace ready', ...blocks);
         };
         return { payload: drift === undefined ? status : { ...status, drift }, human };
       });

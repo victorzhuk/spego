@@ -54,7 +54,8 @@ describe('CLI sprints command', () => {
   it('renders a human table and an empty message', async () => {
     const root = await setupProject();
     const empty = await spawnCli(['sprints', '--cwd', root], root);
-    expect(empty.stdout.trim()).toBe('No sprint plans.');
+    expect(empty.stdout).toContain('🏃 Sprints');
+    expect(empty.stdout).toContain('No sprint plans.');
 
     await createSprint(root, 'Sprint 1', { status: 'active', startDate: '2026-01-01', changes: ['a', 'b'] });
     const { stdout } = await spawnCli(['sprints', '--cwd', root], root);

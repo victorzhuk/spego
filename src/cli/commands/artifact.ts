@@ -14,7 +14,7 @@ import type { ArtifactRecord } from '../../artifacts/types.js';
 import { resolveAdapter, type DeliveryAdapter } from '../../delivery/index.js';
 import { assertWorkspace } from '../../delivery/openspec-discover.js';
 import { SpegoError } from '../../errors.js';
-import { renderDivider, renderHeader, renderTable } from '../render.js';
+import { renderDivider, renderHeader, renderSection, renderTable } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 import { resolveBody } from '../body-input.js';
 import { assertEpicSlugActive } from '../epic-slug.js';
@@ -238,7 +238,7 @@ export function registerArtifact(program: Command): void {
    await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
     const items = engine.list({ type: opts.type, includeDeleted: opts.includeDeleted });
     const human = (): string => {
-     if (items.length === 0) return 'No artifacts.';
+     if (items.length === 0) return renderSection('📦', 'Artifacts', 'No artifacts.');
      const rows = items.map((a) => [
       `${a.type}/${a.slug}`,
       String(a.revision),
@@ -247,7 +247,7 @@ export function registerArtifact(program: Command): void {
       a.id,
      ]);
      const table = renderTable(['type/slug', 'rev', 'status', 'title', 'id'], rows);
-     return `${renderHeader('📦', 'Artifacts')}\n${table}`;
+     return renderSection('📦', 'Artifacts', table);
     };
     return { payload: items, human };
    });

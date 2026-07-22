@@ -33,10 +33,11 @@ async function setupWithChange(changeName: string, tasksMd?: string): Promise<st
 }
 
 describe('CLI epics command', () => {
-  it('returns "No epics." in human mode for an OpenSpec workspace with no changes', async () => {
+  it('returns "No epics." under the section header for an OpenSpec workspace with no changes', async () => {
     const root = await setupWithOpenSpec();
     const { stdout } = await spawnCli(['epics', '--cwd', root], root);
-    expect(stdout.trim()).toBe('No epics.');
+    expect(stdout).toContain('📚 Epics (openspec)');
+    expect(stdout).toContain('No epics.');
   });
 
   it('returns an empty JSON array when no changes exist', async () => {
@@ -97,13 +98,14 @@ describe('CLI epics command', () => {
 });
 
 describe('CLI tasks command', () => {
-  it('returns "No tasks for <name>." in human mode for a change without tasks', async () => {
+  it('returns "No tasks for <name>." under the section header for a change without tasks', async () => {
     const root = await setupWithChange('empty-change');
     const { stdout } = await spawnCli(
       ['tasks', 'empty-change', '--cwd', root],
       root,
     );
-    expect(stdout.trim()).toBe('No tasks for empty-change.');
+    expect(stdout).toContain('✅ Tasks: empty-change (openspec)');
+    expect(stdout).toContain('No tasks for empty-change.');
   });
 
   it('lists tasks in JSON mode', async () => {

@@ -12,7 +12,7 @@ import { readConfig } from '../../workspace/config.js';
 import { resolveAdapter } from '../../delivery/index.js';
 import type { DeliveryAdapter, DeliveryEpicLink, DeliveryTaskSummary } from '../../delivery/index.js';
 import { SpegoError } from '../../errors.js';
-import { renderHeader, renderTable } from '../render.js';
+import { renderSection, renderTable } from '../render.js';
 import { runCommand } from '../runtime.js';
 
 const MUTATING_ACTIONS = new Set([
@@ -66,7 +66,7 @@ export function registerDelivery(program: Command): void {
             payload: epic,
             human: () => {
               const table = renderTable(['id', 'status', 'progress', 'title'], [renderEpicRow(epic)]);
-              return `${renderHeader('📚', `Epic (${adapter.name})`)}\n${table}`;
+              return renderSection('📚', `Epic (${adapter.name})`, table);
             },
           };
         }
@@ -74,12 +74,12 @@ export function registerDelivery(program: Command): void {
         return {
           payload: epics,
           human: () => {
-            if (epics.length === 0) return 'No epics.';
+            if (epics.length === 0) return renderSection('📚', `Epics (${adapter.name})`, 'No epics.');
             const table = renderTable(
               ['id', 'status', 'progress', 'title'],
               epics.map(renderEpicRow),
             );
-            return `${renderHeader('📚', `Epics (${adapter.name})`)}\n${table}`;
+            return renderSection('📚', `Epics (${adapter.name})`, table);
           },
         };
       });
@@ -102,7 +102,7 @@ export function registerDelivery(program: Command): void {
             payload: found,
             human: () => {
               const table = renderTable(['done', 'title'], [renderTaskRow(found)]);
-              return `${renderHeader('✅', `Task: ${change} (${adapter.name})`)}\n${table}`;
+              return renderSection('✅', `Task: ${change} (${adapter.name})`, table);
             },
           };
         }
@@ -110,9 +110,9 @@ export function registerDelivery(program: Command): void {
         return {
           payload: tasks,
           human: () => {
-            if (tasks.length === 0) return `No tasks for ${change}.`;
+            if (tasks.length === 0) return renderSection('✅', `Tasks: ${change} (${adapter.name})`, `No tasks for ${change}.`);
             const table = renderTable(['done', 'title'], tasks.map(renderTaskRow));
-            return `${renderHeader('✅', `Tasks: ${change} (${adapter.name})`)}\n${table}`;
+            return renderSection('✅', `Tasks: ${change} (${adapter.name})`, table);
           },
         };
       });

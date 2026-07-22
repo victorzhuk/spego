@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- Uniform human output: every command renders an emoji section header, one blank line, then content; empty states ("No epics.", "No artifacts.", …) keep their section header.
+- Delivery board header emoji is now `📋` (the mirror emoji `🪞` renders poorly in common terminal fonts).
+
 ## [0.14.0] - 2026-07-22
 
 ### Added

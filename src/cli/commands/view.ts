@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 import { z } from 'zod';
 import { SpegoError } from '../../errors.js';
 import { viewArtifacts } from '../../export/view.js';
-import { intersperseBundleDividers, renderHeader } from '../render.js';
+import { intersperseBundleDividers, renderSection } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 
 export function registerView(program: Command): void {
@@ -46,7 +46,7 @@ export function registerView(program: Command): void {
      const body = intersperseBundleDividers(view.markdown.content);
      return {
       payload: view.json,
-      human: () => `${renderHeader('📦', 'Artifact bundle')}\n${body}`,
+      human: () => renderSection('📦', 'Artifact bundle', body),
      };
     },
    );

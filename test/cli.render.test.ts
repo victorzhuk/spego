@@ -3,6 +3,7 @@ import {
   renderBox,
   renderTable,
   renderHeader,
+  renderSection,
   renderDivider,
   truncate,
   padRight,
@@ -102,6 +103,16 @@ describe('renderTable', () => {
 describe('renderHeader', () => {
   it('joins emoji and label with a single space', () => {
     expect(renderHeader('📦', 'Artifacts')).toBe('📦 Artifacts');
+  });
+});
+
+describe('renderSection', () => {
+  it('separates the header from content with one blank line', () => {
+    expect(renderSection('📦', 'Artifacts', 'body')).toBe('📦 Artifacts\n\nbody');
+  });
+
+  it('separates multiple blocks with blank lines and drops empty blocks', () => {
+    expect(renderSection('📦', 'S', 'a', '', 'b')).toBe('📦 S\n\na\n\nb');
   });
 });
 

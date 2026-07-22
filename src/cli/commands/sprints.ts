@@ -6,7 +6,7 @@
 import type { Command } from 'commander';
 import { toMirrorArtifact } from '../../delivery/load.js';
 import { summarizeSprints, type SprintSummary } from '../../delivery/mirror.js';
-import { renderHeader, renderTable } from '../render.js';
+import { renderSection, renderTable } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 
 function sprintRow(sprint: SprintSummary): string[] {
@@ -27,9 +27,9 @@ export function registerSprints(program: Command): void {
         return {
           payload: sprints,
           human: () => {
-            if (sprints.length === 0) return 'No sprint plans.';
+            if (sprints.length === 0) return renderSection('🏃', 'Sprints', 'No sprint plans.');
             const table = renderTable(['sprint', 'status', 'window', 'changes', 'title'], sprints.map(sprintRow), { maxWidth: 48 });
-            return `${renderHeader('🏃', 'Sprints')}\n${table}`;
+            return renderSection('🏃', 'Sprints', table);
           },
         };
       });

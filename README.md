@@ -36,7 +36,7 @@ All commands accept `--cwd <dir>` to set the project root.
 
 Every spego command speaks two output modes:
 
-- **Human (default)** — pretty, scannable output for terminals. Section headers use a single emoji prefix (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑`), summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
+- **Human (default)** — pretty, scannable output for terminals. Every command renders a section: a single emoji header (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑 📋 🏃 🕸️ 🧩`), one blank line, then the content. Summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
 - **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr; `details` is always an object.
 
 Agents calling spego MUST pass `--json` so they get parseable output. Humans normally do not.

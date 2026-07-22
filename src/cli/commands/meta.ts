@@ -7,7 +7,7 @@ import type { Command } from 'commander';
 import { COMMAND_REGISTRY } from '../../command-meta/registry.js';
 import type { CommandMeta } from '../../command-meta/registry.js';
 import { WORKFLOW_REGISTRY } from '../../workflows/registry.js';
-import { renderHeader, renderTable } from '../render.js';
+import { renderSection, renderTable } from '../render.js';
 import { runCommand } from '../runtime.js';
 
 function renderCommandsHuman(): string {
@@ -26,13 +26,13 @@ function renderCommandsHuman(): string {
    return `${titles[cat]}\n${table}`;
   })
   .filter((s) => s.length > 0);
- return [renderHeader('🛠️', 'Commands'), '', sections.join('\n\n')].join('\n');
+ return renderSection('🛠️', 'Commands', ...sections);
 }
 
 function renderWorkflowsHuman(): string {
  const rows = WORKFLOW_REGISTRY.map((w) => [w.name, String(w.phases.length), w.description]);
  const table = renderTable(['name', 'phases', 'description'], rows, { maxWidth: 80 });
- return [renderHeader('🧭', 'Workflows'), '', table].join('\n');
+ return renderSection('🧭', 'Workflows', table);
 }
 
 export function registerMeta(program: Command): void {

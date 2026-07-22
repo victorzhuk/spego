@@ -3,7 +3,7 @@
  */
 
 import type { Command } from 'commander';
-import { renderBox, renderHeader, renderTable } from '../render.js';
+import { renderBox, renderSection, renderTable } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 
 export function registerIndex(program: Command): void {
@@ -22,14 +22,13 @@ export function registerIndex(program: Command): void {
             ['indexed', String(report.indexedArtifacts)],
             ['invalid', String(report.invalidFiles.length)],
           ]);
-          const header = renderHeader('📦', 'Index rebuild');
-          if (report.invalidFiles.length === 0) return `${header}\n${summary}`;
+          if (report.invalidFiles.length === 0) return renderSection('📦', 'Index rebuild', summary);
           const table = renderTable(
             ['path', 'error'],
             report.invalidFiles.map((i) => [i.path, i.error]),
             { maxWidth: 80 },
           );
-          return `${header}\n${summary}\n\nInvalid files:\n${table}`;
+          return renderSection('📦', 'Index rebuild', summary, `Invalid files:\n${table}`);
         };
         return { payload: report, human };
       });

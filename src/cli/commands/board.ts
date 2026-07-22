@@ -40,7 +40,7 @@ export function registerBoard(program: Command): void {
 }
 
 function renderBoard(board: MirrorBoard): string {
-  const lines = [renderHeader('🪞', 'Delivery board'), ''];
+  const lines = [renderHeader('📋', 'Delivery board'), ''];
   if (board.sprints.length === 0 && board.ungrouped.length === 0) {
     lines.push('No groomed delivery board.');
   }

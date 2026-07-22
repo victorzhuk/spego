@@ -97,6 +97,16 @@ export function renderHeader(emoji: string, label: string): string {
   return `${emoji} ${label}`;
 }
 
+/**
+ * Render a section: emoji header, one blank line, then content blocks
+ * separated by blank lines. Every command's human output goes through this
+ * so spacing stays uniform across the surface.
+ */
+export function renderSection(emoji: string, label: string, ...blocks: string[]): string {
+  const content = blocks.filter((block) => block.length > 0).join('\n\n');
+  return `${renderHeader(emoji, label)}\n\n${content}`;
+}
+
 /** Render a `─` divider of the given width (default 60). */
 export function renderDivider(width: number = 60): string {
   return '─'.repeat(Math.max(1, width));
