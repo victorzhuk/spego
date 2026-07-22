@@ -19,7 +19,8 @@ import { registerView } from './cli/commands/view.js';
 import { registerIndex } from './cli/commands/index-rebuild.js';
 import { registerSkills } from './cli/commands/skills.js';
 import { registerDelivery } from './cli/commands/delivery.js';
-import { registerMirror } from './cli/commands/mirror.js';
+import { registerBoard } from './cli/commands/board.js';
+import { registerSprints } from './cli/commands/sprints.js';
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -56,7 +57,8 @@ export function buildProgram(): Command {
   registerIndex(program);
   registerSkills(program);
   registerDelivery(program);
-  registerMirror(program);
+  registerBoard(program);
+  registerSprints(program);
 
   return program;
 }

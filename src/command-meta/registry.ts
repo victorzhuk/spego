@@ -3,6 +3,7 @@ export interface InputField {
   type: 'string' | 'number' | 'boolean' | 'json';
   required: boolean;
   description: string;
+  positional?: boolean;
 }
 
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
@@ -111,7 +112,6 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       id: { name: 'id', type: 'string', required: false, description: 'Limit to a single artifact' },
       revision: { name: 'revision', type: 'number', required: false, description: 'Specific revision (requires --id)' },
       includeDeleted: { name: 'includeDeleted', type: 'boolean', required: false, description: 'Include soft-deleted artifacts' },
-      format: { name: 'format', type: 'string', required: false, description: 'Output format: markdown | json' },
     },
     outputModes: ['markdown', 'json'],
   },
@@ -135,20 +135,31 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'epics',
-    description: 'List epics',
+    description: 'List epics or get a single epic by change name',
     slashName: '/spego:epics',
     category: 'planning',
-    inputSchema: {},
+    inputSchema: {
+      name: { name: 'name', type: 'string', required: false, description: 'Change name to get a single epic', positional: true },
+    },
     outputModes: ['markdown', 'json'],
   },
   {
     name: 'tasks',
-    description: 'List tasks for a change',
+    description: 'List tasks for a change or get a single task',
     slashName: '/spego:tasks',
     category: 'planning',
     inputSchema: {
-      change: { name: 'change', type: 'string', required: true, description: 'Change or epic name' },
+      change: { name: 'change', type: 'string', required: true, description: 'Change or epic name', positional: true },
+      task: { name: 'task', type: 'string', required: false, description: 'Task id to get a single task', positional: true },
     },
+    outputModes: ['markdown', 'json'],
+  },
+  {
+    name: 'sprints',
+    description: 'List sprint plans in board order',
+    slashName: '/spego:sprints',
+    category: 'planning',
+    inputSchema: {},
     outputModes: ['markdown', 'json'],
   },
   {
@@ -160,9 +171,9 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     outputModes: ['markdown', 'json'],
   },
   {
-    name: 'mirror',
-    description: 'Show delivery mirror board',
-    slashName: '/spego:mirror',
+    name: 'board',
+    description: 'Show the delivery board (sprints, blockers, gaps)',
+    slashName: '/spego:board',
     category: 'planning',
     inputSchema: {
       graph: { name: 'graph', type: 'boolean', required: false, description: 'Show dependency graph' },

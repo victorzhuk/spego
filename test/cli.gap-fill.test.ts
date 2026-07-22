@@ -349,7 +349,7 @@ describe('CLI input error contract', () => {
     }
   });
 
-  it('preserves create markdown and --format json output', async () => {
+  it('preserves create markdown and global --json view output', async () => {
     const { root, cleanup } = await setupInitialized();
     cleanups.push(cleanup);
     const { stdout } = await spawnCli(
@@ -358,8 +358,7 @@ describe('CLI input error contract', () => {
     );
     const created = JSON.parse(stdout);
     expect(created.markdown).toBe(await fs.readFile(created.path, 'utf8'));
-    const view = await spawnCli(['view', '--format', 'json', '--cwd', root], root);
+    const view = await spawnCli(['--json', 'view', '--cwd', root], root);
     expect(JSON.parse(view.stdout).format).toBe('json');
-    expect(view.stderr).toContain('--format is deprecated');
   });
 });

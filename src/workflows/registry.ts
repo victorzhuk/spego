@@ -169,7 +169,7 @@ const HELP: WorkflowMeta = {
         '1. **Active OpenSpec changes exist and the user wants ideation** → Recommend: `spego-change-brainstorm` for the relevant change before unrelated artifact creation.\n' +
         '2. **Active OpenSpec changes exist and the user wants review, QA, or risk analysis** → Recommend: `spego-change-review` for the relevant change.\n' +
         '3. **Active OpenSpec changes exist and the user wants archive readiness or verification capture** → Recommend: run the matching OPSX/OpenSpec verification first, then `spego-change-verify-report` to persist findings.\n' +
-        '4. **`spego mirror --json` reports delivery drift** (`ungroomed-change`, `orphan-epic`, `closable-sprint`) or no epics exist → Recommend: `spego-groom` for delivery mirror maintenance before artifact work.\n' +
+        '4. **`spego board --json` reports delivery drift** (`ungroomed-change`, `orphan-epic`, `closable-sprint`) or no epics exist → Recommend: `spego-groom` for delivery mirror maintenance before artifact work.\n' +
         '5. **A completed or archived OpenSpec change needs a retrospective** → Recommend: `spego-change-retro`.\n' +
         '6. **Active OpenSpec changes exist but no specific ask was supplied** → Recommend the most relevant combined workflow based on progress: `spego-change-brainstorm` for unclear scope, `spego-change-review` for active implementation, `spego-change-verify-report` before archive, or `spego-change-retro` after completion.\n' +
         '7. **No artifacts exist** → Recommend: run `spego-brainstorm-party` or `spego-brainstorm-deep` to explore the problem space, then `spego create --type prd` to capture it.\n' +
@@ -276,7 +276,7 @@ const CHANGE_BRAINSTORM: WorkflowMeta = {
     { name: 'Skeptic', role: 'Devil\'s Advocate', angle: 'Challenges weak assumptions and searches for lower-cost alternatives.' },
   ],
   phases: [
-    { name: 'read-change', instruction: 'Read the OpenSpec summary by running `spego epics --json` and locating `<changeName>`, then run `spego tasks --change <changeName> --json`. When deeper context is needed, read `openspec/changes/<changeName>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/*.md` if present.' },
+    { name: 'read-change', instruction: 'Read the OpenSpec summary by running `spego epics --json` and locating `<changeName>`, then run `spego --json tasks <changeName>`. When deeper context is needed, read `openspec/changes/<changeName>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/*.md` if present.' },
     { name: 'frame', instruction: 'Summarize the change goal, current task state, known constraints, and unresolved questions. State the OpenSpec/spego ownership boundary before ideating: OpenSpec owns delivery state, spego owns durable product-thinking artifacts.' },
     { name: 'diverge', instruction: 'Generate options, risks, implementation angles, and product questions around the change. Keep ideas tied to the OpenSpec artifacts and task state rather than inventing unrelated scope.' },
     { name: 'converge', instruction: 'Cluster related ideas, discard those outside the change boundary, and produce a ranked shortlist with rationale and follow-up questions.' },
@@ -302,7 +302,7 @@ const CHANGE_REVIEW: WorkflowMeta = {
     { name: 'Risk', role: 'Risk Analyst', angle: 'Classifies operational, product, and delivery risks.' },
   ],
   phases: [
-    { name: 'read-change', instruction: 'Read the OpenSpec summary with `spego epics --json`, read tasks with `spego tasks --change <changeName> --json`, then read available OpenSpec artifacts: `proposal.md`, `design.md`, `tasks.md`, and `specs/**/*.md`.' },
+    { name: 'read-change', instruction: 'Read the OpenSpec summary with `spego epics --json`, read tasks with `spego --json tasks <changeName>`, then read available OpenSpec artifacts: `proposal.md`, `design.md`, `tasks.md`, and `specs/**/*.md`.' },
     { name: 'review', instruction: 'Review the artifacts for contradictions, missing requirements, unclear scope, weak task breakdown, risky assumptions, and missing verification evidence. Reference concrete files or sections when possible.' },
     { name: 'classify', instruction: 'Separate findings into quality/correctness findings and delivery/product risks. Rate severity and describe the likely consequence of each finding.' },
     { name: 'recommend', instruction: 'For findings that require OpenSpec mutation, recommend the matching OPSX/OpenSpec action. Do not update OpenSpec through `spego epics` or `spego tasks`.' },
@@ -327,7 +327,7 @@ const CHANGE_VERIFY_REPORT: WorkflowMeta = {
     { name: 'QA', role: 'QA Engineer', angle: 'Checks test output, failing cases, missing coverage, and regression risk.' },
   ],
   phases: [
-    { name: 'read-change', instruction: 'Read the change summary with `spego epics --json`, task state with `spego tasks --change <changeName> --json`, and relevant OpenSpec artifacts when needed.' },
+    { name: 'read-change', instruction: 'Read the change summary with `spego epics --json`, task state with `spego --json tasks <changeName>`, and relevant OpenSpec artifacts when needed.' },
     { name: 'collect-verification', instruction: 'Collect the current OPSX/OpenSpec verification output, test output, or user-provided verification notes. If verification has not run yet, recommend running the matching OPSX/OpenSpec verification before recording a report.' },
     { name: 'assess', instruction: 'Summarize completeness, correctness, coherence, failed checks, residual risks, and whether more OpenSpec work is needed before archive.' },
     { name: 'record', instruction: 'Persist the report by running `spego --json create --type qa --title "<changeName> verification report" --body "<verification findings>"`. Keep OpenSpec task completion and archive decisions in OpenSpec.' },
@@ -380,7 +380,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'orient',
       instruction:
-        'Run `spego mirror --json` and `spego epics --json`. Collect warnings and details. Note delivery drift warnings `ungroomed-change`, `orphan-epic`, and `closable-sprint`. Treat `adapter-warning` and `adapter-unavailable` as infrastructure errors: report them, do not attempt repair.',
+        'Run `spego board --json` and `spego epics --json`. Collect warnings and details. Note delivery drift warnings `ungroomed-change`, `orphan-epic`, and `closable-sprint`. Treat `adapter-warning` and `adapter-unavailable` as infrastructure errors: report them, do not attempt repair.',
     },
     {
       name: 'sync',

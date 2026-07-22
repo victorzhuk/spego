@@ -42,10 +42,10 @@ export async function runCommand<T>(
 
 /** Run a command body that needs an `ArtifactEngine`; the engine is closed on every exit path. */
 export async function runEngineCommand<T>(
- ctx: RuntimeContext & { cwd?: string; jsonOverride?: boolean; validate?: () => Promise<void> | void },
+ ctx: RuntimeContext & { cwd?: string; validate?: () => Promise<void> | void },
  fn: (engine: ArtifactEngine, json: boolean) => Promise<CommandResult<T>>,
 ): Promise<void> {
- const json = ctx.jsonOverride ?? getJsonMode(ctx.program);
+ const json = getJsonMode(ctx.program);
  let engine: ArtifactEngine;
  try {
   await ctx.validate?.();

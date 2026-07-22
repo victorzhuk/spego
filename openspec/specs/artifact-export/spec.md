@@ -12,7 +12,7 @@ The system SHALL export artifact bundles as markdown by default and JSON when re
 - **AND** each artifact section includes title, type, id, revision, and content
 
 #### Scenario: Export filtered artifacts
-- **WHEN** an agent runs `spego view --type api --format json`
+- **WHEN** an agent runs `spego --json view --type api`
 - **THEN** the system returns only `api` artifacts as structured JSON
 
 ### Requirement: Include revision selection

@@ -17,6 +17,16 @@ describe('CLI registry/program parity', () => {
     }
   });
 
+  it('every registered command is in COMMAND_REGISTRY except documented plumbing', () => {
+    const plumbing = new Set(['help', 'commands', 'index', 'regenerate']);
+    const program = buildProgram();
+    const registryNames = new Set(COMMAND_REGISTRY.map((meta) => meta.name));
+    for (const cmd of program.commands) {
+      if (plumbing.has(cmd.name())) continue;
+      expect(registryNames.has(cmd.name()), `command '${cmd.name()}' missing from COMMAND_REGISTRY`).toBe(true);
+    }
+  });
+
   it('every COMMAND_REGISTRY entry declares both markdown and json output modes', () => {
     for (const meta of COMMAND_REGISTRY) {
       expect(meta.outputModes).toContain('markdown');

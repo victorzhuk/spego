@@ -104,7 +104,7 @@ describe('Workflow skill generation', () => {
     expect(content).toContain('### analyze');
     expect(content).toContain('### plan');
     expect(content).toContain('### summarize');
-    expect(content).toContain('spego mirror --json');
+    expect(content).toContain('spego board --json');
     expect(content).toContain('spego epics --json');
     expect(content).toContain('--expected-revision');
     expect(content).toMatch(/confirm/i);

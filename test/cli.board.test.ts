@@ -101,10 +101,10 @@ async function setupBoardFixture(): Promise<string> {
   return root;
 }
 
-describe('CLI mirror command', () => {
-  it('returns deterministic mirror JSON board shape with warnings envelope', async () => {
+describe('CLI board command', () => {
+  it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
-    const { stdout } = await spawnCli(['--json', 'mirror', '--cwd', root], root);
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const result = JSON.parse(stdout) as MirrorBoard;
 
     expect(Object.keys(result)).toEqual(['sprints', 'ungrouped', 'warnings', 'next']);
@@ -122,18 +122,18 @@ describe('CLI mirror command', () => {
 
   it('renders human board, dependency graph, and gaps report', async () => {
     const root = await setupBoardFixture();
-    const board = await spawnCli(['mirror', '--cwd', root], root);
-    expect(board.stdout).toContain('Mirror board');
+    const board = await spawnCli(['board', '--cwd', root], root);
+    expect(board.stdout).toContain('Delivery board');
     expect(board.stdout).toContain('Sprint sprint-1');
     expect(board.stdout).toContain('Suggestion: add-ui in sprint-1');
 
-    const graph = await spawnCli(['mirror', '--graph', '--cwd', root], root);
-    expect(graph.stdout).toContain('Mirror dependency graph');
+    const graph = await spawnCli(['board', '--graph', '--cwd', root], root);
+    expect(graph.stdout).toContain('Dependency graph');
     expect(graph.stdout).toContain('add-ui');
     expect(graph.stdout).toContain('add-api');
 
-    const gaps = await spawnCli(['mirror', '--gaps', '--cwd', root], root);
-    expect(gaps.stdout).toContain('Mirror gaps');
+    const gaps = await spawnCli(['board', '--gaps', '--cwd', root], root);
+    expect(gaps.stdout).toContain('Delivery gaps');
     expect(gaps.stdout).toContain('add-ui');
     expect(gaps.stdout).toContain('api-contract');
   }, 30_000);
@@ -143,7 +143,7 @@ describe('CLI mirror command', () => {
     await writeOpenSpecChange(root, 'ungroomed-one', { tasks: '- [ ] todo\n' });
     await writeOpenSpecChange(root, 'ungroomed-two', { tasks: '- [ ] todo\n' });
 
-    const { stdout } = await spawnCli(['--json', 'mirror', '--cwd', root], root);
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const result = JSON.parse(stdout) as MirrorBoard;
 
     expect(result.sprints).toEqual([]);
@@ -159,7 +159,7 @@ describe('CLI mirror command', () => {
   it('degrades to an empty board when OpenSpec workspace is absent', async () => {
     const root = await setupProject();
 
-    const { stdout } = await spawnCli(['--json', 'mirror', '--cwd', root], root);
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const result = JSON.parse(stdout) as MirrorBoard;
 
     expect(result.sprints).toEqual([]);
@@ -170,12 +170,33 @@ describe('CLI mirror command', () => {
     expect(result.next).toBeNull();
   }, 30_000);
 
-  it('lists mirror in commands JSON metadata', async () => {
+  it('status reports delivery drift for ungroomed changes', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'ungroomed-one', { tasks: '- [ ] todo\n' });
+
+    const { stdout } = await spawnCli(['--json', 'status', '--cwd', root], root);
+    const status = JSON.parse(stdout);
+    expect(status.drift.warnings).toBeGreaterThanOrEqual(1);
+    expect(status.drift.codes['ungroomed-change']).toBe(1);
+
+    const human = await spawnCli(['status', '--cwd', root], root);
+    expect(human.stdout).toContain('Delivery drift: ungroomed-change');
+    expect(human.stdout).toContain('spego-groom');
+  }, 30_000);
+
+  it('status omits drift when no OpenSpec workspace exists', async () => {
+    const root = await setupProject();
+    const { stdout } = await spawnCli(['--json', 'status', '--cwd', root], root);
+    const status = JSON.parse(stdout);
+    expect(status.drift).toBeUndefined();
+  }, 30_000);
+
+  it('lists board in commands JSON metadata', async () => {
     const { stdout } = await spawnCli(['--json', 'commands']);
     const commands = JSON.parse(stdout) as CommandMeta[];
     expect(commands).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'mirror', category: 'planning', slashName: '/spego:mirror' }),
+        expect.objectContaining({ name: 'board', category: 'planning', slashName: '/spego:board' }),
       ]),
     );
   });

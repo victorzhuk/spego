@@ -1,8 +1,5 @@
 /**
  * Bundle export: `spego view`.
- *
- * Honors the deprecated `--format` flag during the deprecation window in
- * addition to the global `--json` flag.
  */
 
 import type { Command } from 'commander';
@@ -10,8 +7,7 @@ import { z } from 'zod';
 import { SpegoError } from '../../errors.js';
 import { viewArtifacts } from '../../export/view.js';
 import { intersperseBundleDividers, renderHeader } from '../render.js';
-import { deprecate } from '../output.js';
-import { getJsonMode, runEngineCommand } from '../runtime.js';
+import { runEngineCommand } from '../runtime.js';
 
 export function registerView(program: Command): void {
  program
@@ -21,21 +17,13 @@ export function registerView(program: Command): void {
   .option('--id <id>', 'limit to a single artifact')
   .option('--revision <n>', 'specific revision (requires --id)')
   .option('--include-deleted', 'include soft-deleted artifacts', false)
-  .option('--format <fmt>', '[deprecated] markdown | json — use the global --json flag instead')
   .option('--cwd <dir>', 'project root')
   .action(async (opts) => {
-   const globalJson = getJsonMode(program);
-   if (opts.format !== undefined) {
-    deprecate(globalJson, '--format is deprecated; use the global --json flag');
-   }
-   const wantJson = globalJson || opts.format === 'json';
-
    let revision: number | undefined;
    await runEngineCommand(
     {
      program,
      cwd: opts.cwd,
-     jsonOverride: wantJson,
      validate: () => {
       if (opts.revision === undefined) return;
       const result = z.coerce.number().int().positive().safeParse(opts.revision);

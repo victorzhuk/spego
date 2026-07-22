@@ -10,6 +10,17 @@
 
 ## [Unreleased]
 
+### Added
+- `spego sprints` lists sprint plans in board order (start date, undated last).
+- `spego status` reports advisory delivery drift (ungroomed changes, orphan epics, closable sprints) with a pointer to the groom workflow.
+
+### Changed
+- **Breaking:** renamed `spego mirror` to `spego board` (`/spego:board`); the delivery board name matches what the command renders. The Mirror stays the internal derivation concept.
+- **Breaking:** `spego epics` and `spego tasks` take positional arguments: `spego epics [name]`, `spego tasks <change> [task]`. The `--change` and `--task` flags are gone; mutation verbs in the name position still fail with `DELIVERY_READ_ONLY`.
+
+### Removed
+- **Breaking:** removed the deprecated `spego view --format` flag; use the global `--json` flag.
+
 ## [0.13.1] - 2026-07-21
 
 ### Changed

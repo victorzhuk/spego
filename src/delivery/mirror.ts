@@ -360,6 +360,31 @@ export function filterMirrorGaps(board: MirrorBoard): MirrorBoard {
   };
 }
 
+export interface SprintSummary {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  startDate: string | null;
+  endDate: string | null;
+  changes: string[];
+}
+
+/** Sprint-plan listing in the same order the board uses: start date, undated last, then slug. */
+export function summarizeSprints(artifacts: MirrorArtifact[]): SprintSummary[] {
+  const plans = sortArtifacts(artifacts).map(toSprintPlan);
+  plans.sort(compareSprints);
+  return plans.map((plan) => ({
+    id: plan.artifact.id,
+    slug: plan.artifact.slug,
+    title: plan.artifact.title,
+    status: plan.status,
+    startDate: plan.startDate,
+    endDate: plan.endDate,
+    changes: plan.changes,
+  }));
+}
+
 function sortArtifacts(artifacts: MirrorArtifact[]): MirrorArtifact[] {
   const copy = [...artifacts];
   copy.sort((a, b) => {

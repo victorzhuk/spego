@@ -16,15 +16,23 @@ The system SHALL allow a project to configure the delivery adapter used for epic
 The system SHALL list top-level delivery items from the configured adapter as epic links.
 
 #### Scenario: List epics
-- **WHEN** an agent invokes `/spego:epics list`
+- **WHEN** an agent invokes `spego epics`
 - **THEN** the system returns epic link summaries with adapter name, external id, title, status, and source path
+
+#### Scenario: Get a single epic
+- **WHEN** an agent invokes `spego epics <name>` with a change name
+- **THEN** the system returns that change's epic link summary
 
 ### Requirement: List delivery tasks
 The system SHALL list task summaries from the configured adapter.
 
 #### Scenario: List tasks
-- **WHEN** an agent invokes `/spego:tasks list`
+- **WHEN** an agent invokes `spego tasks <change>`
 - **THEN** the system returns task summaries with adapter name, external id, title, status, parent epic link, and source path
+
+#### Scenario: Get a single task
+- **WHEN** an agent invokes `spego tasks <change> <task>`
+- **THEN** the system returns that task's summary
 
 ### Requirement: Keep delivery state external
 The system SHALL not mutate detailed delivery task state through the adapter in the MVP.
@@ -50,14 +58,14 @@ The adapter SHALL resolve epic status, task counts, and task summaries by parsin
 
 #### Scenario: Works without the openspec CLI installed
 - **WHEN** the `openspec` binary is not on PATH
-- **THEN** `spego mirror` and `spego epics list` still return correct statuses
+- **THEN** `spego board` and `spego epics` still return correct statuses
 - **AND** no fallback warning is emitted
 
 ### Requirement: Discover changes once per render
 The system SHALL reuse a single change discovery result across one mirror or epics invocation, and SHALL parallelize per-entry filesystem reads during discovery.
 
 #### Scenario: Single scan per mirror render
-- **WHEN** an agent runs `spego mirror`
+- **WHEN** an agent runs `spego board`
 - **THEN** the changes directory is enumerated once
 - **AND** the same discovery result feeds both the adapter epics and the change list
 

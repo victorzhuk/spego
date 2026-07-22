@@ -22,7 +22,7 @@ The system SHALL expose a view command that exports all or filtered artifacts.
 - **THEN** the command returns a markdown bundle of current artifacts
 
 #### Scenario: View filtered artifacts
-- **WHEN** an agent invokes `/spego:view --type risk --format json`
+- **WHEN** an agent invokes `spego --json view --type risk`
 - **THEN** the command returns JSON for current risk artifacts only
 
 ### Requirement: Avoid post-init prompts
@@ -160,22 +160,16 @@ The system SHALL produce JSON output that is free of decoration, emoji, and huma
 - **THEN** stderr starts with a single line of the form `⚠️  [<code>] <message>`
 - **AND** stdout is empty
 
-### Requirement: Deprecate per-command format flags in favor of the global flag
-The system SHALL treat the global `--json` flag as the only way to request JSON output. The previous `view --format <fmt>` flag SHALL be deprecated and removed in a subsequent release.
+### Requirement: The global flag is the only JSON switch
+The system SHALL treat the global `--json` flag as the only way to request JSON output. The previous `view --format <fmt>` flag SHALL be rejected as an unknown option.
 
 #### Scenario: View accepts the global JSON flag
 - **WHEN** an agent invokes `spego view --json`
 - **THEN** the command writes the artifact bundle as JSON to stdout
 
-#### Scenario: View emits a deprecation warning for --format
+#### Scenario: View rejects the removed --format flag
 - **WHEN** an agent invokes `spego view --format json`
-- **THEN** the command writes the JSON bundle to stdout with exit code 0
-- **AND** the command writes a single deprecation warning line to stderr that mentions `--format` and recommends `--json`
-
-#### Scenario: View --format markdown remains supported during deprecation window
-- **WHEN** an agent invokes `spego view --format markdown`
-- **THEN** the command writes the markdown bundle to stdout with exit code 0
-- **AND** the command writes a deprecation warning line to stderr
+- **THEN** the command fails with a nonzero exit code and an unknown-option error
 
 ### Requirement: Expose the skills regeneration command
 The system SHALL expose a top-level `skills` command that regenerates agent toolchain files (skill files and command files) for every configured agent target. The command SHALL replace the previous `regenerate` command and SHALL appear in `spego --help` and `spego commands` output.
@@ -304,15 +298,33 @@ The system SHALL report malformed CLI option values and unreadable option-refere
 - **WHEN** `spego read` or `spego view` receives `--revision` that is not a positive integer
 - **THEN** the command exits with code 2 and a `VALIDATION_FAILED` error, without attempting a revision-file lookup
 
-### Requirement: Expose mirror command
-The system SHALL expose `spego mirror` on the CLI surface with the same conventions as every other command: pretty human output by default, deterministic JSON under the global `--json` flag, entry in the command metadata registry, and no interactive prompts.
+### Requirement: Expose board command
+The system SHALL expose `spego board` on the CLI surface with the same conventions as every other command: pretty human output by default, deterministic JSON under the global `--json` flag, entry in the command metadata registry, and no interactive prompts.
 
-#### Scenario: Mirror as JSON
-- **WHEN** an agent runs `spego mirror --json`
+#### Scenario: Board as JSON
+- **WHEN** an agent runs `spego board --json`
 - **THEN** stdout carries only the deterministic JSON document
 - **AND** errors follow the standard `{ "error": { "code", "message", "details" } }` contract on stderr
 
-#### Scenario: Mirror in command metadata
+#### Scenario: Board in command metadata
 - **WHEN** an agent runs `spego commands --json`
-- **THEN** the listing includes `mirror` with its flags and description
+- **THEN** the listing includes `board` with its flags and description
+
+### Requirement: Expose sprints command
+The system SHALL expose `spego sprints` as a read-only listing of `sprint-plan` artifacts in board order (start date ascending, undated last, then slug), with human table output and deterministic JSON under the global `--json` flag.
+
+#### Scenario: Sprints as JSON
+- **WHEN** an agent runs `spego sprints --json`
+- **THEN** stdout carries a JSON array where each entry has `id`, `slug`, `title`, `status`, `startDate`, `endDate`, and `changes`
+
+### Requirement: Status reports delivery drift
+The system SHALL include an advisory drift summary in `spego status` when the workspace has an OpenSpec delivery source: counts of board drift warnings (`dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, `closable-sprint`) and a pointer to the groom workflow. Drift derivation failures SHALL NOT fail the status command.
+
+#### Scenario: Drift present
+- **WHEN** an agent runs `spego status --json` in a workspace with ungroomed changes
+- **THEN** the payload includes a `drift` object with `warnings` and per-code counts
+
+#### Scenario: No delivery source
+- **WHEN** an agent runs `spego status --json` in a workspace without OpenSpec
+- **THEN** the payload has no `drift` field
 

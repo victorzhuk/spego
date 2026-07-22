@@ -418,18 +418,13 @@ describe('CLI dual output modes', () => {
     expect(dividerMatches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('view --format json still produces JSON and emits a deprecation warning', async () => {
+  it('view --format is removed and rejected as an unknown option', async () => {
     const root = await setup();
     await cli(['--json', 'create', '--type', 'prd', '--title', 'Dep', '--body', 'b', '--cwd', root], root);
-    const { stdout, stderr } = await cli(['view', '--format', 'json', '--cwd', root], root);
-    const result = JSON.parse(stdout);
-    expect(result.format).toBe('json');
-    expect(stderr).toContain('deprecated');
-    expect(stderr).toContain('--format');
-    expect(stderr).toContain('--json');
+    await expect(cli(['view', '--format', 'json', '--cwd', root], root)).rejects.toThrow(/unknown option/i);
   });
 
-  it('view --json honours the global flag without deprecation warning', async () => {
+  it('view --json honours the global flag', async () => {
     const root = await setup();
     await cli(['--json', 'create', '--type', 'prd', '--title', 'Glob', '--body', 'b', '--cwd', root], root);
     const { stdout, stderr } = await cli(['--json', 'view', '--cwd', root], root);

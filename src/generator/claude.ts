@@ -16,7 +16,12 @@ function toKebab(name: string): string {
 function renderSkillTemplate(cmd: CommandMeta): string {
   const fields = Object.values(cmd.inputSchema);
   const options = fields
-    .map((f) => `- \`--${toKebab(f.name)}\` (${f.type}${f.required ? ', required' : ', optional'}): ${f.description}`)
+    .map((f) => {
+      const label = f.positional
+        ? (f.required ? `<${toKebab(f.name)}>` : `[${toKebab(f.name)}]`)
+        : `--${toKebab(f.name)}`;
+      return `- \`${label}\` (${f.type}${f.required ? ', required' : ', optional'}): ${f.description}`;
+    })
     .join('\n');
   const lowerDesc = cmd.description.toLowerCase();
   return [
@@ -160,8 +165,8 @@ export class ClaudeGenerator implements TargetGenerator {
     const legacyCleaned = await this.cleanupLegacyRegeneratePaths(skillsDir, commandsDir);
     files.push(...legacyCleaned);
 
-    const removedOrchestrate = await this.cleanupRemovedOrchestratePaths(skillsDir, commandsDir);
-    files.push(...removedOrchestrate);
+    const removedCommands = await this.cleanupRemovedCommandPaths(skillsDir, commandsDir);
+    files.push(...removedCommands);
 
     for (const cmd of COMMAND_REGISTRY) {
       const skillDir = path.join(skillsDir, `spego-${cmd.name}`);
@@ -213,7 +218,7 @@ export class ClaudeGenerator implements TargetGenerator {
     return cleaned;
   }
 
-  private async cleanupRemovedOrchestratePaths(
+  private async cleanupRemovedCommandPaths(
     skillsDir: string,
     commandsDir: string,
   ): Promise<GeneratedFile[]> {
@@ -221,6 +226,8 @@ export class ClaudeGenerator implements TargetGenerator {
     const removedPaths = [
       path.join(skillsDir, 'spego-orchestrate', 'SKILL.md'),
       path.join(commandsDir, 'orchestrate.md'),
+      path.join(skillsDir, 'spego-mirror', 'SKILL.md'),
+      path.join(commandsDir, 'mirror.md'),
     ];
     for (const filePath of removedPaths) {
       const action = await removeGeneratedFile(filePath);

@@ -4,7 +4,7 @@
 TBD - created by archiving change add-groom-workflow. Update Purpose after archive.
 ## Requirements
 ### Requirement: Groom delivery mirror state
-The system SHALL provide a `spego-groom` workflow skill that syncs epic artifacts with active OpenSpec changes, analyzes dependencies, judges required artifacts, flags gaps, and maintains sprint grouping — as a phased session: orient, sync, analyze, plan, summarize. The workflow SHALL orient from `spego mirror --json` and `spego epics --json` and SHALL address reported drift warnings during sync and plan phases.
+The system SHALL provide a `spego-groom` workflow skill that syncs epic artifacts with active OpenSpec changes, analyzes dependencies, judges required artifacts, flags gaps, and maintains sprint grouping — as a phased session: orient, sync, analyze, plan, summarize. The workflow SHALL orient from `spego board --json` and `spego epics --json` and SHALL address reported drift warnings during sync and plan phases.
 
 #### Scenario: Groom an ungroomed workspace
 - **WHEN** a user runs the groom workflow in a workspace with active changes and no epics

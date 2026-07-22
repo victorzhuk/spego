@@ -21,7 +21,8 @@ export default tseslint.config(
             'test/cli.epics-tasks.test.ts',
             'test/cli.gap-fill.test.ts',
             'test/cli.epic-sprint.test.ts',
-            'test/cli.mirror.test.ts',
+            'test/cli.board.test.ts',
+            'test/cli.sprints.test.ts',
             'test/epic-slug.test.ts',
             'test/delivery.test.ts',
             'test/delivery-mirror.test.ts',
@@ -46,7 +47,7 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '.spego/**', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', '.spego/**', 'coverage/**', 'scripts/**', 'eslint.config.js', 'vitest.config.ts'],
   },
   {
     rules: {

@@ -58,15 +58,31 @@ describe('CLI epics command', () => {
     expect(stdout).toContain('demo-change');
   });
 
-  it('returns one epic when --change is supplied', async () => {
+  it('returns one epic for a positional change name', async () => {
     const root = await setupWithChange('demo-change', '- [x] one\n- [ ] two\n');
     const { stdout } = await spawnCli(
-      ['--json', 'epics', '--change', 'demo-change', '--cwd', root],
+      ['--json', 'epics', 'demo-change', '--cwd', root],
       root,
     );
     const epic = JSON.parse(stdout);
     expect(epic.externalId).toBe('demo-change');
     expect(epic.taskCount).toBe(2);
+  });
+
+  it("keeps 'epics list' as a listing alias", async () => {
+    const root = await setupWithChange('demo-change', '- [x] one\n');
+    const { stdout } = await spawnCli(['--json', 'epics', 'list', '--cwd', root], root);
+    const epics = JSON.parse(stdout);
+    expect(Array.isArray(epics)).toBe(true);
+    expect(epics[0].externalId).toBe('demo-change');
+  });
+
+  it("rejects the stale 'get' action with a usage hint", async () => {
+    const root = await setupWithOpenSpec();
+    const err = await expectCliFailure(['--json', 'epics', 'get', '--cwd', root], root);
+    const parsed = JSON.parse(err.stderr);
+    expect(parsed.error.code).toBe('VALIDATION_FAILED');
+    expect(parsed.error.details.usage).toBe('spego epics <name>');
   });
 
   it('rejects mutating action with DELIVERY_READ_ONLY', async () => {
@@ -84,7 +100,7 @@ describe('CLI tasks command', () => {
   it('returns "No tasks for <name>." in human mode for a change without tasks', async () => {
     const root = await setupWithChange('empty-change');
     const { stdout } = await spawnCli(
-      ['tasks', '--change', 'empty-change', '--cwd', root],
+      ['tasks', 'empty-change', '--cwd', root],
       root,
     );
     expect(stdout.trim()).toBe('No tasks for empty-change.');
@@ -93,7 +109,7 @@ describe('CLI tasks command', () => {
   it('lists tasks in JSON mode', async () => {
     const root = await setupWithChange('demo-change', '- [x] alpha\n- [ ] beta\n');
     const { stdout } = await spawnCli(
-      ['--json', 'tasks', '--change', 'demo-change', '--cwd', root],
+      ['--json', 'tasks', 'demo-change', '--cwd', root],
       root,
     );
     const tasks = JSON.parse(stdout);
@@ -102,10 +118,10 @@ describe('CLI tasks command', () => {
     expect(tasks[0].status).toBe('done');
   });
 
-  it('returns a single task with --task', async () => {
+  it('returns a single task for a positional task id', async () => {
     const root = await setupWithChange('demo-change', '- [x] alpha\n- [ ] beta\n');
     const { stdout } = await spawnCli(
-      ['--json', 'tasks', '--change', 'demo-change', '--task', 'alpha', '--cwd', root],
+      ['--json', 'tasks', 'demo-change', 'alpha', '--cwd', root],
       root,
     );
     const task = JSON.parse(stdout);
@@ -116,7 +132,7 @@ describe('CLI tasks command', () => {
   it('rejects mutating action with DELIVERY_READ_ONLY', async () => {
     const root = await setupWithChange('demo-change', '- [x] alpha\n');
     const err = await expectCliFailure(
-      ['--json', 'tasks', 'create', '--change', 'demo-change', '--cwd', root],
+      ['--json', 'tasks', 'create', 'demo-change', '--cwd', root],
       root,
     );
     const parsed = JSON.parse(err.stderr);
@@ -125,7 +141,7 @@ describe('CLI tasks command', () => {
     expect(err.code).toBe(2);
   });
 
-  it('fails with VALIDATION_FAILED when --change is missing', async () => {
+  it('fails with VALIDATION_FAILED when the change argument is missing', async () => {
     const root = await setupWithOpenSpec();
     const err = await expectCliFailure(['--json', 'tasks', '--cwd', root], root);
     const parsed = JSON.parse(err.stderr);

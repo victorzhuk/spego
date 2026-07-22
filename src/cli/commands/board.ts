@@ -1,47 +1,31 @@
-import path from 'node:path';
 import type { Command } from 'commander';
-import type { ArtifactEngine } from '../../artifacts/engine.js';
-import type { IndexedArtifact } from '../../index/indexer.js';
-import { resolveAdapter } from '../../delivery/index.js';
-import { assertWorkspace, discoverChanges } from '../../delivery/openspec-discover.js';
-import { listEpicsFromDiscovered } from '../../delivery/openspec-adapter.js';
+import { loadBoardState } from '../../delivery/load.js';
 import {
-  deriveMirror,
   filterMirrorGaps,
-  type MirrorArtifact,
   type MirrorBoard,
   type MirrorChange,
   type MirrorInput,
   type MirrorWarning,
 } from '../../delivery/mirror.js';
-import type { DeliveryAdapter, DeliveryEpicLink, DeliveryStatus } from '../../delivery/types.js';
-import { SpegoError } from '../../errors.js';
-import { readConfig } from '../../workspace/config.js';
-import { resolveWorkspacePaths } from '../../workspace/paths.js';
 import { renderHeader, renderTable } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 
-interface MirrorCommandState {
-  input: MirrorInput;
-  board: MirrorBoard;
-}
-
-interface MirrorOptions {
+interface BoardOptions {
   cwd?: string;
   graph?: boolean;
   gaps?: boolean;
 }
 
-export function registerMirror(program: Command): void {
+export function registerBoard(program: Command): void {
   program
-    .command('mirror')
-    .description('Show delivery mirror board')
+    .command('board')
+    .description('Show the delivery board (sprints, blockers, gaps)')
     .option('--graph', 'show dependency graph', false)
     .option('--gaps', 'show gaps, missing artifacts, and blockers', false)
     .option('--cwd <dir>', 'project root')
-    .action(async (opts: MirrorOptions) => {
+    .action(async (opts: BoardOptions) => {
       await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
-        const state = await loadMirrorState(engine, opts.cwd);
+        const state = await loadBoardState(engine, opts.cwd);
         const payload = opts.gaps ? filterMirrorGaps(state.board) : state.board;
         return {
           payload,
@@ -55,128 +39,8 @@ export function registerMirror(program: Command): void {
     });
 }
 
-async function loadMirrorState(engine: ArtifactEngine, cwd: string | undefined): Promise<MirrorCommandState> {
-  const projectRoot = path.resolve(cwd ?? process.cwd());
-  const wsPaths = resolveWorkspacePaths(projectRoot);
-  const config = await readConfig(wsPaths.configPath);
-  const adapter = resolveAdapter(projectRoot, config);
-  try {
-    const input = await collectMirrorInput(engine, projectRoot, adapter);
-    return { input, board: deriveMirror(input) };
-  } catch (err) {
-    if (err instanceof SpegoError && err.code === 'DELIVERY_ADAPTER_ERROR') {
-      const warning: MirrorWarning = {
-        code: 'adapter-unavailable',
-        message: 'OpenSpec workspace unavailable; mirror board is empty.',
-        details: err.details,
-      };
-      const input: MirrorInput = {
-        changes: [],
-        epics: [],
-        sprints: [],
-        linkedArtifacts: [],
-        warnings: [warning],
-      };
-      return { input, board: deriveMirror(input) };
-    }
-    throw err;
-  }
-}
-
-async function collectMirrorInput(
-  engine: ArtifactEngine,
-  projectRoot: string,
-  adapter: DeliveryAdapter,
-): Promise<MirrorInput> {
-  if (adapter.name === 'openspec') await assertWorkspace(projectRoot);
-  const discovered = await discoverChanges(projectRoot);
-  const adapterEpics =
-    adapter.name === 'openspec'
-      ? await listEpicsFromDiscovered(
-        projectRoot,
-        discovered.filter((change) => !change.archived),
-      )
-      : await adapter.listEpics();
-  const adapterBySlug = new Map(adapterEpics.map((epic) => [epic.externalId, epic]));
-  const seen = new Set<string>();
-  const changes = discovered
-    .map((item) => {
-      seen.add(item.name);
-      const adapterEpic = adapterBySlug.get(item.name);
-      return sourceChange(item.name, item.archived, adapterEpic);
-    })
-    .sort((a, b) => a.slug.localeCompare(b.slug));
-  for (const epic of adapterEpics) {
-    if (seen.has(epic.externalId)) continue;
-    changes.push(sourceChange(epic.externalId, false, epic));
-  }
-  changes.sort((a, b) => a.slug.localeCompare(b.slug));
-
-  const epics = engine.list({ type: 'epic' }).map(indexedArtifact);
-  const sprints = engine.list({ type: 'sprint-plan' }).map(indexedArtifact);
-  const linkedArtifacts = await resolveLinkedArtifacts(engine, epics);
-  return { changes, epics, sprints, linkedArtifacts, warnings: [] };
-}
-
-function sourceChange(slug: string, archived: boolean, epic: DeliveryEpicLink | undefined) {
-  const status: DeliveryStatus = archived ? 'completed' : (epic?.status ?? 'unknown');
-  return {
-    slug,
-    title: epic?.title ?? slug,
-    status,
-    archived,
-    warnings: epic?.warnings,
-  };
-}
-
-function indexedArtifact(artifact: IndexedArtifact): MirrorArtifact {
-  return {
-    id: artifact.id,
-    type: artifact.type,
-    slug: artifact.slug,
-    title: artifact.title,
-    meta: artifact.meta,
-  };
-}
-
-async function resolveLinkedArtifacts(
-  engine: ArtifactEngine,
-  epics: MirrorArtifact[],
-): Promise<MirrorArtifact[]> {
-  const ids = new Set<string>();
-  for (const epic of epics) {
-    const links = epic.meta.links;
-    if (!Array.isArray(links)) continue;
-    for (const link of links) {
-      if (typeof link === 'string') ids.add(link);
-    }
-  }
-  const artifacts: MirrorArtifact[] = [];
-  for (const id of [...ids].sort()) {
-    try {
-      const record = await engine.readById(id);
-      artifacts.push({
-        id: record.frontmatter.id,
-        type: record.frontmatter.type,
-        slug: record.frontmatter.slug,
-        title: record.frontmatter.title,
-        meta: record.frontmatter.meta,
-      });
-    } catch (err) {
-      if (err instanceof SpegoError && err.code === 'ARTIFACT_NOT_FOUND') continue;
-      throw err;
-    }
-  }
-  artifacts.sort((a, b) => {
-    const bySlug = a.slug.localeCompare(b.slug);
-    if (bySlug !== 0) return bySlug;
-    return a.id.localeCompare(b.id);
-  });
-  return artifacts;
-}
-
 function renderBoard(board: MirrorBoard): string {
-  const lines = [renderHeader('🪞', 'Mirror board'), ''];
+  const lines = [renderHeader('🪞', 'Delivery board'), ''];
   if (board.sprints.length === 0 && board.ungrouped.length === 0) {
     lines.push('No groomed delivery board.');
   }
@@ -209,7 +73,7 @@ function renderGraph(board: MirrorBoard, input: MirrorInput): string {
       rows.push([change.slug, visible.has(dep) ? dep : `${dep} (missing)`, change.blockers.join(', ') || '—', change.status]);
     }
   }
-  const lines = [renderHeader('🕸️', 'Mirror dependency graph'), ''];
+  const lines = [renderHeader('🕸️', 'Dependency graph'), ''];
   if (rows.length === 0) lines.push('No dependency edges.');
   else lines.push(renderTable(['change', 'depends on', 'blockers', 'status'], rows, { maxWidth: 48 }));
   lines.push('');
@@ -228,7 +92,7 @@ function renderGaps(board: MirrorBoard): string {
   for (const change of board.ungrouped) {
     rows.push([change.slug, '—', change.blockers.join(', ') || '—', formatGaps(change), change.missing.join(', ') || '—']);
   }
-  const lines = [renderHeader('🧩', 'Mirror gaps'), ''];
+  const lines = [renderHeader('🧩', 'Delivery gaps'), ''];
   if (rows.length === 0) lines.push('No gaps, missing artifacts, or blockers.');
   else lines.push(renderTable(['change', 'sprint', 'blockers', 'gaps', 'missing'], rows, { maxWidth: 48 }));
   lines.push('');

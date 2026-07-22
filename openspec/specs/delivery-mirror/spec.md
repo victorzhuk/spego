@@ -7,7 +7,7 @@ TBD - created by archiving change add-mirror-command. Update Purpose after archi
 The system SHALL derive the Mirror on demand from read-only inputs — OpenSpec adapter state, epic artifacts, and sprint-plan artifacts — and SHALL NOT store the derived graph or mutate any artifact or OpenSpec file while rendering. Derived state SHALL include per-change status, dependency edges, blockers, gap flags, and missing artifacts computed as `requires` minus resolvable `links`.
 
 #### Scenario: Board from groomed workspace
-- **WHEN** an agent runs `spego mirror --json` in a workspace with epics and sprint-plans
+- **WHEN** an agent runs `spego board --json` in a workspace with epics and sprint-plans
 - **THEN** the output lists sprints in sprint order with their changes in list order
 - **AND** each change carries status, blockers, gaps, and missing artifacts
 - **AND** no artifact or OpenSpec file is modified
@@ -18,7 +18,7 @@ The system SHALL derive the Mirror on demand from read-only inputs — OpenSpec 
 - **THEN** X is reported blocked by D
 
 #### Scenario: Empty mirror state
-- **WHEN** an agent runs `spego mirror` in a workspace with active changes but no epic artifacts
+- **WHEN** an agent runs `spego board` in a workspace with active changes but no epic artifacts
 - **THEN** the command succeeds with the adapter-only view
 - **AND** each active change is flagged `ungroomed-change`
 
@@ -49,6 +49,6 @@ The system SHALL suggest as next the first pending, unblocked change in the acti
 The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes.
 
 #### Scenario: Gap focus
-- **WHEN** an agent runs `spego mirror --gaps --json`
+- **WHEN** an agent runs `spego board --gaps --json`
 - **THEN** the output is limited to changes with gap flags or missing artifacts, plus warnings
 

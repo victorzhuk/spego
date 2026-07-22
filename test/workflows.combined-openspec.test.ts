@@ -67,7 +67,7 @@ describe('Combined OpenSpec generated skill content', () => {
 
     const brainstorm = await readWorkflowSkill(root, 'change-brainstorm');
     expect(brainstorm).toContain('spego epics --json');
-    expect(brainstorm).toContain('spego tasks --change <changeName> --json');
+    expect(brainstorm).toContain('spego --json tasks <changeName>');
     expect(brainstorm).toContain('proposal.md');
     expect(brainstorm).toContain('design.md');
     expect(brainstorm).toContain('tasks.md');

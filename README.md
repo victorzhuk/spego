@@ -24,9 +24,10 @@ spego init --agents claude,opencode --demo false
 | `spego commands` | List command metadata |
 | `spego workflows` | List workflow skills metadata |
 | `spego skills` | Regenerate agent skill files |
-| `spego epics` | List delivery epics |
-| `spego tasks --change <name>` | List tasks for a change |
-| `spego mirror` | Show delivery mirror board |
+| `spego epics [name]` | List delivery epics, or get one by change name |
+| `spego tasks <change> [task]` | List tasks for a change, or get one task |
+| `spego sprints` | List sprint plans in board order |
+| `spego board` | Show the delivery board (sprints, blockers, gaps) |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.
@@ -39,8 +40,6 @@ Every spego command speaks two output modes:
 - **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr; `details` is always an object.
 
 Agents calling spego MUST pass `--json` so they get parseable output. Humans normally do not.
-
-The legacy `spego view --format markdown|json` flag is **deprecated** and will be removed in the next minor release. Use the global `--json` flag instead. The old flag still works during the deprecation window and prints a single `deprecated:` warning line to stderr.
 
 `spego read --json` and `spego update --json` both return artifact records with `frontmatter`, `body`, and `path`; `update` also keeps the compatibility fields `id` and `revision`.
 
@@ -91,17 +90,17 @@ The adapter is read-only. It observes OpenSpec state but does not create, contin
 | `openspec/changes/<name>/proposal.md` | Epic title |
 | `openspec/changes/<name>/tasks.md` | Task status and counts |
 
-The `openspec` binary is not required on PATH — mirror and epics resolve status entirely from `tasks.md` on disk.
+The `openspec` binary is not required on PATH — board and epics resolve status entirely from `tasks.md` on disk.
 
 Archived changes under `openspec/changes/archive/` are excluded. A change with no `tasks.md` is reported as `planning-incomplete`.
 
 ## Delivery Mirror
 
-`spego mirror` derives the delivery mirror on demand — it never writes artifacts or OpenSpec state. It combines active and archived OpenSpec changes with `epic` and `sprint-plan` artifacts into a sprint board: sprints in date order (undated last), changes in each sprint-plan's list order, per-change status, blockers, gaps, and missing artifacts (`requires` minus resolvable `links`). A change is blocked when a dependency is incomplete and not scheduled in the same or an earlier sprint.
+`spego board` derives the delivery mirror on demand — it never writes artifacts or OpenSpec state. It combines active and archived OpenSpec changes with `epic` and `sprint-plan` artifacts into a sprint board: sprints in date order (undated last), changes in each sprint-plan's list order, per-change status, blockers, gaps, and missing artifacts (`requires` minus resolvable `links`). A change is blocked when a dependency is incomplete and not scheduled in the same or an earlier sprint.
 
 The default output is the human board. `--graph` shows dependency edges; `--gaps` focuses on gap flags and missing artifacts. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change or is `null` with a hint to groom.
 
-Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. Repair belongs to the groom workflow; mirror only reports.
+Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. Repair belongs to the groom workflow; the board only reports.
 
 ## OpenCode Workflows
 
@@ -229,7 +228,7 @@ If a combined workflow discovers that OpenSpec artifacts need to change, use the
 
 Delivery-mirror workflow that reconciles active OpenSpec changes with `epic` and `sprint-plan` artifacts. One Groomer persona runs five phases:
 
-1. `orient` — read `spego mirror --json` and `spego epics --json`, then classify drift warnings.
+1. `orient` — read `spego board --json` and `spego epics --json`, then classify drift warnings.
 2. `sync` — create missing epics for ungroomed active changes and propose orphan-epic disposition.
 3. `analyze` — update deps, requires, supporting links, and gap notes on epics.
 4. `plan` — propose releasable, testable sprint groupings and create or update `sprint-plan` artifacts after confirmation.

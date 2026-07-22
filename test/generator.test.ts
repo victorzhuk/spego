@@ -264,11 +264,12 @@ describe('Command registry metadata', () => {
     expect(getCommandByName('nonexistent')).toBeUndefined();
   });
 
-  it('tasks command has --change input', () => {
+  it('tasks command has a required positional change input', () => {
     const tasks = getCommandByName('tasks');
     expect(tasks).toBeDefined();
     expect(tasks!.inputSchema.change).toBeDefined();
     expect(tasks!.inputSchema.change.required).toBe(true);
+    expect(tasks!.inputSchema.change.positional).toBe(true);
   });
 });
 
