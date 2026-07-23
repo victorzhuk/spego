@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.16.0] - 2026-07-23
 
 ### Added
 - `out-of-order-dep` drift warning: `spego board` now flags a scheduled change blocked by a dependency scheduled into a later sprint.
