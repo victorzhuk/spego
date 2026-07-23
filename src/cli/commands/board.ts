@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { styleText } from 'node:util';
 import { loadBoardState } from '../../delivery/load.js';
 import {
   filterMirrorGaps,
@@ -14,7 +15,10 @@ interface BoardOptions {
   cwd?: string;
   graph?: boolean;
   gaps?: boolean;
+  plain?: boolean;
 }
+
+const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'blockers', 'gaps', 'missing', 'title'];
 
 export function registerBoard(program: Command): void {
   program
@@ -22,6 +26,7 @@ export function registerBoard(program: Command): void {
     .description('Show the delivery board (sprints, blockers, gaps)')
     .option('--graph', 'show dependency graph', false)
     .option('--gaps', 'show gaps, missing artifacts, and blockers', false)
+    .option('--plain', 'disable ANSI color in human output', false)
     .option('--cwd <dir>', 'project root')
     .action(async (opts: BoardOptions) => {
       await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
@@ -32,26 +37,29 @@ export function registerBoard(program: Command): void {
           human: () => {
             if (opts.graph) return renderGraph(payload, state.input);
             if (opts.gaps) return renderGaps(payload);
-            return renderBoard(payload);
+            return renderBoard(payload, opts.plain === true);
           },
         };
       });
     });
 }
 
-function renderBoard(board: MirrorBoard): string {
+function renderBoard(board: MirrorBoard, plain: boolean): string {
+  const idBySlug = idMapFor(board);
   const lines = [renderHeader('📋', 'Delivery board'), ''];
   if (board.sprints.length === 0 && board.ungrouped.length === 0) {
     lines.push('No groomed delivery board.');
   }
   for (const sprint of board.sprints) {
     lines.push(`Sprint ${sprint.slug} — ${sprint.title} (${sprint.status})`);
-    lines.push(renderTable(['change', 'status', 'blockers', 'gaps', 'missing', 'title'], sprint.changes.map(changeRow), { maxWidth: 36 }));
+    const table = renderTable(BOARD_COLUMNS, sprint.changes.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 });
+    lines.push(muteBlockedRows(table, sprint.changes, plain));
     lines.push('');
   }
   if (board.ungrouped.length > 0) {
     lines.push('Ungrouped');
-    lines.push(renderTable(['change', 'status', 'blockers', 'gaps', 'missing', 'title'], board.ungrouped.map(changeRow), { maxWidth: 36 }));
+    const table = renderTable(BOARD_COLUMNS, board.ungrouped.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 });
+    lines.push(muteBlockedRows(table, board.ungrouped, plain));
     lines.push('');
   }
   appendWarnings(lines, board.warnings);
@@ -61,21 +69,24 @@ function renderBoard(board: MirrorBoard): string {
 
 function renderGraph(board: MirrorBoard, input: MirrorInput): string {
   const depsBySlug = dependencyMap(input);
-  const visible = new Set(allChanges(board).map((change) => change.slug));
+  const changes = allChanges(board);
+  const idBySlug = idMapFor(board);
+  const visible = new Set(changes.map((change) => change.slug));
   const rows: string[][] = [];
-  for (const change of allChanges(board)) {
+  for (const change of changes) {
     const deps = depsBySlug.get(change.slug) ?? [];
+    const blockers = formatBlockers(change, idBySlug);
     if (deps.length === 0) {
-      rows.push([change.slug, '—', change.blockers.join(', ') || '—', change.status]);
+      rows.push([change.id, change.slug, '—', blockers, change.status]);
       continue;
     }
     for (const dep of deps) {
-      rows.push([change.slug, visible.has(dep) ? dep : `${dep} (missing)`, change.blockers.join(', ') || '—', change.status]);
+      rows.push([change.id, change.slug, visible.has(dep) ? dep : `${dep} (missing)`, blockers, change.status]);
     }
   }
   const lines = [renderHeader('🕸️', 'Dependency graph'), ''];
   if (rows.length === 0) lines.push('No dependency edges.');
-  else lines.push(renderTable(['change', 'depends on', 'blockers', 'status'], rows, { maxWidth: 48 }));
+  else lines.push(renderTable(['id', 'change', 'depends on', 'blockers', 'status'], rows, { maxWidth: 48 }));
   lines.push('');
   appendWarnings(lines, board.warnings);
   lines.push(nextLine(board));
@@ -83,33 +94,54 @@ function renderGraph(board: MirrorBoard, input: MirrorInput): string {
 }
 
 function renderGaps(board: MirrorBoard): string {
+  const idBySlug = idMapFor(board);
   const rows: string[][] = [];
   for (const sprint of board.sprints) {
     for (const change of sprint.changes) {
-      rows.push([change.slug, sprint.slug, change.blockers.join(', ') || '—', formatGaps(change), change.missing.join(', ') || '—']);
+      rows.push([change.id, change.slug, sprint.slug, formatBlockers(change, idBySlug), formatGaps(change), change.missing.join(', ') || '—']);
     }
   }
   for (const change of board.ungrouped) {
-    rows.push([change.slug, '—', change.blockers.join(', ') || '—', formatGaps(change), change.missing.join(', ') || '—']);
+    rows.push([change.id, change.slug, '—', formatBlockers(change, idBySlug), formatGaps(change), change.missing.join(', ') || '—']);
   }
   const lines = [renderHeader('🧩', 'Delivery gaps'), ''];
   if (rows.length === 0) lines.push('No gaps, missing artifacts, or blockers.');
-  else lines.push(renderTable(['change', 'sprint', 'blockers', 'gaps', 'missing'], rows, { maxWidth: 48 }));
+  else lines.push(renderTable(['id', 'change', 'sprint', 'blockers', 'gaps', 'missing'], rows, { maxWidth: 48 }));
   lines.push('');
   appendWarnings(lines, board.warnings);
   lines.push(nextLine(board));
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
-function changeRow(change: MirrorChange): string[] {
+function changeRow(change: MirrorChange, idBySlug: Map<string, string>): string[] {
   return [
+    change.id,
     change.slug,
     change.status,
-    change.blockers.join(', ') || '—',
+    change.group,
+    formatBlockers(change, idBySlug),
     formatGaps(change),
     change.missing.join(', ') || '—',
     change.title,
   ];
+}
+
+function idMapFor(board: MirrorBoard): Map<string, string> {
+  return new Map(allChanges(board).map((change) => [change.slug, change.id]));
+}
+
+function formatBlockers(change: MirrorChange, idBySlug: Map<string, string>): string {
+  if (change.blockers.length === 0) return '—';
+  return change.blockers.map((token) => idBySlug.get(token) ?? token).join(', ');
+}
+
+/** Dims body rows for changes with pending blockers; `renderTable`'s rows array order lines up 1:1 with the table's body lines. */
+function muteBlockedRows(table: string, changes: MirrorChange[], plain: boolean): string {
+  if (plain) return table;
+  const lines = table.split('\n');
+  const header = lines.slice(0, 2);
+  const body = lines.slice(2).map((line, index) => ((changes[index]?.blockers.length ?? 0) > 0 ? styleText('dim', line) : line));
+  return [...header, ...body].join('\n');
 }
 
 function formatGaps(change: MirrorChange): string {

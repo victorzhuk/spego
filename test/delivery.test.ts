@@ -80,6 +80,48 @@ describe('delivery', () => {
       expect(changes).toHaveLength(1);
       expect(changes[0]!.archived).toBe(true);
     });
+
+    it('discoverChanges recurses into archive/ and strips the date prefix from the slug', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      const archiveDir = path.join(root, 'openspec', 'changes', 'archive', '2026-01-15-my-archived-change');
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, '.openspec.yaml'), 'schema: spec-driven\ncreated: 2026-01-15\n', 'utf8');
+
+      const changes = await discoverChanges(root);
+      expect(changes).toHaveLength(1);
+      expect(changes[0]!.name).toBe('my-archived-change');
+      expect(changes[0]!.archived).toBe(true);
+    });
+
+    it('discoverChanges keeps the literal name for archive/ entries without a date prefix', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      const archiveDir = path.join(root, 'openspec', 'changes', 'archive', 'no-date-slug');
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf8');
+
+      const changes = await discoverChanges(root);
+      expect(changes).toHaveLength(1);
+      expect(changes[0]!.name).toBe('no-date-slug');
+      expect(changes[0]!.archived).toBe(true);
+    });
+
+    it('discoverChanges skips archive/ entries without .openspec.yaml', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      await fs.mkdir(path.join(root, 'openspec', 'changes', 'archive', '2026-01-01-no-meta'), { recursive: true });
+
+      const changes = await discoverChanges(root);
+      expect(changes).toHaveLength(0);
+    });
+
+    it('discoverChanges combines flat entries with archive/ entries', async () => {
+      const { root } = await setupChange('active-change');
+      const archiveDir = path.join(root, 'openspec', 'changes', 'archive', '2026-02-01-old-change');
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf8');
+
+      const changes = await discoverChanges(root);
+      expect(changes.map((c) => c.name).sort()).toEqual(['active-change', 'old-change']);
+    });
   });
 
   describe('5.3 mapping and parsing', () => {

@@ -301,6 +301,84 @@ describe('deriveMirror', () => {
   });
 });
 
+describe('id (stable hash)', () => {
+  it('keeps a change id unchanged when an unrelated change is inserted or removed', () => {
+    const before = board({ changes: [change('m-change'), change('n-change')] });
+    const after = board({ changes: [change('a-extra'), change('m-change'), change('n-change')] });
+
+    const beforeIds = new Map(before.ungrouped.map((item) => [item.slug, item.id]));
+    const afterIds = new Map(after.ungrouped.map((item) => [item.slug, item.id]));
+
+    expect(afterIds.get('m-change')).toBe(beforeIds.get('m-change'));
+    expect(afterIds.get('n-change')).toBe(beforeIds.get('n-change'));
+  });
+
+  it('assigns distinct hash-derived ids matching the c<hex> format', () => {
+    const result = board({ changes: [change('a'), change('b')] });
+    const a = findChange(result, 'a');
+    const b = findChange(result, 'b');
+
+    expect(a?.id).toMatch(/^c[0-9a-f]{4,}$/);
+    expect(b?.id).toMatch(/^c[0-9a-f]{4,}$/);
+    expect(a?.id).not.toBe(b?.id);
+  });
+
+  it('extends only the colliding slugs on a same-length hash collision', () => {
+    // sha1('slug-12') and sha1('slug-698') share the hex prefix '8585' at 4 chars.
+    const result = board({ changes: [change('slug-12'), change('slug-698'), change('unrelated')] });
+    const collidingA = findChange(result, 'slug-12');
+    const collidingB = findChange(result, 'slug-698');
+    const untouched = findChange(result, 'unrelated');
+
+    expect(collidingA?.id).not.toBe(collidingB?.id);
+    expect(collidingA?.id).toMatch(/^c8585[0-9a-f]$/);
+    expect(collidingB?.id).toMatch(/^c8585[0-9a-f]$/);
+    expect(untouched?.id).toMatch(/^c[0-9a-f]{4}$/);
+  });
+});
+
+describe('group (parallel wave)', () => {
+  it('assigns the same group to two independent changes', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a'), epic('b')],
+    });
+
+    const a = findChange(result, 'a');
+    const b = findChange(result, 'b');
+    expect(a?.group).toBe('g001');
+    expect(b?.group).toBe('g001');
+  });
+
+  it('assigns a strictly later group to a change blocked by another', () => {
+    const result = board({
+      changes: [change('dep'), change('blocked')],
+      epics: [epic('dep'), epic('blocked', { deps: ['dep'] })],
+    });
+
+    expect(findChange(result, 'dep')?.group).toBe('g001');
+    expect(findChange(result, 'blocked')?.group).toBe('g002');
+  });
+
+  it('marks a change with a dangling dep as unresolved', () => {
+    const result = board({
+      changes: [change('has-dangling')],
+      epics: [epic('has-dangling', { deps: ['missing-dep'] })],
+    });
+
+    expect(findChange(result, 'has-dangling')?.group).toBe('!');
+  });
+
+  it('marks a completed change as done', () => {
+    const result = board({
+      changes: [change('done', 'completed')],
+      epics: [epic('done')],
+    });
+
+    expect(findChange(result, 'done')?.group).toBe('—');
+  });
+});
+
 describe('filterMirrorGaps', () => {
   it('keeps the same envelope and filters change arrays to gaps, missing, or blockers', () => {
     const result = board({

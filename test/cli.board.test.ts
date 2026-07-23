@@ -101,6 +101,17 @@ async function setupBoardFixture(): Promise<string> {
   return root;
 }
 
+async function setupWaveFixture(): Promise<string> {
+  const root = await setupOpenSpecWorkspace();
+  await createChangeEpic(root, 'wave-a', { tasks: '- [ ] todo\n' });
+  await createChangeEpic(root, 'wave-b', { tasks: '- [ ] todo\n' });
+  await createChangeEpic(root, 'wave-c', {
+    tasks: '- [ ] todo\n',
+    meta: { deps: ['wave-a'] },
+  });
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -110,14 +121,53 @@ describe('CLI board command', () => {
     expect(Object.keys(result)).toEqual(['sprints', 'ungrouped', 'warnings', 'next']);
     expect(result.sprints.map((sprint) => sprint.slug)).toEqual(['sprint-1']);
     expect(result.sprints[0]!.changes.map((change) => change.slug)).toEqual(['add-api', 'add-ui']);
+    expect(result.sprints[0]!.changes[0]).toMatchObject({ slug: 'add-api' });
     expect(result.sprints[0]!.changes[1]).toMatchObject({
       slug: 'add-ui',
       blockers: [],
       missing: ['api'],
       gaps: [{ flag: 'api-contract', note: 'API artifact missing' }],
     });
+    expect(result.sprints[0]!.changes[0]!.id).toMatch(/^c[0-9a-f]{4,}$/);
+    expect(result.sprints[0]!.changes[1]!.id).toMatch(/^c[0-9a-f]{4,}$/);
+    expect(result.sprints[0]!.changes[0]!.id).not.toBe(result.sprints[0]!.changes[1]!.id);
     expect(Array.isArray(result.warnings)).toBe(true);
     expect(result.next).toMatchObject({ change: 'add-ui', sprint: 'sprint-1' });
+  }, 30_000);
+
+  it('computes parallel-wave groups: independent changes share a group, blocked changes get a later one', async () => {
+    const root = await setupWaveFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const bySlug = new Map(result.ungrouped.map((change) => [change.slug, change]));
+
+    expect(bySlug.get('wave-a')?.group).toBe('g001');
+    expect(bySlug.get('wave-b')?.group).toBe('g001');
+    expect(bySlug.get('wave-c')?.group).toBe('g002');
+    expect(bySlug.get('wave-c')?.blockers).toEqual(['wave-a']);
+  }, 30_000);
+
+  it('renders blockers as short ids in the human board table', async () => {
+    const root = await setupWaveFixture();
+    const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
+    const waveAId = jsonBoard.ungrouped.find((change) => change.slug === 'wave-a')?.id;
+    expect(waveAId).toMatch(/^c[0-9a-f]{4,}$/);
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'));
+
+    expect(waveCLine).toContain(waveAId);
+    expect(waveCLine).not.toContain('wave-a');
+  }, 30_000);
+
+  it('honors --plain to suppress ANSI color even when color is forced on', async () => {
+    const root = await setupWaveFixture();
+    const withColor = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    expect(withColor.stdout).toContain('\x1b[');
+
+    const plain = await spawnCli(['board', '--plain', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    expect(plain.stdout).not.toContain('\x1b[');
   }, 30_000);
 
   it('renders human board, dependency graph, and gaps report', async () => {

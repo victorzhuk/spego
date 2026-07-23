@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { DeliveryStatus } from './types.js';
 
 export type WarningCode =
@@ -46,10 +47,12 @@ export interface MirrorGap {
 }
 
 export interface MirrorChange {
+  id: string;
   slug: string;
   title: string;
   status: DeliveryStatus;
   blockers: string[];
+  group: string;
   gaps: MirrorGap[];
   missing: string[];
   warnings: WarningCode[];
@@ -173,6 +176,8 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   }
 
   const knownSlugs = new Set(changeStates.keys());
+  const sortedSlugs = [...knownSlugs].sort();
+  const idBySlug = assignChangeIds(sortedSlugs);
   const depsBySlug = new Map<string, string[]>();
   for (const [slug, state] of [...changeStates].sort((a, b) => a[0].localeCompare(b[0]))) {
     depsBySlug.set(slug, uniqueStrings(state.epic?.meta.deps));
@@ -246,11 +251,17 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
 
   const cycleReach = new Map<string, boolean>();
   const blockersBySlug = new Map<string, string[]>();
-  for (const slug of [...knownSlugs].sort()) {
+  for (const slug of sortedSlugs) {
     blockersBySlug.set(
       slug,
       blockersFor(slug, depsBySlug, knownSlugs, changeStates, scheduleBySlug, cycleMembers, cycleReach),
     );
+  }
+
+  const waveMemo = new Map<string, Wave>();
+  const groupBySlug = new Map<string, string>();
+  for (const slug of sortedSlugs) {
+    groupBySlug.set(slug, renderGroup(computeWave(slug, blockersBySlug, changeStates, knownSlugs, waveMemo)));
   }
 
   const sortedWarnings = sortWarnings(warnings);
@@ -288,10 +299,12 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   const toMirrorChange = (slug: string): MirrorChange => {
     const state = changeStates.get(slug);
     return {
+      id: idBySlug.get(slug) ?? slug,
       slug,
       title: state?.title ?? slug,
       status: state?.status ?? 'unknown',
       blockers: blockersBySlug.get(slug) ?? [],
+      group: groupBySlug.get(slug) ?? '!',
       gaps: gapsBySlug.get(slug) ?? [],
       missing: missingBySlug.get(slug) ?? [],
       warnings: warningCodesByChange.get(slug) ?? [],
@@ -458,6 +471,52 @@ function gapsFromMeta(value: unknown): MirrorGap[] {
   return gaps;
 }
 
+const ID_HEX_LEN = 4;
+const ID_HEX_LEN_MAX = 40;
+
+function sha1Hex(value: string): string {
+  return createHash('sha1').update(value).digest('hex');
+}
+
+/**
+ * Deterministic id per slug: `c` + sha1(slug) hex prefix. Stable across board
+ * membership changes since it depends only on the slug itself, not position.
+ * On a same-length collision, only the colliding slugs get one more hex char,
+ * checked again; bounded by sha1's 40-hex-char length like findCycleMembers'
+ * step cap bounds its walk.
+ */
+function assignChangeIds(slugs: string[]): Map<string, string> {
+  const fullHashBySlug = new Map(slugs.map((slug) => [slug, sha1Hex(slug)]));
+  const hexLenBySlug = new Map(slugs.map((slug) => [slug, ID_HEX_LEN]));
+  let colliding = new Set(slugs);
+  let steps = 0;
+  const maxSteps = ID_HEX_LEN_MAX - ID_HEX_LEN + slugs.length + 10;
+
+  while (colliding.size > 1 && steps < maxSteps) {
+    steps += 1;
+    const slugsByCode = new Map<string, string[]>();
+    for (const slug of colliding) {
+      const code = fullHashBySlug.get(slug)!.slice(0, hexLenBySlug.get(slug)!);
+      const group = slugsByCode.get(code);
+      if (group) group.push(slug);
+      else slugsByCode.set(code, [slug]);
+    }
+    const next = new Set<string>();
+    for (const group of slugsByCode.values()) {
+      if (group.length < 2) continue;
+      for (const slug of group) {
+        const len = hexLenBySlug.get(slug)!;
+        if (len >= ID_HEX_LEN_MAX) continue;
+        hexLenBySlug.set(slug, len + 1);
+        next.add(slug);
+      }
+    }
+    colliding = next;
+  }
+
+  return new Map(slugs.map((slug) => [slug, `c${fullHashBySlug.get(slug)!.slice(0, hexLenBySlug.get(slug)!)}`]));
+}
+
 function findCycleMembers(
   slugs: string[],
   depsBySlug: Map<string, string[]>,
@@ -526,6 +585,51 @@ function blockersFor(
     blockers.add(dep);
   }
   return [...blockers].sort();
+}
+
+type Wave = number | 'done' | 'unresolved';
+
+/**
+ * Longest-path DAG level for `slug`, memoized. Two changes anywhere on the
+ * board with the same wave are guaranteed to have no dependency path between
+ * them, so they can run in parallel regardless of sprint boundaries.
+ */
+function computeWave(
+  slug: string,
+  blockersBySlug: Map<string, string[]>,
+  changeStates: Map<string, ChangeState>,
+  knownSlugs: Set<string>,
+  memo: Map<string, Wave>,
+): Wave {
+  const cached = memo.get(slug);
+  if (cached !== undefined) return cached;
+  if (changeStates.get(slug)?.status === 'completed') {
+    memo.set(slug, 'done');
+    return 'done';
+  }
+  const blockers = blockersBySlug.get(slug) ?? [];
+  if (blockers.some((token) => !knownSlugs.has(token))) {
+    memo.set(slug, 'unresolved');
+    return 'unresolved';
+  }
+  let maxBlockerWave = -1;
+  for (const blocker of blockers) {
+    const wave = computeWave(blocker, blockersBySlug, changeStates, knownSlugs, memo);
+    if (wave === 'unresolved') {
+      memo.set(slug, 'unresolved');
+      return 'unresolved';
+    }
+    if (wave !== 'done' && wave > maxBlockerWave) maxBlockerWave = wave;
+  }
+  const result = maxBlockerWave + 1;
+  memo.set(slug, result);
+  return result;
+}
+
+function renderGroup(wave: Wave): string {
+  if (wave === 'unresolved') return '!';
+  if (wave === 'done') return '—';
+  return `g${String(wave + 1).padStart(3, '0')}`;
 }
 
 function leadsToCycle(

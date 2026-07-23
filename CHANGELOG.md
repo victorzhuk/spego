@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- `spego board` now discovers changes archived under `openspec/changes/archive/<date>-<slug>/` (previously only flat `openspec/changes/` entries were scanned), removing spurious `dangling-dep` warnings for dependencies that had actually resolved via archive.
+
+### Added
+- Every change on the delivery board now carries a stable `id` (`c` + a hex slice of the slug's sha1 hash, e.g. `c4f2a`) and a `group` marking its parallel-dependency wave (`g001`, `g002`, …; `!` for an unresolved blocker; `—` for completed). The id is derived from the slug alone, so adding, removing, or archiving other changes never changes an existing change's id; blockers are reported by id instead of raw slug.
+- `spego board` gained an `id` column (also on `--graph` and `--gaps`) and a `group` column on the default table; blocked rows are dimmed in human output, disable with `--plain` or `NO_COLOR`.
+
 ## [0.14.1] - 2026-07-23
 
 ### Changed

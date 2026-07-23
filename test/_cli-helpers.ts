@@ -29,12 +29,12 @@ export interface CliExecError extends Error {
 export function spawnCli(
  args: string[],
  cwd: string = PROJECT_ROOT,
- opts: { input?: string } = {},
+ opts: { input?: string; env?: Record<string, string> } = {},
 ): Promise<CliResult> {
  const child = exec('npx', ['--silent', 'tsx', CLI_PATH, ...args], {
   cwd,
   timeout: 30_000,
-  env: { ...process.env, NODE_NO_WARNINGS: '1', npm_config_loglevel: 'silent' },
+  env: { ...process.env, NODE_NO_WARNINGS: '1', npm_config_loglevel: 'silent', ...opts.env },
  });
  if (opts.input !== undefined && child.child.stdin) {
   child.child.stdin.end(opts.input);
