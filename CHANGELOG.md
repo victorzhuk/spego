@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.15.0] - 2026-07-23
 
 ### Fixed
 - `spego board` now discovers changes archived under `openspec/changes/archive/<date>-<slug>/` (previously only flat `openspec/changes/` entries were scanned), removing spurious `dangling-dep` warnings for dependencies that had actually resolved via archive.

@@ -4,23 +4,33 @@
 TBD - created by archiving change add-mirror-command. Update Purpose after archive.
 ## Requirements
 ### Requirement: Derive the delivery mirror
-The system SHALL derive the Mirror on demand from read-only inputs — OpenSpec adapter state, epic artifacts, and sprint-plan artifacts — and SHALL NOT store the derived graph or mutate any artifact or OpenSpec file while rendering. Derived state SHALL include per-change status, dependency edges, blockers, gap flags, and missing artifacts computed as `requires` minus resolvable `links`.
+The system SHALL derive the Mirror on demand from read-only inputs — OpenSpec adapter state, epic artifacts, and sprint-plan artifacts — and SHALL NOT store the derived graph or mutate any artifact or OpenSpec file while rendering. Derived state SHALL include per-change status, dependency edges, blockers, gap flags, and missing artifacts computed as `requires` minus resolvable `links`. Each change SHALL also carry a stable `id`, derived only from its own slug (unaffected by other changes being added, removed, or archived), and a `group` marking its parallel-dependency wave, so that two changes sharing a group have no dependency path between them.
 
 #### Scenario: Board from groomed workspace
 - **WHEN** an agent runs `spego board --json` in a workspace with epics and sprint-plans
 - **THEN** the output lists sprints in sprint order with their changes in list order
-- **AND** each change carries status, blockers, gaps, and missing artifacts
+- **AND** each change carries status, blockers, gaps, missing artifacts, `id`, and `group`
 - **AND** no artifact or OpenSpec file is modified
 
 #### Scenario: Blocked change
 - **WHEN** change X's epic declares a dep on change D
 - **AND** D is not completed and is not scheduled in the same or an earlier sprint than X
-- **THEN** X is reported blocked by D
+- **THEN** X is reported blocked by D, referenced by D's `id`
 
 #### Scenario: Empty mirror state
 - **WHEN** an agent runs `spego board` in a workspace with active changes but no epic artifacts
 - **THEN** the command succeeds with the adapter-only view
 - **AND** each active change is flagged `ungroomed-change`
+
+#### Scenario: Stable id across board membership changes
+- **WHEN** a change's `id` is derived on one render
+- **AND** another change is added, removed, or archived elsewhere on the board
+- **THEN** the original change's `id` is unchanged on the next render
+
+#### Scenario: Archived dependency resolves
+- **WHEN** change X depends on change D
+- **AND** D has been archived in OpenSpec (found under `openspec/changes/archive/`)
+- **THEN** D resolves to status `completed` and is not reported as a `dangling-dep` or a blocker of X
 
 ### Requirement: Report drift warnings
 The system SHALL attach drift warnings to every mirror rendering, covering: `dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. Dependency cycles SHALL be reported, treated as blocking their members, and SHALL NOT cause non-termination.
@@ -46,9 +56,13 @@ The system SHALL suggest as next the first pending, unblocked change in the acti
 - **AND** the output hints to run the groom workflow
 
 ### Requirement: Render focused views
-The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes.
+The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board SHALL dim rows for changes with pending blockers, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY; `--json` output SHALL never carry ANSI codes.
 
 #### Scenario: Gap focus
 - **WHEN** an agent runs `spego board --gaps --json`
 - **THEN** the output is limited to changes with gap flags or missing artifacts, plus warnings
+
+#### Scenario: Plain output suppresses color
+- **WHEN** an agent runs `spego board --plain` against a workspace with blocked changes
+- **THEN** the rendered rows carry no ANSI escape codes
 
