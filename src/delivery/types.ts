@@ -18,7 +18,14 @@ export interface DeliveryTaskSummary {
   sourcePath: string;
 }
 
-export type DeliveryStatus = 'active' | 'completed' | 'planning-incomplete' | 'unknown';
+export type DeliveryStatus =
+  | 'backlog'
+  | 'in-progress'
+  | 'done'
+  | 'completed'
+  | 'blocked'
+  | 'paused'
+  | 'unknown';
 export type DeliveryItemStatus = 'done' | 'pending' | 'unknown';
 
 export interface DeliveryAdapter {

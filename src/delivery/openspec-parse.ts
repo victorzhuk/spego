@@ -68,11 +68,11 @@ export async function parseTasks(
 
   const total = tasks.length;
   if (total === 0) return noTasks();
-  const status: DeliveryStatus = done === total ? 'completed' : 'active';
+  const status: DeliveryStatus = done === total ? 'done' : 'in-progress';
 
   return { tasks, total, done, status };
 }
 
 function noTasks(): TasksResult {
-  return { tasks: [], total: 0, done: 0, status: 'planning-incomplete' };
+  return { tasks: [], total: 0, done: 0, status: 'backlog' };
 }

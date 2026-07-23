@@ -159,10 +159,10 @@ describe('delivery', () => {
       expect(result.tasks[1]!.status).toBe('pending');
     });
 
-    it('parseTasks returns planning-incomplete when no tasks.md', async () => {
+    it('parseTasks returns backlog when no tasks.md', async () => {
       const { root, relPath } = await setupChange('no-tasks');
       const result = await parseTasks(root, relPath, 'no-tasks');
-      expect(result.status).toBe('planning-incomplete');
+      expect(result.status).toBe('backlog');
       expect(result.tasks).toHaveLength(0);
     });
 
@@ -173,7 +173,15 @@ describe('delivery', () => {
       const result = await parseTasks(root, relPath, 'count-test');
       expect(result.total).toBe(5);
       expect(result.done).toBe(3);
-      expect(result.status).toBe('active');
+      expect(result.status).toBe('in-progress');
+    });
+
+    it('parseTasks returns done, not completed, when all tasks are checked but not archived', async () => {
+      const { root, relPath } = await setupChange('all-done', {
+        tasks: '- [x] a\n- [x] b\n',
+      });
+      const result = await parseTasks(root, relPath, 'all-done');
+      expect(result.status).toBe('done');
     });
 
     it('full adapter listEpics returns epic for a change with tasks', async () => {
@@ -187,7 +195,7 @@ describe('delivery', () => {
       expect(epics[0]!.title).toBe('Epic Title');
       expect(epics[0]!.taskCount).toBe(2);
       expect(epics[0]!.tasksDone).toBe(1);
-      expect(epics[0]!.status).toBe('active');
+      expect(epics[0]!.status).toBe('in-progress');
     });
 
     it('full adapter listTasks returns tasks for a change', async () => {
@@ -212,7 +220,7 @@ describe('delivery', () => {
       expect(epic.title).toBe('Single');
       expect(epic.taskCount).toBe(1);
       expect(epic.tasksDone).toBe(1);
-      expect(epic.status).toBe('completed');
+      expect(epic.status).toBe('done');
     });
 
     it('full adapter getTask returns specific task', async () => {
@@ -268,7 +276,7 @@ describe('delivery', () => {
         await adapter.listTasks('checked');
         const epic = await adapter.getEpic('mixed');
         expect(epic.externalId).toBe('mixed');
-        expect(epic.status).toBe('active');
+        expect(epic.status).toBe('in-progress');
 
         expect(execFileSpy).toHaveBeenCalledTimes(0);
       } finally {
@@ -295,9 +303,9 @@ describe('delivery', () => {
         const epics = await adapter.listEpics();
 
         const statusById = new Map(epics.map((epic) => [epic.externalId, epic.status]));
-        expect(statusById.get('all-checked')).toBe('completed');
-        expect(statusById.get('no-tasks')).toBe('planning-incomplete');
-        expect(statusById.get('mixed')).toBe('active');
+        expect(statusById.get('all-checked')).toBe('done');
+        expect(statusById.get('no-tasks')).toBe('backlog');
+        expect(statusById.get('mixed')).toBe('in-progress');
       } finally {
         process.env.PATH = originalPath;
       }

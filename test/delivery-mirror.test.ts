@@ -10,17 +10,17 @@ import {
 } from '../src/delivery/mirror.js';
 import type { DeliveryStatus } from '../src/delivery/types.js';
 
-function change(slug: string, status: DeliveryStatus = 'active', archived = false) {
+function change(slug: string, status: DeliveryStatus = 'in-progress', archived = false) {
   return { slug, title: title(slug), status, archived };
 }
 
-function epic(slug: string, meta: Record<string, unknown> = {}): MirrorArtifact {
+function epic(slug: string, meta: Record<string, unknown> = {}, status?: DeliveryStatus): MirrorArtifact {
   return {
     id: `epic-${slug}`,
     type: 'epic',
     slug,
     title: title(slug),
-    meta,
+    meta: status ? { ...meta, status } : meta,
   };
 }
 
@@ -299,6 +299,89 @@ describe('deriveMirror', () => {
       expect.objectContaining({ code: 'ungroomed-change', details: { change: 'a' } }),
       expect.objectContaining({ code: 'ungroomed-change', details: { change: 'b' } }),
     ]);
+  });
+});
+
+describe('epic-meta status override', () => {
+  it('applies a blocked override to a known change and reports it as an unsatisfied blocker', () => {
+    const result = board({
+      changes: [change('base'), change('dependent')],
+      epics: [epic('base', {}, 'blocked'), epic('dependent', { deps: ['base'] })],
+    });
+
+    expect(findChange(result, 'base')?.status).toBe('blocked');
+    expect(findChange(result, 'dependent')?.blockers).toEqual(['base']);
+  });
+
+  it('applies a paused override to a known change and reports it as an unsatisfied blocker', () => {
+    const result = board({
+      changes: [change('base'), change('dependent')],
+      epics: [epic('base', {}, 'paused'), epic('dependent', { deps: ['base'] })],
+    });
+
+    expect(findChange(result, 'base')?.status).toBe('paused');
+    expect(findChange(result, 'dependent')?.blockers).toEqual(['base']);
+  });
+
+  it('lets archived win over a blocked override', () => {
+    const result = board({
+      changes: [change('done-archived', 'completed', true)],
+      epics: [epic('done-archived', {}, 'blocked')],
+    });
+
+    expect(findChange(result, 'done-archived')?.status).toBe('completed');
+  });
+
+  it('resolves an orphan epic with a non-override status like backlog via the broader statusFromMeta path', () => {
+    const result = board({
+      epics: [epic('idea', {}, 'backlog')],
+    });
+
+    expect(findChange(result, 'idea')?.status).toBe('backlog');
+  });
+});
+
+describe('done status', () => {
+  it('treats a done, non-archived change as satisfied: not a blocker, and group hits the completed sentinel', () => {
+    const result = board({
+      changes: [change('dep', 'done'), change('target')],
+      epics: [epic('dep'), epic('target', { deps: ['dep'] })],
+    });
+
+    expect(findChange(result, 'target')?.blockers).toEqual([]);
+    expect(findChange(result, 'dep')?.group).toBe('—');
+  });
+});
+
+describe('out-of-order-dep warning', () => {
+  it('flags a dependency scheduled in a later sprint', () => {
+    const result = board({
+      changes: [change('early'), change('late')],
+      epics: [epic('early', { deps: ['late'] }), epic('late')],
+      sprints: [
+        sprint('first', ['early'], { startDate: '2026-01-01' }),
+        sprint('second', ['late'], { startDate: '2026-02-01' }),
+      ],
+    });
+
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'out-of-order-dep', details: { change: 'early', dep: 'late' } }),
+      ]),
+    );
+  });
+
+  it('does not flag a dependency scheduled in the same or an earlier sprint', () => {
+    const result = board({
+      changes: [change('early'), change('late')],
+      epics: [epic('early', { deps: ['late'] }), epic('late')],
+      sprints: [
+        sprint('first', ['late'], { startDate: '2026-01-01' }),
+        sprint('second', ['early'], { startDate: '2026-02-01' }),
+      ],
+    });
+
+    expect(result.warnings.some((warning) => warning.code === 'out-of-order-dep')).toBe(false);
   });
 });
 

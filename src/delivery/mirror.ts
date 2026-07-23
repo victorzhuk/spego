@@ -4,6 +4,7 @@ import type { DeliveryStatus } from './types.js';
 export type WarningCode =
   | 'dangling-dep'
   | 'dep-cycle'
+  | 'out-of-order-dep'
   | 'ungroomed-change'
   | 'orphan-epic'
   | 'archived-in-sprint'
@@ -101,9 +102,12 @@ interface ChangeState {
 
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}(T.*)?$/;
 const STATUS_VALUES: Record<DeliveryStatus, true> = {
-  active: true,
+  backlog: true,
+  'in-progress': true,
+  done: true,
   completed: true,
-  'planning-incomplete': true,
+  blocked: true,
+  paused: true,
   unknown: true,
 };
 const WARNING_ORDER: Record<WarningCode, number> = {
@@ -113,8 +117,9 @@ const WARNING_ORDER: Record<WarningCode, number> = {
   'closable-sprint': 3,
   'dangling-dep': 4,
   'dep-cycle': 5,
-  'orphan-epic': 6,
-  'ungroomed-change': 7,
+  'out-of-order-dep': 6,
+  'orphan-epic': 7,
+  'ungroomed-change': 8,
 };
 
 export function deriveMirror(input: MirrorInput): MirrorBoard {
@@ -139,6 +144,10 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     if (current) {
       current.title = epic.title;
       current.epic = epic;
+      if (!current.archived) {
+        const override = statusOverride(epic.meta);
+        if (override) current.status = override;
+      }
       continue;
     }
     changeStates.set(epic.slug, {
@@ -259,6 +268,20 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     );
   }
 
+  for (const slug of sortedSlugs) {
+    if (!scheduleBySlug.has(slug)) continue;
+    for (const dep of blockersBySlug.get(slug) ?? []) {
+      if (!knownSlugs.has(dep)) continue;
+      if (!scheduleBySlug.has(dep)) continue;
+      if (scheduleBySlug.get(dep)! <= scheduleBySlug.get(slug)!) continue;
+      warnings.push({
+        code: 'out-of-order-dep',
+        message: `Change "${slug}" depends on "${dep}", which is scheduled in a later sprint.`,
+        details: { change: slug, dep },
+      });
+    }
+  }
+
   const waveMemo = new Map<string, Wave>();
   const groupBySlug = new Map<string, string>();
   for (const slug of sortedSlugs) {
@@ -324,7 +347,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   for (const sprint of sprintRows) {
     if (sprint.status === 'closed') continue;
     if (sprint.changes.length === 0) continue;
-    if (!sprint.changes.every((item) => item.status === 'completed')) continue;
+    if (!sprint.changes.every((item) => item.status === 'completed' || item.status === 'done')) continue;
     sortedWarnings.push({
       code: 'closable-sprint',
       message: `Sprint "${sprint.slug}" has no pending changes and can be closed.`,
@@ -424,6 +447,15 @@ function statusFromMeta(meta: Record<string, unknown>): DeliveryStatus {
     return meta.status as DeliveryStatus;
   }
   return 'unknown';
+}
+
+/**
+ * Manual override for a known change is intentionally narrower than
+ * statusFromMeta's orphan-epic fallback: only blocked/paused are subjective
+ * states with no filesystem signal, so only they can override a derived status.
+ */
+function statusOverride(meta: Record<string, unknown>): DeliveryStatus | undefined {
+  return meta.status === 'blocked' || meta.status === 'paused' ? meta.status : undefined;
 }
 
 function toSprintPlan(artifact: MirrorArtifact): SprintPlan {
@@ -590,7 +622,8 @@ function blockersFor(
       blockers.add(dep);
       continue;
     }
-    if (states.get(dep)?.status === 'completed') continue;
+    const depStatus = states.get(dep)?.status;
+    if (depStatus === 'completed' || depStatus === 'done') continue;
     const depSchedule = scheduleBySlug.get(dep);
     if (currentSchedule !== undefined && depSchedule !== undefined && depSchedule <= currentSchedule) continue;
     blockers.add(dep);
@@ -614,7 +647,8 @@ function computeWave(
 ): Wave {
   const cached = memo.get(slug);
   if (cached !== undefined) return cached;
-  if (changeStates.get(slug)?.status === 'completed') {
+  const status = changeStates.get(slug)?.status;
+  if (status === 'completed' || status === 'done') {
     memo.set(slug, 'done');
     return 'done';
   }
@@ -698,7 +732,7 @@ function chooseNext(sprints: MirrorSprint[]): MirrorNext | null {
   const source = active.length > 0 ? 'active sprint' : 'planned sprint';
   for (const sprint of candidates) {
     for (const change of sprint.changes) {
-      if (change.status === 'completed') continue;
+      if (change.status === 'completed' || change.status === 'done') continue;
       if (change.blockers.length > 0) continue;
       return {
         change: change.slug,

@@ -38,6 +38,7 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
     deps: z.array(z.string()).optional(),
     links: z.array(z.string()).optional(),
     requires: z.array(z.string().min(1)).optional(),
+    status: z.enum(['backlog', 'in-progress', 'done', 'completed', 'blocked', 'paused', 'unknown']).optional(),
     gaps: z
       .array(
         z.object({

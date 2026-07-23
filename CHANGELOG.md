@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- `out-of-order-dep` drift warning: `spego board` now flags a scheduled change blocked by a dependency scheduled into a later sprint.
+
+### Changed
+- **Breaking:** `DeliveryStatus` is rebuilt around an agile-style vocabulary: `active` is renamed `in-progress`, `planning-incomplete` is renamed `backlog`, and `completed` now means archived specifically — a change with every task checked but not yet archived resolves to the new `done` status instead. `done` and `completed` both count as satisfied for dependency-resolution purposes. Two new manual-only statuses, `blocked` and `paused`, can be set via `status` on an `epic` artifact's own metadata (archived always wins over any manual override).
+
 ### Fixed
 - `spego board`'s default `Ungrouped` list no longer shows every archived OpenSpec change (a side effect of teaching the discoverer to recurse into `openspec/changes/archive/`); archived changes still resolve dependencies and blockers correctly, they just no longer clutter the default view. `--archived` opts back in to the old behavior.
 

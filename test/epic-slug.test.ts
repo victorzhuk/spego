@@ -8,7 +8,7 @@ function makeEpic(externalId: string): DeliveryEpicLink {
     adapterName: 'openspec',
     externalId,
     title: externalId,
-    status: 'active',
+    status: 'in-progress',
     sourcePath: `openspec/changes/${externalId}`,
   };
 }

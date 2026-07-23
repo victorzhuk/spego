@@ -52,9 +52,9 @@ The adapter SHALL resolve epic status, task counts, and task summaries by parsin
 
 #### Scenario: Status values match checkbox state
 - **WHEN** a change's `tasks.md` has all tasks checked
-- **THEN** the epic status is `completed`
-- **AND** when no tasks exist the status is `planning-incomplete`
-- **AND** otherwise the status is `active`
+- **THEN** the epic status is `done`
+- **AND** when no tasks exist, or `tasks.md` is empty, the status is `backlog`
+- **AND** otherwise the status is `in-progress`
 
 #### Scenario: Works without the openspec CLI installed
 - **WHEN** the `openspec` binary is not on PATH
