@@ -113,7 +113,7 @@ The system SHALL emit human-friendly output by default and machine-parseable JSO
 - **AND** each entry contains `name`, `description`, `personas`, `phases`, `inputs`, and `outputs`
 
 ### Requirement: Human output uses pretty rendering primitives
-The system SHALL render human output using a small fixed set of visual primitives so the surface stays scannable, copy-pasteable, and stable across commands.
+The system SHALL render human output using a small fixed set of visual primitives so the surface stays scannable, copy-pasteable, and stable across commands. Every command SHALL render a section: an emoji header line, one blank line, then content blocks separated by blank lines; empty states keep the section header above the message.
 
 #### Scenario: Workspace status uses a bordered summary box
 - **WHEN** an agent invokes `spego status` without `--json` against an initialized workspace
