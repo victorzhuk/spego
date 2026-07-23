@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { styleText } from 'node:util';
 import { loadBoardState } from '../../delivery/load.js';
 import {
+  filterMirrorArchived,
   filterMirrorGaps,
   type MirrorBoard,
   type MirrorChange,
@@ -16,6 +17,7 @@ interface BoardOptions {
   graph?: boolean;
   gaps?: boolean;
   plain?: boolean;
+  archived?: boolean;
 }
 
 const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'blockers', 'gaps', 'missing', 'title'];
@@ -27,11 +29,13 @@ export function registerBoard(program: Command): void {
     .option('--graph', 'show dependency graph', false)
     .option('--gaps', 'show gaps, missing artifacts, and blockers', false)
     .option('--plain', 'disable ANSI color in human output', false)
+    .option('--archived', 'include archived changes in the ungrouped list', false)
     .option('--cwd <dir>', 'project root')
     .action(async (opts: BoardOptions) => {
       await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
         const state = await loadBoardState(engine, opts.cwd);
-        const payload = opts.gaps ? filterMirrorGaps(state.board) : state.board;
+        const unarchived = opts.archived ? state.board : filterMirrorArchived(state.board);
+        const payload = opts.gaps ? filterMirrorGaps(unarchived) : unarchived;
         return {
           payload,
           human: () => {

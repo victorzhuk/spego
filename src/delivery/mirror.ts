@@ -56,6 +56,7 @@ export interface MirrorChange {
   gaps: MirrorGap[];
   missing: string[];
   warnings: WarningCode[];
+  archived: boolean;
 }
 
 export interface MirrorSprint {
@@ -308,6 +309,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       gaps: gapsBySlug.get(slug) ?? [],
       missing: missingBySlug.get(slug) ?? [],
       warnings: warningCodesByChange.get(slug) ?? [],
+      archived: state?.archived ?? false,
     };
   };
 
@@ -368,6 +370,15 @@ export function filterMirrorGaps(board: MirrorBoard): MirrorBoard {
       changes: sprint.changes.filter(hasGapSignal),
     })),
     ungrouped: board.ungrouped.filter(hasGapSignal),
+    warnings: board.warnings,
+    next: board.next,
+  };
+}
+
+export function filterMirrorArchived(board: MirrorBoard): MirrorBoard {
+  return {
+    sprints: board.sprints,
+    ungrouped: board.ungrouped.filter((change) => !change.archived),
     warnings: board.warnings,
     next: board.next,
   };

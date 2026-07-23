@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- `spego board`'s default `Ungrouped` list no longer shows every archived OpenSpec change (a side effect of teaching the discoverer to recurse into `openspec/changes/archive/`); archived changes still resolve dependencies and blockers correctly, they just no longer clutter the default view. `--archived` opts back in to the old behavior.
+
 ## [0.15.0] - 2026-07-23
 
 ### Fixed

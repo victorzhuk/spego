@@ -188,6 +188,50 @@ describe('CLI board command', () => {
     expect(gaps.stdout).toContain('api-contract');
   }, 30_000);
 
+  it('excludes archived changes from ungrouped by default, --archived restores them', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'active-one', { tasks: '- [ ] todo\n' });
+    await writeOpenSpecChange(root, 'archived-one', { tasks: '- [x] done\n', archived: true });
+
+    const { stdout: defaultOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const defaultResult = JSON.parse(defaultOut) as MirrorBoard;
+    expect(defaultResult.ungrouped.map((change) => change.slug)).toEqual(['active-one']);
+
+    const { stdout: archivedOut } = await spawnCli(['--json', 'board', '--archived', '--cwd', root], root);
+    const archivedResult = JSON.parse(archivedOut) as MirrorBoard;
+    expect(archivedResult.ungrouped.map((change) => change.slug)).toEqual(['active-one', 'archived-one']);
+
+    const human = await spawnCli(['board', '--cwd', root], root);
+    expect(human.stdout).not.toContain('archived-one');
+
+    const humanArchived = await spawnCli(['board', '--archived', '--cwd', root], root);
+    expect(humanArchived.stdout).toContain('archived-one');
+  }, 30_000);
+
+  it('keeps an archived change inside a sprint list regardless of --archived', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'archived-in-sprint', { tasks: '- [x] done\n', archived: true });
+    await withEngine(root, (engine) =>
+      engine.create({ type: 'epic', title: 'archived-in-sprint', slug: 'archived-in-sprint', body: '', meta: {} }),
+    );
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+      status: 'active',
+      startDate: '2026-01-01',
+      changes: ['archived-in-sprint'],
+    });
+
+    const { stdout: defaultOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const defaultResult = JSON.parse(defaultOut) as MirrorBoard;
+    expect(defaultResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-in-sprint']);
+
+    const { stdout: archivedOut } = await spawnCli(['--json', 'board', '--archived', '--cwd', root], root);
+    const archivedResult = JSON.parse(archivedOut) as MirrorBoard;
+    expect(archivedResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-in-sprint']);
+
+    const human = await spawnCli(['board', '--cwd', root], root);
+    expect(human.stdout).toContain('archived-in-sprint');
+  }, 30_000);
+
   it('keeps adapter-only output for active changes without artifacts', async () => {
     const root = await setupOpenSpecWorkspace();
     await writeOpenSpecChange(root, 'ungroomed-one', { tasks: '- [ ] todo\n' });

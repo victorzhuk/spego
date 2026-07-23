@@ -56,7 +56,7 @@ The system SHALL suggest as next the first pending, unblocked change in the acti
 - **AND** the output hints to run the groom workflow
 
 ### Requirement: Render focused views
-The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board SHALL dim rows for changes with pending blockers, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY; `--json` output SHALL never carry ANSI codes.
+The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board SHALL dim rows for changes with pending blockers, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY; `--json` output SHALL never carry ANSI codes. Archived changes SHALL be excluded from the `ungrouped` list by default; the `--archived` flag SHALL restore them. This filtering SHALL NOT remove an archived change from a sprint's own `changes` list, so `archived-in-sprint` stays actionable.
 
 #### Scenario: Gap focus
 - **WHEN** an agent runs `spego board --gaps --json`
@@ -65,4 +65,10 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 #### Scenario: Plain output suppresses color
 - **WHEN** an agent runs `spego board --plain` against a workspace with blocked changes
 - **THEN** the rendered rows carry no ANSI escape codes
+
+#### Scenario: Archived changes hidden from ungrouped by default
+- **WHEN** an agent runs `spego board` in a workspace with an archived change that is not scheduled into any sprint
+- **THEN** that change is absent from the `Ungrouped` list
+- **AND** running `spego board --archived` includes it in `Ungrouped` again
+- **AND** an archived change still scheduled into a sprint appears in that sprint's list either way
 

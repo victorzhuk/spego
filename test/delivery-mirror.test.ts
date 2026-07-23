@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deriveMirror,
+  filterMirrorArchived,
   filterMirrorGaps,
   type MirrorArtifact,
   type MirrorBoard,
@@ -13,13 +14,13 @@ function change(slug: string, status: DeliveryStatus = 'active', archived = fals
   return { slug, title: title(slug), status, archived };
 }
 
-function epic(slug: string, meta: Record<string, unknown> = {}, status?: DeliveryStatus): MirrorArtifact {
+function epic(slug: string, meta: Record<string, unknown> = {}): MirrorArtifact {
   return {
     id: `epic-${slug}`,
     type: 'epic',
     slug,
     title: title(slug),
-    meta: status ? { ...meta, status } : meta,
+    meta,
   };
 }
 
@@ -399,5 +400,42 @@ describe('filterMirrorGaps', () => {
     expect(filtered.sprints[0]!.changes.map((item) => item.slug)).toEqual(['gap', 'missing', 'blocked']);
     expect(filtered.ungrouped).toEqual([]);
     expect(filtered.warnings).toBe(result.warnings);
+  });
+});
+
+describe('MirrorChange.archived', () => {
+  it('marks archived changes true and everything else false', () => {
+    const result = board({
+      changes: [change('active-one'), change('archived-one', 'completed', true)],
+      epics: [epic('active-one'), epic('archived-one')],
+    });
+
+    expect(findChange(result, 'active-one')?.archived).toBe(false);
+    expect(findChange(result, 'archived-one')?.archived).toBe(true);
+  });
+});
+
+describe('filterMirrorArchived', () => {
+  it('drops archived changes from ungrouped but leaves sprints and other fields untouched', () => {
+    const result = board({
+      changes: [change('active-one'), change('archived-one', 'completed', true)],
+      epics: [epic('active-one'), epic('archived-one')],
+      sprints: [sprint('active', ['archived-one'], { status: 'active', startDate: '2026-01-01' })],
+    });
+
+    const filtered = filterMirrorArchived(result);
+
+    expect(Object.keys(filtered)).toEqual(['sprints', 'ungrouped', 'warnings', 'next']);
+    expect(filtered.ungrouped.map((item) => item.slug)).toEqual(['active-one']);
+    expect(filtered.sprints).toBe(result.sprints);
+    expect(filtered.sprints[0]!.changes.map((item) => item.slug)).toEqual(['archived-one']);
+    expect(filtered.warnings).toBe(result.warnings);
+    expect(filtered.next).toBe(result.next);
+  });
+
+  it('keeps a non-archived ungrouped change', () => {
+    const result = board({ changes: [change('plain-one')] });
+
+    expect(filterMirrorArchived(result).ungrouped.map((item) => item.slug)).toEqual(['plain-one']);
   });
 });

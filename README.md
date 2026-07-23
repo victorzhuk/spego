@@ -102,6 +102,8 @@ Every change carries a stable `id` (`c` + a 4+ hex-char slice of the slug's sha1
 
 The default output is the human board. `--graph` shows dependency edges; `--gaps` focuses on gap flags and missing artifacts; both also carry the `id` column. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change or is `null` with a hint to groom.
 
+Archived changes are excluded from the `Ungrouped` list by default — they still resolve dependencies and blockers correctly, just aren't shown as loose noise. Pass `--archived` to bring them back. A sprint's own change list is never filtered by this: an archived change still scheduled in a sprint keeps showing there, since that's exactly what the `archived-in-sprint` warning flags.
+
 The default board table dims rows for changes with pending blockers. Pass `--plain` to force plain output regardless of terminal detection; color is otherwise skipped automatically when stdout is not a TTY, and the `NO_COLOR` env var disables it too. `--json` output never carries ANSI codes.
 
 Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. Repair belongs to the groom workflow; the board only reports.
