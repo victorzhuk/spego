@@ -67,11 +67,23 @@ describe('delivery', () => {
       expect(changes[0]!.archived).toBe(false);
     });
 
-    it('discoverChanges skips directories without .openspec.yaml', async () => {
+    it('discoverChanges skips directories without .openspec.yaml or proposal.md', async () => {
       const { root } = await setupOpenSpecWorkspace();
       await fs.mkdir(path.join(root, 'openspec', 'changes', 'no-meta'), { recursive: true });
       const changes = await discoverChanges(root);
       expect(changes).toHaveLength(0);
+    });
+
+    it('discoverChanges accepts a change dir with proposal.md but no .openspec.yaml', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      const changeDir = path.join(root, 'openspec', 'changes', 'no-marker-change');
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'proposal.md'), '# No Marker Change\n', 'utf8');
+
+      const changes = await discoverChanges(root);
+      expect(changes).toHaveLength(1);
+      expect(changes[0]!.name).toBe('no-marker-change');
+      expect(changes[0]!.archived).toBe(false);
     });
 
     it('discoverChanges excludes archived changes', async () => {
@@ -105,12 +117,24 @@ describe('delivery', () => {
       expect(changes[0]!.archived).toBe(true);
     });
 
-    it('discoverChanges skips archive/ entries without .openspec.yaml', async () => {
+    it('discoverChanges skips archive/ entries without .openspec.yaml or proposal.md', async () => {
       const { root } = await setupOpenSpecWorkspace();
       await fs.mkdir(path.join(root, 'openspec', 'changes', 'archive', '2026-01-01-no-meta'), { recursive: true });
 
       const changes = await discoverChanges(root);
       expect(changes).toHaveLength(0);
+    });
+
+    it('discoverChanges accepts an archive/ entry with proposal.md but no .openspec.yaml', async () => {
+      const { root } = await setupOpenSpecWorkspace();
+      const archiveDir = path.join(root, 'openspec', 'changes', 'archive', '2026-01-15-no-marker-archived');
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, 'proposal.md'), '# No Marker Archived\n', 'utf8');
+
+      const changes = await discoverChanges(root);
+      expect(changes).toHaveLength(1);
+      expect(changes[0]!.name).toBe('no-marker-archived');
+      expect(changes[0]!.archived).toBe(true);
     });
 
     it('discoverChanges combines flat entries with archive/ entries', async () => {

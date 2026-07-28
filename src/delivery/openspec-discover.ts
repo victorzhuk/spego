@@ -43,7 +43,20 @@ async function listDirEntries(dir: string): Promise<string[]> {
   }
 }
 
-async function hasMetaFile(fullPath: string): Promise<boolean> {
+async function fileExists(fullPath: string): Promise<boolean> {
+  try {
+    return (await stat(fullPath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A directory is a change if it carries either the openspec `.openspec.yaml`
+ * marker or a `proposal.md` — the marker is written by only some openspec
+ * CLI/workflow paths, `proposal.md` is universal across all of them.
+ */
+async function isChangeDir(fullPath: string): Promise<boolean> {
   let s;
   try {
     s = await stat(fullPath);
@@ -51,11 +64,8 @@ async function hasMetaFile(fullPath: string): Promise<boolean> {
     return false;
   }
   if (!s.isDirectory()) return false;
-  try {
-    return (await stat(join(fullPath, META_FILE))).isFile();
-  } catch {
-    return false;
-  }
+  if (await fileExists(join(fullPath, 'proposal.md'))) return true;
+  return fileExists(join(fullPath, META_FILE));
 }
 
 async function discoverFlatChanges(changesDir: string, projectRoot: string): Promise<DiscoveredChange[]> {
@@ -63,7 +73,7 @@ async function discoverFlatChanges(changesDir: string, projectRoot: string): Pro
   const discovered = await Promise.all(
     entries.map(async (entry) => {
       const fullPath = join(changesDir, entry);
-      if (!(await hasMetaFile(fullPath))) return null;
+      if (!(await isChangeDir(fullPath))) return null;
 
       const raw = await readFile(join(fullPath, META_FILE), 'utf8').catch(() => '');
       const archived = /^(?:archived:\s*true)\s*$/m.test(raw);
@@ -84,7 +94,7 @@ async function discoverArchivedChanges(archiveDir: string, projectRoot: string):
   const discovered = await Promise.all(
     entries.map(async (entry) => {
       const fullPath = join(archiveDir, entry);
-      if (!(await hasMetaFile(fullPath))) return null;
+      if (!(await isChangeDir(fullPath))) return null;
 
       return {
         name: entry.replace(ARCHIVE_NAME_PREFIX, ''),

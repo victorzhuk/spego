@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- OpenSpec change discovery no longer requires a `.openspec.yaml` marker file in every change directory — a `proposal.md` alone is now sufficient. Changes created by openspec workflows that never write the marker were previously invisible to `spego board`/`spego epics`/`spego groom`, with no warning surfaced (the mirror just reported an empty, clean board).
+
 ## [0.16.0] - 2026-07-23
 
 ### Added
