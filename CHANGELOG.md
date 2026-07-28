@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.17.0] - 2026-07-28
 
 ### Changed
 - `spego view` without `--json` now defaults to a scannable overview — a totals box plus one aligned table per artifact type, carrying a `status` column (`epic` rows resolve status through the delivery mirror, falling back to the artifact's own `meta.status`) and a body `lines` count. The previous full-markdown-bundle rendering moves behind a new `--detail` flag; `--id` implies `--detail`. `--json` output is unchanged, so agents are unaffected.
