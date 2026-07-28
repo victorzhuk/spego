@@ -41,4 +41,35 @@ describe('CLI registry/program parity', () => {
     expect(names.has('verify')).toBe(false);
     expect(names.has('explore')).toBe(false);
   });
+
+  it('every COMMAND_REGISTRY inputSchema matches the actual commander flags and positional args', () => {
+    const program = buildProgram();
+    const byName = new Map<string, ReturnType<typeof buildProgram>['commands'][number]>();
+    for (const cmd of program.commands) byName.set(cmd.name(), cmd);
+
+    for (const meta of COMMAND_REGISTRY) {
+      const cmd = byName.get(meta.name);
+      expect(cmd, `command '${meta.name}' not found on the built program`).toBeDefined();
+      if (!cmd) continue;
+
+      // --cwd is universal boilerplate; some registry entries list it and some don't. Ignore it here.
+      const actualFlags = new Set(cmd.options.map((o) => o.attributeName()).filter((n) => n !== 'cwd'));
+      const actualPositionals = new Set(cmd.registeredArguments.map((a) => a.name()));
+
+      const declaredFlags = new Set(
+        Object.values(meta.inputSchema)
+          .filter((f) => !f.positional)
+          .map((f) => f.name)
+          .filter((n) => n !== 'cwd'),
+      );
+      const declaredPositionals = new Set(
+        Object.values(meta.inputSchema).filter((f) => f.positional).map((f) => f.name),
+      );
+
+      expect([...actualFlags].sort(), `'${meta.name}' flags`).toEqual([...declaredFlags].sort());
+      expect([...actualPositionals].sort(), `'${meta.name}' positional args`).toEqual(
+        [...declaredPositionals].sort(),
+      );
+    }
+  });
 });

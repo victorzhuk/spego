@@ -85,6 +85,44 @@ describe('Claude skill generation', () => {
     expect(content).toContain('--body-file');
     expect(content).not.toContain('--bodyFile');
   });
+
+  it('create and update skills document the per-type --meta shape', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+
+    const gen = new ClaudeGenerator();
+    await gen.generate(root);
+
+    for (const name of ['create', 'update']) {
+      const content = await fs.readFile(
+        path.join(root, '.claude', 'skills', `spego-${name}`, 'SKILL.md'),
+        'utf8',
+      );
+      expect(content).toContain('## Metadata Shape by Type');
+      expect(content).toContain('`epic`:');
+      expect(content).toContain('deps[]');
+      expect(content).toContain('`sprint-plan`:');
+      expect(content).toContain('changes[]');
+    }
+  });
+
+  it('read, list, and delete skills document the valid artifact type list without a meta shape section', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+
+    const gen = new ClaudeGenerator();
+    await gen.generate(root);
+
+    for (const name of ['read', 'list', 'delete']) {
+      const content = await fs.readFile(
+        path.join(root, '.claude', 'skills', `spego-${name}`, 'SKILL.md'),
+        'utf8',
+      );
+      expect(content).toContain('Artifact types:');
+      expect(content).toContain('sprint-plan');
+      expect(content).not.toContain('## Metadata Shape by Type');
+    }
+  });
 });
 
 describe('User file preservation', () => {

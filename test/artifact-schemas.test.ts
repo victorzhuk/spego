@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
-import { ARTIFACT_META_SCHEMAS, validateMetaForType } from '../src/artifacts/schemas.js';
+import { ARTIFACT_META_DOCS, ARTIFACT_META_SCHEMAS, validateMetaForType } from '../src/artifacts/schemas.js';
+import { BUILTIN_ARTIFACT_TYPES } from '../src/artifacts/types.js';
 import { initWorkspace } from '../src/workspace/init.js';
 import { makeTempProject } from './helpers.js';
 
@@ -239,5 +240,22 @@ describe('artifact schema registration via engine', () => {
         meta: { gaps: [{ note: 'missing flag' }] },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+});
+
+describe('ARTIFACT_META_DOCS stays in sync with the real schemas', () => {
+  it('documents every built-in type and no others', () => {
+    expect(Object.keys(ARTIFACT_META_DOCS).sort()).toEqual([...BUILTIN_ARTIFACT_TYPES].sort());
+    expect(Object.keys(ARTIFACT_META_DOCS).sort()).toEqual(Object.keys(ARTIFACT_META_SCHEMAS).sort());
+  });
+
+  it('mentions every field name declared in each type\'s zod schema', () => {
+    for (const type of BUILTIN_ARTIFACT_TYPES) {
+      let schema = ARTIFACT_META_SCHEMAS[type] as { shape?: Record<string, unknown>; innerType?: () => { shape: Record<string, unknown> } };
+      if (!schema.shape && schema.innerType) schema = schema.innerType();
+      for (const field of Object.keys(schema.shape ?? {})) {
+        expect(ARTIFACT_META_DOCS[type], `${type}.${field}`).toContain(field);
+      }
+    }
   });
 });

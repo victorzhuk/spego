@@ -179,6 +179,8 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     inputSchema: {
       graph: { name: 'graph', type: 'boolean', required: false, description: 'Show dependency graph' },
       gaps: { name: 'gaps', type: 'boolean', required: false, description: 'Show gaps, missing artifacts, and blockers' },
+      plain: { name: 'plain', type: 'boolean', required: false, description: 'Disable ANSI color in human output' },
+      archived: { name: 'archived', type: 'boolean', required: false, description: 'Include archived changes in the ungrouped list' },
     },
     outputModes: ['markdown', 'json'],
   },

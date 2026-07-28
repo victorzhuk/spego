@@ -4,6 +4,7 @@ import { COMMAND_REGISTRY } from '../command-meta/registry.js';
 import type { CommandMeta } from '../command-meta/registry.js';
 import { WORKFLOW_REGISTRY } from '../workflows/registry.js';
 import type { WorkflowMeta } from '../workflows/types.js';
+import { ARTIFACT_META_DOCS } from '../artifacts/schemas.js';
 import { writeGeneratedFile, removeGeneratedFile } from './write.js';
 import { GENERATOR_VERSION } from './types.js';
 import type { TargetGenerator, GenerationReport, GeneratedFile } from './types.js';
@@ -11,6 +12,24 @@ import { isLegacySpegoGenerated, isSpegoGenerated } from './markers.js';
 
 function toKebab(name: string): string {
   return name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
+
+/**
+ * `--meta` takes an arbitrary JSON object whose valid fields depend on `--type`;
+ * without this, agents have no way to learn field names like `epic.deps` or
+ * `sprint-plan.changes` short of grepping the spego source.
+ */
+function renderMetaShapeSection(cmd: CommandMeta): string | undefined {
+  if (!cmd.inputSchema.meta || !cmd.artifactTypes) return undefined;
+  const lines = cmd.artifactTypes.map((type) => `- \`${type}\`: ${ARTIFACT_META_DOCS[type as keyof typeof ARTIFACT_META_DOCS]}`);
+  return ['## Metadata Shape by Type', '', 'The `--meta` JSON object accepts these fields per `--type`:', '', ...lines].join(
+    '\n',
+  );
+}
+
+function renderArtifactTypesLine(cmd: CommandMeta): string | undefined {
+  if (cmd.inputSchema.meta || !cmd.artifactTypes) return undefined;
+  return `Artifact types: ${cmd.artifactTypes.join(', ')}`;
 }
 
 function renderSkillTemplate(cmd: CommandMeta): string {
@@ -24,6 +43,8 @@ function renderSkillTemplate(cmd: CommandMeta): string {
     })
     .join('\n');
   const lowerDesc = cmd.description.toLowerCase();
+  const metaShape = renderMetaShapeSection(cmd);
+  const typesLine = renderArtifactTypesLine(cmd);
   return [
     '---',
     `name: spego-${cmd.name}`,
@@ -41,7 +62,9 @@ function renderSkillTemplate(cmd: CommandMeta): string {
     '## Options',
     '',
     options || '(none)',
+    ...(typesLine ? ['', typesLine] : []),
     '',
+    ...(metaShape ? [metaShape, ''] : []),
     '## Output',
     '',
     `Formats: ${cmd.outputModes.join(', ')}. Default is human-readable. Agents MUST pass \`--json\` for parseable output.`,

@@ -5,6 +5,13 @@
 ### Changed
 - `spego view` without `--json` now defaults to a scannable overview — a totals box plus one aligned table per artifact type, carrying a `status` column (`epic` rows resolve status through the delivery mirror, falling back to the artifact's own `meta.status`) and a body `lines` count. The previous full-markdown-bundle rendering moves behind a new `--detail` flag; `--id` implies `--detail`. `--json` output is unchanged, so agents are unaffected.
 
+### Added
+- Generated `spego-create`/`spego-update` skill docs now include a "Metadata Shape by Type" section listing every built-in artifact type's actual `--meta` fields (e.g. `epic: deps[], links[], requires[]...`, `sprint-plan: ...changes[]...`), sourced directly from the real validation schemas. Previously an agent had to grep spego's own source to learn field names like `sprint-plan.meta.changes`. Generated `spego-read`/`spego-list`/`spego-delete` docs now list the valid `--type` values for the same reason.
+
+### Fixed
+- `spego board`'s command metadata (`spego commands --json`, generated `spego-board` skill/command files) was missing the real `--plain` and `--archived` flags — only `--graph`/`--gaps` were documented, so an agent reading spego's own metadata had no way to discover either flag existed.
+- Added a test asserting every command's declared metadata (flags and positional args) matches its actual CLI implementation, to catch this class of drift going forward.
+
 ## [0.16.1] - 2026-07-28
 
 ### Fixed
