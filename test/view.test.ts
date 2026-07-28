@@ -83,3 +83,86 @@ describe('view / export', () => {
     expect(view.markdown.content).toContain('No artifacts found');
   });
 });
+
+describe('view / overview', () => {
+  let root: string;
+  let cleanup: () => Promise<void>;
+  let engine: ArtifactEngine;
+
+  beforeEach(async () => {
+    ({ root, cleanup } = await makeTempProject());
+    await initWorkspace({ projectRoot: root, agents: ['claude'] });
+    engine = await ArtifactEngine.open({ projectRoot: root });
+  });
+
+  afterEach(async () => {
+    engine.close();
+    await cleanup();
+  });
+
+  it('groups rows by type, sorted alphabetically', async () => {
+    await engine.create({ type: 'prd', title: 'PRD One', body: 'line one\nline two' });
+    await engine.create({ type: 'api', title: 'Auth API', body: 'a' });
+
+    const view = await viewArtifacts(engine);
+    expect(view.overview.format).toBe('overview');
+    expect(view.overview.count).toBe(2);
+    expect(view.overview.groups.map((g) => g.type)).toEqual(['api', 'prd']);
+    const prdRow = view.overview.groups.find((g) => g.type === 'prd')!.rows[0]!;
+    expect(prdRow.title).toBe('PRD One');
+    expect(prdRow.lines).toBe(2);
+  });
+
+  it('reports 0 lines for an empty body', async () => {
+    await engine.create({ type: 'prd', title: 'Empty', body: '' });
+    const view = await viewArtifacts(engine);
+    expect(view.overview.groups[0]!.rows[0]!.lines).toBe(0);
+  });
+
+  it('takes status verbatim from meta.status, and — when unset', async () => {
+    await engine.create({ type: 'risk', title: 'Has status', body: '', meta: { status: 'mitigated' } });
+    await engine.create({ type: 'risk', title: 'No status', body: '' });
+
+    const view = await viewArtifacts(engine, { type: 'risk' });
+    const rows = view.overview.groups[0]!.rows;
+    expect(rows.find((r) => r.title === 'Has status')!.status).toBe('mitigated');
+    expect(rows.find((r) => r.title === 'No status')!.status).toBe('—');
+  });
+
+  it('resolves epic status from statusBySlug, falling back to meta.status when the slug is absent', async () => {
+    const withDelivery = await engine.create({ type: 'epic', title: 'Known', body: '' });
+    await engine.create({ type: 'epic', title: 'Orphan', body: '', meta: { status: 'paused' } });
+
+    const view = await viewArtifacts(
+      engine,
+      { type: 'epic' },
+      { statusBySlug: new Map([[withDelivery.frontmatter.slug, 'in-progress']]) },
+    );
+    const rows = view.overview.groups[0]!.rows;
+    expect(rows.find((r) => r.title === 'Known')!.status).toBe('in-progress');
+    expect(rows.find((r) => r.title === 'Orphan')!.status).toBe('paused');
+  });
+
+  it('surfaces latestUpdated and the deleted flag under includeDeleted', async () => {
+    const a = await engine.create({ type: 'risk', title: 'R1', body: '' });
+    await engine.create({ type: 'risk', title: 'R2', body: '' });
+    await engine.softDelete(a.frontmatter.id);
+
+    const withoutDeleted = await viewArtifacts(engine, { type: 'risk' });
+    expect(withoutDeleted.overview.count).toBe(1);
+    expect(withoutDeleted.overview.latestUpdated).not.toBeNull();
+
+    const withDeleted = await viewArtifacts(engine, { type: 'risk', includeDeleted: true });
+    const r1 = withDeleted.overview.groups[0]!.rows.find((r) => r.title === 'R1')!;
+    expect(r1.deleted).toBe(true);
+    const r2 = withDeleted.overview.groups[0]!.rows.find((r) => r.title === 'R2')!;
+    expect(r2.deleted).toBe(false);
+  });
+
+  it('returns an empty overview when nothing matches', async () => {
+    const view = await viewArtifacts(engine, { type: 'prd' });
+    expect(view.overview.count).toBe(0);
+    expect(view.overview.groups).toEqual([]);
+    expect(view.overview.latestUpdated).toBeNull();
+  });
+});

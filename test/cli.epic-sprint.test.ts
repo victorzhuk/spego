@@ -177,6 +177,28 @@ describe('CLI epic mirror and sprint membership', () => {
     expect(result).toMatchObject({ slug: 'product-spec', type: 'prd', revision: 1 });
   });
 
+  it('view overview resolves epic status from the delivery mirror', async () => {
+    const root = await setupChange('add-auth');
+    await fs.writeFile(
+      path.join(root, 'openspec', 'changes', 'add-auth', 'tasks.md'),
+      '- [ ] 1.1 do the thing\n',
+      'utf8',
+    );
+    await spawnCli(['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root], root);
+
+    const { stdout } = await spawnCli(['view', '--cwd', root], root);
+    expect(stdout).toContain('in-progress');
+  });
+
+  it('view overview falls back to — when the workspace has no OpenSpec directory', async () => {
+    const root = await setupWithoutOpenSpec();
+    await spawnCli(['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root], root);
+
+    const { stdout } = await spawnCli(['view', '--cwd', root], root);
+    expect(stdout).toContain('📦 Artifact bundle');
+    expect(stdout).toMatch(/add-auth[^\n]*—/);
+  });
+
   it('allows duplicate sprint changes when the existing sprint is closed', async () => {
     const root = await setupWithoutOpenSpec();
     await spawnCli(

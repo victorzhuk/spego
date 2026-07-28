@@ -128,19 +128,97 @@ export function renderJsonBundle(items: CollectedArtifact[]): JsonBundle {
   };
 }
 
+export interface OverviewRow {
+  type: string;
+  slug: string;
+  revision: number;
+  status: string;
+  lines: number;
+  updated: string;
+  title: string;
+  deleted: boolean;
+}
+
+export interface OverviewGroup {
+  type: string;
+  rows: OverviewRow[];
+}
+
+export interface OverviewBundle {
+  format: 'overview';
+  count: number;
+  latestUpdated: string | null;
+  groups: OverviewGroup[];
+}
+
+function bodyLineCount(body: string): number {
+  const trimmed = body.trimEnd();
+  return trimmed === '' ? 0 : trimmed.split('\n').length;
+}
+
+function resolveStatus(
+  fm: CollectedArtifact['record']['frontmatter'],
+  statusBySlug: ReadonlyMap<string, string> | undefined,
+): string {
+  if (fm.type === 'epic') {
+    const derived = statusBySlug?.get(fm.slug);
+    if (derived !== undefined) return derived;
+  }
+  const metaStatus = fm.meta?.status;
+  return typeof metaStatus === 'string' && metaStatus !== '' ? metaStatus : '—';
+}
+
+/** Render the artifact set as a scannable overview grouped by type; the CLI's default `view` rendering. */
+export function renderOverviewBundle(
+  items: CollectedArtifact[],
+  opts: { statusBySlug?: ReadonlyMap<string, string> } = {},
+): OverviewBundle {
+  const byType = new Map<string, OverviewRow[]>();
+  let latestUpdated: string | null = null;
+  for (const item of items) {
+    const fm = item.record.frontmatter;
+    const row: OverviewRow = {
+      type: fm.type,
+      slug: fm.slug,
+      revision: fm.revision,
+      status: resolveStatus(fm, opts.statusBySlug),
+      lines: bodyLineCount(item.record.body),
+      updated: fm.updatedAt.slice(0, 10),
+      title: fm.title,
+      deleted: fm.deletedAt !== null && fm.deletedAt !== undefined,
+    };
+    const list = byType.get(fm.type) ?? [];
+    list.push(row);
+    byType.set(fm.type, list);
+    if (latestUpdated === null || fm.updatedAt > latestUpdated) latestUpdated = fm.updatedAt;
+  }
+  const groups = [...byType.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([type, rows]) => ({ type, rows }));
+  return {
+    format: 'overview',
+    count: items.length,
+    latestUpdated: latestUpdated === null ? null : latestUpdated.slice(0, 10),
+    groups,
+  };
+}
+
 export interface ViewResult {
   markdown: MarkdownBundle;
   json: JsonBundle;
+  overview: OverviewBundle;
 }
 
-/** Convenience that returns both renderings; the CLI picks one. */
+/** Convenience that returns every rendering; the CLI picks one. */
 export async function viewArtifacts(
   engine: ArtifactEngine,
   opts: ViewOptions = {},
+  overviewOpts: { statusBySlug?: ReadonlyMap<string, string> } = {},
 ): Promise<ViewResult> {
   const items = await collect(engine, opts);
   return {
     markdown: renderMarkdownBundle(items),
     json: renderJsonBundle(items),
+    overview: renderOverviewBundle(items, overviewOpts),
   };
 }

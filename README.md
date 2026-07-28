@@ -20,7 +20,7 @@ spego init --agents claude,opencode --demo false
 | `spego update --id <uuid> --body "new content"` | Update with revision control |
 | `spego delete --id <uuid>` | Soft-delete (preserves history) |
 | `spego list` | List artifacts |
-| `spego view` | Export bundle as markdown or JSON |
+| `spego view` | Overview of artifacts as a table; `--detail` exports the full markdown bundle, `--json` exports full JSON |
 | `spego commands` | List command metadata |
 | `spego workflows` | List workflow skills metadata |
 | `spego skills` | Regenerate agent skill files |
@@ -36,7 +36,7 @@ All commands accept `--cwd <dir>` to set the project root.
 
 Every spego command speaks two output modes:
 
-- **Human (default)** — pretty, scannable output for terminals. Every command renders a section: a single emoji header (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑 📋 🏃 🕸️ 🧩`), one blank line, then the content. Summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables, and `view` separates artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
+- **Human (default)** — pretty, scannable output for terminals. Every command renders a section: a single emoji header (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑 📋 🏃 🕸️ 🧩`), one blank line, then the content. Summaries render as bordered boxes (`╭─ … ─╮`), lists render as aligned tables. `view` defaults to an overview — a totals box plus one table per artifact type, with `epic` rows carrying delivery-derived status; `view --detail` renders the full markdown bundle instead, separating artifacts with `────` dividers. Errors print as `⚠️  [CODE] message` to stderr.
 - **JSON (opt-in)** — pass the global `--json` flag to get deterministic, decoration-free JSON on stdout. Errors come back as `{ "error": { "code", "message", "details" } }` on stderr; `details` is always an object.
 
 Agents calling spego MUST pass `--json` so they get parseable output. Humans normally do not.

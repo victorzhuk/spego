@@ -104,7 +104,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'view',
-    description: 'Export artifact bundle as markdown or JSON',
+    description: 'Overview of artifacts; --detail exports the full markdown bundle',
     slashName: '/spego:view',
     category: 'view',
     inputSchema: {
@@ -112,6 +112,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       id: { name: 'id', type: 'string', required: false, description: 'Limit to a single artifact' },
       revision: { name: 'revision', type: 'number', required: false, description: 'Specific revision (requires --id)' },
       includeDeleted: { name: 'includeDeleted', type: 'boolean', required: false, description: 'Include soft-deleted artifacts' },
+      detail: { name: 'detail', type: 'boolean', required: false, description: 'Print full artifact bodies' },
     },
     outputModes: ['markdown', 'json'],
   },

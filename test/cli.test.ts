@@ -408,15 +408,39 @@ describe('CLI dual output modes', () => {
     expect(stdout).toContain('body text');
   });
 
-  it('view human output begins with the bundle header and inserts dividers', async () => {
+  it('view default output is a scannable overview, not artifact bodies', async () => {
     const root = await setup();
-    await cli(['--json', 'create', '--type', 'prd', '--title', 'One', '--body', 'b1', '--cwd', root], root);
-    await cli(['--json', 'create', '--type', 'api', '--title', 'Two', '--body', 'b2', '--cwd', root], root);
+    await cli(['--json', 'create', '--type', 'prd', '--title', 'One', '--body', 'distinctive-body-one', '--cwd', root], root);
+    await cli(['--json', 'create', '--type', 'api', '--title', 'Two', '--body', 'distinctive-body-two', '--cwd', root], root);
     const { stdout } = await cli(['view', '--cwd', root], root);
     expect(stdout).toContain('📦 Artifact bundle');
+    expect(stdout).toContain('╭─ Overview');
+    expect(stdout).not.toContain('distinctive-body-one');
+    expect(stdout).not.toContain('distinctive-body-two');
+  });
+
+  it('view --detail restores the full markdown bundle with dividers', async () => {
+    const root = await setup();
+    await cli(['--json', 'create', '--type', 'prd', '--title', 'One', '--body', 'distinctive-body-one', '--cwd', root], root);
+    await cli(['--json', 'create', '--type', 'api', '--title', 'Two', '--body', 'distinctive-body-two', '--cwd', root], root);
+    const { stdout } = await cli(['view', '--detail', '--cwd', root], root);
+    expect(stdout).toContain('📦 Artifact bundle');
+    expect(stdout).toContain('distinctive-body-one');
+    expect(stdout).toContain('distinctive-body-two');
     // Two `## ` artifact sections; one divider between them.
     const dividerMatches = stdout.match(/^─+$/gm) ?? [];
     expect(dividerMatches.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('view --id prints the full body even without --detail', async () => {
+    const root = await setup();
+    const { stdout: created } = await cli(
+      ['--json', 'create', '--type', 'prd', '--title', 'Solo', '--body', 'distinctive-solo-body', '--cwd', root],
+      root,
+    );
+    const { id } = JSON.parse(created);
+    const { stdout } = await cli(['view', '--id', id, '--cwd', root], root);
+    expect(stdout).toContain('distinctive-solo-body');
   });
 
   it('view --format is removed and rejected as an unknown option', async () => {
