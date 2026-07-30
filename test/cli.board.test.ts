@@ -112,6 +112,30 @@ async function setupWaveFixture(): Promise<string> {
   return root;
 }
 
+/**
+ * `add-api`/`add-ui` are both scheduled into the same sprint, so an
+ * intra-sprint dep never dims a row (`blockersFor` skips a dep scheduled at
+ * or before the subject). Depending on a dangling `ghost` change instead
+ * gives every row a real blocker regardless of scheduling, so this fixture
+ * exercises strikethrough (satisfied) and dim (blocked-only) side by side.
+ */
+async function setupStyledPanelFixture(): Promise<string> {
+  const root = await setupOpenSpecWorkspace();
+  await createChangeEpic(root, 'ship-api', {
+    tasks: '- [x] design\n',
+    meta: { deps: ['ghost'] },
+  });
+  await createChangeEpic(root, 'ship-ui', {
+    tasks: '- [ ] build\n',
+    meta: { deps: ['ghost'] },
+  });
+  await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+    status: 'active',
+    changes: ['ship-api', 'ship-ui'],
+  });
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -168,6 +192,47 @@ describe('CLI board command', () => {
 
     const plain = await spawnCli(['board', '--plain', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
     expect(plain.stdout).not.toContain('\x1b[');
+  }, 30_000);
+
+  it('bolds the sprint title, strikes satisfied rows, and dims blocked-only rows', async () => {
+    const root = await setupStyledPanelFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    const lines = stdout.split('\n');
+    const titleLine = lines.find((line) => line.includes('Sprint sprint-1'))!;
+    const apiLine = lines.find((line) => line.includes('ship-api'))!;
+    const uiLine = lines.find((line) => line.includes('ship-ui'))!;
+
+    expect(titleLine).toContain('\x1b[1m');
+    expect(titleLine).toContain('\x1b[4m');
+
+    // ship-api: all tasks checked (done) -> satisfied, struck through even though it also has a blocker.
+    expect(apiLine).toContain('\x1b[9m');
+    // ship-ui: pending and only blocked -> dimmed, not struck through.
+    expect(uiLine).not.toContain('\x1b[9m');
+    expect(uiLine).toContain('\x1b[2m');
+  }, 30_000);
+
+  it('renders the sprint and Warnings sections as left-railed panels with aligned rules', async () => {
+    const root = await setupStyledPanelFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    expect(stdout).toContain('╭─ Sprint sprint-1');
+    expect(stdout).toContain('│ ');
+    expect(stdout).toContain('╭─ Warnings');
+
+    const lines = stdout.split('\n');
+    const panelStarts = lines.reduce<number[]>((acc, line, index) => {
+      if (line.startsWith('╭─')) acc.push(index);
+      return acc;
+    }, []);
+    expect(panelStarts.length).toBe(2);
+
+    for (const start of panelStarts) {
+      const end = lines.findIndex((line, index) => index > start && /^╰─+$/.test(line));
+      expect(end).toBeGreaterThan(start);
+      const panelLines = lines.slice(start, end + 1).filter((line) => line !== '│');
+      const widths = new Set(panelLines.map((line) => line.length));
+      expect(widths.size).toBe(1);
+    }
   }, 30_000);
 
   it('renders human board, dependency graph, and gaps report', async () => {
@@ -228,8 +293,13 @@ describe('CLI board command', () => {
     const archivedResult = JSON.parse(archivedOut) as MirrorBoard;
     expect(archivedResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-in-sprint']);
 
+    // JSON keeps `completed` for agents; human output shows `archived` instead.
+    expect(defaultResult.sprints[0]!.changes[0]!.status).toBe('completed');
+
     const human = await spawnCli(['board', '--cwd', root], root);
-    expect(human.stdout).toContain('archived-in-sprint');
+    const changeLine = human.stdout.split('\n').find((line) => line.includes('archived-in-sprint'))!;
+    expect(changeLine).toContain('archived');
+    expect(changeLine).not.toContain('completed');
   }, 30_000);
 
   it('keeps adapter-only output for active changes without artifacts', async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   renderBox,
+  renderPanel,
   renderTable,
   renderHeader,
   renderSection,
@@ -67,6 +68,52 @@ describe('renderBox', () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatch(/^╭─ Empty /);
     expect(lines[1]).toMatch(/^╰─+╯$/);
+  });
+});
+
+describe('renderPanel', () => {
+  it('starts the top rule with the title and ends the bottom rule with no right border', () => {
+    const out = renderPanel('Sprint 1', ['id  status', 'c1  done']);
+    const lines = out.split('\n');
+    expect(lines[0]).toMatch(/^╭─ Sprint 1 /);
+    expect(lines.at(-1)).toMatch(/^╰─+$/);
+  });
+
+  it('prefixes non-empty body lines with a rail and renders blank lines as a bare rail', () => {
+    const out = renderPanel('T', ['row-a', '', 'row-b']);
+    const lines = out.split('\n');
+    expect(lines[1]).toMatch(/^│ row-a\s*$/);
+    expect(lines[2]).toBe('│');
+    expect(lines[3]).toMatch(/^│ row-b\s*$/);
+  });
+
+  it('aligns the top rule, bottom rule, and every non-blank body line to the same width', () => {
+    const out = renderPanel('Sprint 1', ['short', 'a much longer row of content']);
+    const lines = out.split('\n').filter((line) => line !== '│');
+    const widths = new Set(lines.map((line) => line.length));
+    expect(widths.size).toBe(1);
+  });
+
+  it('honors an explicit width wider than the content', () => {
+    const narrow = renderPanel('T', ['x'], { width: 4 });
+    const wide = renderPanel('T', ['x'], { width: 20 });
+    expect(wide.split('\n')[0]!.length).toBeGreaterThan(narrow.split('\n')[0]!.length);
+  });
+
+  it('clamps a width narrower than the title so the top rule never falls short of the title', () => {
+    const out = renderPanel('A very long sprint title', ['x'], { width: 1 });
+    const lines = out.split('\n').filter((line) => line !== '│');
+    const widths = new Set(lines.map((line) => line.length));
+    expect(widths.size).toBe(1);
+    expect(lines[0]!.length).toBeGreaterThan('A very long sprint title'.length);
+  });
+
+  it('renders only the top and bottom rule for an empty body', () => {
+    const out = renderPanel('Empty', []);
+    const lines = out.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/^╭─ Empty /);
+    expect(lines[1]).toMatch(/^╰─+$/);
   });
 });
 

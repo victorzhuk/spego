@@ -8,6 +8,7 @@ import { SpegoError } from '../../errors.js';
 import { viewArtifacts, type OverviewBundle } from '../../export/view.js';
 import { loadBoardState } from '../../delivery/load.js';
 import { intersperseBundleDividers, renderBox, renderSection, renderTable } from '../render.js';
+import { deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
 import type { ArtifactEngine } from '../../artifacts/engine.js';
 
@@ -37,7 +38,8 @@ function renderOverviewHuman(overview: OverviewBundle, filterType: string | unde
    ? ['slug', 'rev', 'status', 'lines', 'updated', 'state', 'title']
    : ['slug', 'rev', 'status', 'lines', 'updated', 'title'];
   const rows = group.rows.map((row) => {
-   const cells = [row.slug, String(row.revision), row.status, String(row.lines), row.updated];
+   const status = group.type === 'epic' ? deliveryStatusLabel(row.status) : row.status;
+   const cells = [row.slug, String(row.revision), status, String(row.lines), row.updated];
    if (includeDeleted) cells.push(row.deleted ? 'deleted' : 'active');
    cells.push(row.title);
    return cells;

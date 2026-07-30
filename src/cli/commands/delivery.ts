@@ -13,6 +13,7 @@ import { resolveAdapter } from '../../delivery/index.js';
 import type { DeliveryAdapter, DeliveryEpicLink, DeliveryTaskSummary } from '../../delivery/index.js';
 import { SpegoError } from '../../errors.js';
 import { renderSection, renderTable } from '../render.js';
+import { deliveryStatusLabel } from '../status.js';
 import { runCommand } from '../runtime.js';
 
 const MUTATING_ACTIONS = new Set([
@@ -42,7 +43,7 @@ async function loadAdapter(cwd: string | undefined): Promise<DeliveryAdapter> {
 
 function renderEpicRow(epic: DeliveryEpicLink): string[] {
   const progress = epic.taskCount != null ? `${epic.tasksDone ?? 0}/${epic.taskCount}` : '—';
-  return [epic.externalId, epic.status, progress, epic.title];
+  return [epic.externalId, deliveryStatusLabel(epic.status), progress, epic.title];
 }
 
 function renderTaskRow(task: DeliveryTaskSummary): string[] {

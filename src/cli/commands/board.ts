@@ -4,12 +4,14 @@ import { loadBoardState } from '../../delivery/load.js';
 import {
   filterMirrorArchived,
   filterMirrorGaps,
+  isSatisfied,
   type MirrorBoard,
   type MirrorChange,
   type MirrorInput,
   type MirrorWarning,
 } from '../../delivery/mirror.js';
-import { renderHeader, renderTable } from '../render.js';
+import { renderHeader, renderPanel, renderTable } from '../render.js';
+import { deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
 
 interface BoardOptions {
@@ -48,27 +50,93 @@ export function registerBoard(program: Command): void {
     });
 }
 
+interface BoardSection {
+  title: string;
+  table: string;
+  styleRows: (table: string) => string;
+}
+
 function renderBoard(board: MirrorBoard, plain: boolean): string {
   const idBySlug = idMapFor(board);
   const lines = [renderHeader('📋', 'Delivery board'), ''];
-  if (board.sprints.length === 0 && board.ungrouped.length === 0) {
+  const sections = buildChangeSections(board, idBySlug);
+  const warningsTable = board.warnings.length > 0
+    ? renderTable(['code', 'message'], board.warnings.map((warning) => [warning.code, warning.message]), { maxWidth: 80 })
+    : null;
+  const width = Math.max(
+    0,
+    ...sections.map((section) => blockWidth(section.table)),
+    warningsTable ? blockWidth(warningsTable) : 0,
+  );
+
+  if (sections.length === 0) {
     lines.push('No groomed delivery board.');
+  } else {
+    for (const section of sections) {
+      lines.push(renderPanelSection(section.title, section.table, width, plain, section.styleRows));
+      lines.push('');
+    }
   }
-  for (const sprint of board.sprints) {
-    lines.push(`Sprint ${sprint.slug} — ${sprint.title} (${sprint.status})`);
-    const table = renderTable(BOARD_COLUMNS, sprint.changes.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 });
-    lines.push(muteBlockedRows(table, sprint.changes, plain));
+  if (warningsTable) {
+    lines.push(renderPanelSection('Warnings', warningsTable, width, plain));
     lines.push('');
   }
-  if (board.ungrouped.length > 0) {
-    lines.push('Ungrouped');
-    const table = renderTable(BOARD_COLUMNS, board.ungrouped.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 });
-    lines.push(muteBlockedRows(table, board.ungrouped, plain));
-    lines.push('');
-  }
-  appendWarnings(lines, board.warnings);
   lines.push(nextLine(board));
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
+}
+
+function buildChangeSections(board: MirrorBoard, idBySlug: Map<string, string>): BoardSection[] {
+  const sections: BoardSection[] = [];
+  for (const sprint of board.sprints) {
+    sections.push({
+      title: `Sprint ${sprint.slug} — ${sprint.title} (${sprint.status})`,
+      table: renderTable(BOARD_COLUMNS, sprint.changes.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 }),
+      styleRows: (table) => styleChangeRows(table, sprint.changes),
+    });
+  }
+  if (board.ungrouped.length > 0) {
+    sections.push({
+      title: 'Ungrouped',
+      table: renderTable(BOARD_COLUMNS, board.ungrouped.map((change) => changeRow(change, idBySlug)), { maxWidth: 36 }),
+      styleRows: (table) => styleChangeRows(table, board.ungrouped),
+    });
+  }
+  return sections;
+}
+
+/** Longest line in a plain (unstyled) block; measure before applying ANSI. */
+function blockWidth(text: string): number {
+  return text.split('\n').reduce((max, line) => Math.max(max, line.length), 0);
+}
+
+/** Wraps `table` in a panel with `title` embedded in the top rail, styled after the width/layout math runs on the plain title. */
+function renderPanelSection(
+  title: string,
+  table: string,
+  width: number,
+  plain: boolean,
+  styleRows?: (table: string) => string,
+): string {
+  const body = plain || !styleRows ? table : styleRows(table);
+  const panel = renderPanel(title, body.split('\n'), { width });
+  if (plain) return panel;
+  const lines = panel.split('\n');
+  lines[0] = lines[0]!.replace(title, () => styleText(['bold', 'underline'], title));
+  return lines.join('\n');
+}
+
+/** Table body rows line up 1:1 with `changes`: line i+2 is changes[i]. A satisfied row (done/completed) is struck through even if it still carries a blocker. */
+function styleChangeRows(table: string, changes: MirrorChange[]): string {
+  const lines = table.split('\n');
+  const header = lines.slice(0, 2);
+  const body = lines.slice(2).map((line, index) => {
+    const change = changes[index];
+    if (!change) return line;
+    if (isSatisfied(change.status)) return styleText(['strikethrough', 'dim'], line);
+    if (change.blockers.length > 0) return styleText('dim', line);
+    return line;
+  });
+  return [...header, ...body].join('\n');
 }
 
 function renderGraph(board: MirrorBoard, input: MirrorInput): string {
@@ -81,11 +149,11 @@ function renderGraph(board: MirrorBoard, input: MirrorInput): string {
     const deps = depsBySlug.get(change.slug) ?? [];
     const blockers = formatBlockers(change, idBySlug);
     if (deps.length === 0) {
-      rows.push([change.id, change.slug, '—', blockers, change.status]);
+      rows.push([change.id, change.slug, '—', blockers, deliveryStatusLabel(change.status)]);
       continue;
     }
     for (const dep of deps) {
-      rows.push([change.id, change.slug, visible.has(dep) ? dep : `${dep} (missing)`, blockers, change.status]);
+      rows.push([change.id, change.slug, visible.has(dep) ? dep : `${dep} (missing)`, blockers, deliveryStatusLabel(change.status)]);
     }
   }
   const lines = [renderHeader('🕸️', 'Dependency graph'), ''];
@@ -121,7 +189,7 @@ function changeRow(change: MirrorChange, idBySlug: Map<string, string>): string[
   return [
     change.id,
     change.slug,
-    change.status,
+    deliveryStatusLabel(change.status),
     change.group,
     formatBlockers(change, idBySlug),
     formatGaps(change),
@@ -137,15 +205,6 @@ function idMapFor(board: MirrorBoard): Map<string, string> {
 function formatBlockers(change: MirrorChange, idBySlug: Map<string, string>): string {
   if (change.blockers.length === 0) return '—';
   return change.blockers.map((token) => idBySlug.get(token) ?? token).join(', ');
-}
-
-/** Dims body rows for changes with pending blockers; `renderTable`'s rows array order lines up 1:1 with the table's body lines. */
-function muteBlockedRows(table: string, changes: MirrorChange[], plain: boolean): string {
-  if (plain) return table;
-  const lines = table.split('\n');
-  const header = lines.slice(0, 2);
-  const body = lines.slice(2).map((line, index) => ((changes[index]?.blockers.length ?? 0) > 0 ? styleText('dim', line) : line));
-  return [...header, ...body].join('\n');
 }
 
 function formatGaps(change: MirrorChange): string {

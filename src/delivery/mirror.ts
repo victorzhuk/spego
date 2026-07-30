@@ -122,6 +122,11 @@ const WARNING_ORDER: Record<WarningCode, number> = {
   'ungroomed-change': 8,
 };
 
+/** True when `status` means no further work remains — task completion or archival. */
+export function isSatisfied(status: DeliveryStatus | undefined): boolean {
+  return status === 'done' || status === 'completed';
+}
+
 export function deriveMirror(input: MirrorInput): MirrorBoard {
   const sortedChanges = [...input.changes].sort((a, b) => a.slug.localeCompare(b.slug));
   const sortedEpics = sortArtifacts(input.epics);
@@ -347,7 +352,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   for (const sprint of sprintRows) {
     if (sprint.status === 'closed') continue;
     if (sprint.changes.length === 0) continue;
-    if (!sprint.changes.every((item) => item.status === 'completed' || item.status === 'done')) continue;
+    if (!sprint.changes.every((item) => isSatisfied(item.status))) continue;
     sortedWarnings.push({
       code: 'closable-sprint',
       message: `Sprint "${sprint.slug}" has no pending changes and can be closed.`,
@@ -623,7 +628,7 @@ function blockersFor(
       continue;
     }
     const depStatus = states.get(dep)?.status;
-    if (depStatus === 'completed' || depStatus === 'done') continue;
+    if (isSatisfied(depStatus)) continue;
     const depSchedule = scheduleBySlug.get(dep);
     if (currentSchedule !== undefined && depSchedule !== undefined && depSchedule <= currentSchedule) continue;
     blockers.add(dep);
@@ -648,7 +653,7 @@ function computeWave(
   const cached = memo.get(slug);
   if (cached !== undefined) return cached;
   const status = changeStates.get(slug)?.status;
-  if (status === 'completed' || status === 'done') {
+  if (isSatisfied(status)) {
     memo.set(slug, 'done');
     return 'done';
   }
@@ -732,7 +737,7 @@ function chooseNext(sprints: MirrorSprint[]): MirrorNext | null {
   const source = active.length > 0 ? 'active sprint' : 'planned sprint';
   for (const sprint of candidates) {
     for (const change of sprint.changes) {
-      if (change.status === 'completed' || change.status === 'done') continue;
+      if (isSatisfied(change.status)) continue;
       if (change.blockers.length > 0) continue;
       return {
         change: change.slug,

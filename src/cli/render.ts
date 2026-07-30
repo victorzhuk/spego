@@ -92,6 +92,45 @@ export function renderTable(
   return rows.length === 0 ? `${header}\n${divider}` : `${header}\n${divider}\n${body}`;
 }
 
+/**
+ * Wrap `bodyLines` in a left rail so a group of related lines (e.g. a
+ * sprint's title and its change table) reads as one bounded section.
+ *
+ * ```
+ * ╭─ Sprint sprint-1 — Sprint 1 (active) ─────
+ * │ id     change   status
+ * │ ─────  ───────  ───────────
+ * │ c4f2a  add-api  done
+ * ╰────────────────────────────────────────────
+ * ```
+ *
+ * `opts.width` is the content width in visible characters; pass it
+ * explicitly when `bodyLines` already carry ANSI styling, since `.length` on
+ * a styled line counts escape bytes. Defaults to the longest line in
+ * `bodyLines`, widened if needed to fit `title`. Blank lines render as a
+ * bare `│` with no trailing space; every other line is padded to the
+ * content width. No right border: callers may pass already-trimmed table
+ * rows of varying length.
+ */
+export function renderPanel(
+  title: string,
+  bodyLines: string[],
+  opts: { width?: number } = {},
+): string {
+  const bodyMax = bodyLines.reduce((m, line) => Math.max(m, line.length), 0);
+  const width = Math.max(opts.width ?? bodyMax, title.length + 3);
+  const total = width + 2;
+
+  const top = `╭─ ${title} ${'─'.repeat(Math.max(1, total - title.length - 4))}`;
+  const bottom = `╰${'─'.repeat(Math.max(1, total - 1))}`;
+  if (bodyLines.length === 0) return `${top}\n${bottom}`;
+
+  const body = bodyLines
+    .map((line) => (line === '' ? '│' : `│ ${padRight(line, width)}`))
+    .join('\n');
+  return `${top}\n${body}\n${bottom}`;
+}
+
 /** Render a single-line section header prefixed by an emoji. */
 export function renderHeader(emoji: string, label: string): string {
   return `${emoji} ${label}`;

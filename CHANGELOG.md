@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- `spego board`'s human output now groups each sprint (plus `Ungrouped` and `Warnings`) into a left-railed panel with a bolded, underlined title, so sections read as bounded groups instead of one flat wall of tables. Rows for satisfied changes (`done`, `completed`) are struck through; rows that are merely blocked are dimmed. The rail is structural and renders even under `--plain`; only the color/text decorations are gated by `--plain`, `NO_COLOR`, and non-TTY detection, same as before. `spego board`, `spego epics`, and `spego view`'s epic rows now print `completed` as `archived` in human output — `--json` output is unchanged, so agents are unaffected.
+
 ## [0.17.0] - 2026-07-28
 
 ### Changed
