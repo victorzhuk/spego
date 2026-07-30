@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.0] - 2026-07-30
 
 ### Added
 - `spego board --closed`: shows sprints whose changes are all `done`/`completed` (the same condition behind the `closable-sprint` warning), rendered dim with an unbolded title. Without the flag such sprints are hidden and replaced by a trailing `N closed sprints hidden (--closed to show).` note. Purely a display filter — `--json` still lists every sprint, and hiding never writes `status: closed` to the sprint-plan artifact.
