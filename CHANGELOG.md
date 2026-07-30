@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.1] - 2026-07-30
 
 ### Fixed
 - `spego board`'s `Warnings` panel no longer hard-truncates `message` text at 80 characters regardless of how wide the shared panel actually is — messages now size to their own length (up to the terminal-width budget), same as every other column. Whichever table (a change table's `title` column or the `Warnings` table's `message` column) comes out narrower than the shared panel now grows to fill it, instead of leaving a blank band of dead space inside the panel.
