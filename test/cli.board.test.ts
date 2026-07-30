@@ -260,6 +260,35 @@ describe('CLI board command', () => {
     expect(titleOffsets.size).toBe(1);
   }, 30_000);
 
+  it('does not truncate a warning message that fits the shared panel width', async () => {
+    const root = await setupOpenSpecWorkspace();
+    const longDep = 'a-genuinely-long-and-descriptive-missing-dependency-name';
+    await createChangeEpic(root, 'has-dangling', {
+      tasks: '- [ ] todo\n',
+      meta: { deps: [longDep] },
+    });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const warningLine = stdout.split('\n').find((line) => line.includes('dangling-dep'))!;
+    expect(warningLine).toContain(longDep);
+    expect(warningLine).not.toContain('…');
+  }, 30_000);
+
+  it("grows the narrower table's last column to close the gap instead of leaving dead space", async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['x'] });
+    const longDep = 'a-genuinely-long-and-descriptive-missing-dependency-name-for-testing';
+    await createChangeEpic(root, 'has-dangling', { tasks: '- [ ] todo\n', meta: { deps: [longDep] } });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '200' } });
+    const lines = stdout.split('\n');
+    const dividerContentLength = (line: string): number => line.replace(/^│ /, '').trimEnd().length;
+    const sprintDivider = lines[lines.findIndex((line) => line.startsWith('╭─ Sprint sprint-1')) + 2]!;
+    const warningsDivider = lines[lines.findIndex((line) => line.startsWith('╭─ Warnings')) + 2]!;
+    expect(dividerContentLength(sprintDivider)).toBe(dividerContentLength(warningsDivider));
+  }, 30_000);
+
   it('renders human board, dependency graph, and gaps report', async () => {
     const root = await setupBoardFixture();
     const board = await spawnCli(['board', '--cwd', root], root);
