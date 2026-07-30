@@ -188,6 +188,17 @@ describe('deriveMirror', () => {
         expect.objectContaining({ code: 'orphan-epic', details: { change: 'missing-change', reason: 'missing' } }),
       ]),
     );
+
+    // 'active' mixes a pending change with a satisfied one -> not complete; 'closable' is all-satisfied.
+    expect(result.sprints.find((row) => row.slug === 'active')?.complete).toBe(false);
+    expect(result.sprints.find((row) => row.slug === 'closable')?.complete).toBe(true);
+  });
+
+  it('marks an empty sprint as incomplete', () => {
+    const result = board({
+      sprints: [sprint('empty', [], { status: 'planned' })],
+    });
+    expect(result.sprints[0]!.complete).toBe(false);
   });
 
   it('marks only cycle members while dependents become blocked and long chains terminate', () => {

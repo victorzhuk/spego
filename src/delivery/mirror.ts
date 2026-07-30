@@ -67,6 +67,8 @@ export interface MirrorSprint {
   startDate: string | null;
   endDate: string | null;
   changes: MirrorChange[];
+  /** True when the sprint has at least one change and every change is done/completed. */
+  complete: boolean;
 }
 
 export interface MirrorNext {
@@ -341,18 +343,21 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     };
   };
 
-  const sprintRows: MirrorSprint[] = sprints.map((sprint) => ({
-    slug: sprint.artifact.slug,
-    title: sprint.artifact.title,
-    status: sprint.status,
-    startDate: sprint.startDate,
-    endDate: sprint.endDate,
-    changes: sprint.changes.map((slug) => toMirrorChange(slug)),
-  }));
+  const sprintRows: MirrorSprint[] = sprints.map((sprint) => {
+    const changes = sprint.changes.map((slug) => toMirrorChange(slug));
+    return {
+      slug: sprint.artifact.slug,
+      title: sprint.artifact.title,
+      status: sprint.status,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      changes,
+      complete: changes.length > 0 && changes.every((item) => isSatisfied(item.status)),
+    };
+  });
   for (const sprint of sprintRows) {
     if (sprint.status === 'closed') continue;
-    if (sprint.changes.length === 0) continue;
-    if (!sprint.changes.every((item) => isSatisfied(item.status))) continue;
+    if (!sprint.complete) continue;
     sortedWarnings.push({
       code: 'closable-sprint',
       message: `Sprint "${sprint.slug}" has no pending changes and can be closed.`,

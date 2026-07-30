@@ -57,6 +57,47 @@ export function renderBox(title: string, rows: Array<[string, string]>): string 
   return rows.length === 0 ? `${titleLine}\n${bottom}` : `${titleLine}\n${body}\n${bottom}`;
 }
 
+const DEFAULT_TABLE_MIN_WIDTH = 6;
+
+/**
+ * Compute one width per column: the natural size (header vs. longest cell,
+ * default 60), clamped by `opts.maxWidth`.
+ *
+ * When `opts.totalWidth` is given and the natural widths don't fit within it
+ * (accounting for the two-space separator between columns), the currently
+ * widest column is shrunk by 1 repeatedly until it fits or every column has
+ * hit `opts.minWidth` (default 6). Deterministic and index-stable: ties for
+ * "widest" always shrink the lowest index first.
+ */
+export function columnWidths(
+  columns: string[],
+  rows: string[][],
+  opts: { maxWidth?: number; totalWidth?: number; minWidth?: number } = {},
+): number[] {
+  const maxWidth = opts.maxWidth ?? DEFAULT_TABLE_MAX_WIDTH;
+  const minWidth = opts.minWidth ?? DEFAULT_TABLE_MIN_WIDTH;
+  const widths = columns.map((col, i) => {
+    const dataMax = rows.reduce((m, r) => Math.max(m, (r[i] ?? '').length), 0);
+    const target = Math.max(col.length, dataMax);
+    return Math.min(target, maxWidth);
+  });
+
+  if (opts.totalWidth === undefined) return widths;
+
+  const separatorWidth = 2 * Math.max(0, columns.length - 1);
+  while (widths.reduce((sum, w) => sum + w, 0) + separatorWidth > opts.totalWidth) {
+    let widestIndex = -1;
+    for (let i = 0; i < widths.length; i++) {
+      if (widths[i]! > minWidth && (widestIndex === -1 || widths[i]! > widths[widestIndex]!)) {
+        widestIndex = i;
+      }
+    }
+    if (widestIndex === -1) break;
+    widths[widestIndex]!--;
+  }
+  return widths;
+}
+
 /**
  * Render an aligned table with a header row separated from data rows by `─`.
  *
@@ -67,20 +108,17 @@ export function renderBox(title: string, rows: Array<[string, string]>): string 
  * ```
  *
  * `opts.maxWidth` caps each column width and truncates longer cells with `…`
- * (default 60). An empty `rows` array still renders the header and divider
- * so callers can prepend a "no rows" hint above if they choose.
+ * (default 60). Pass `opts.widths` to reuse widths computed elsewhere (e.g.
+ * shared across several tables via `columnWidths`) instead of deriving them
+ * from `rows`. An empty `rows` array still renders the header and divider so
+ * callers can prepend a "no rows" hint above if they choose.
  */
 export function renderTable(
   columns: string[],
   rows: string[][],
-  opts: { maxWidth?: number } = {},
+  opts: { maxWidth?: number; widths?: number[] } = {},
 ): string {
-  const maxWidth = opts.maxWidth ?? DEFAULT_TABLE_MAX_WIDTH;
-  const widths = columns.map((col, i) => {
-    const dataMax = rows.reduce((m, r) => Math.max(m, (r[i] ?? '').length), 0);
-    const target = Math.max(col.length, dataMax);
-    return Math.min(target, maxWidth);
-  });
+  const widths = opts.widths ?? columnWidths(columns, rows, { maxWidth: opts.maxWidth });
 
   const formatRow = (cells: string[]): string =>
     widths.map((w, i) => padRight(truncate(cells[i] ?? '', w), w)).join('  ').trimEnd();

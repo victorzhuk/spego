@@ -235,6 +235,31 @@ describe('CLI board command', () => {
     }
   }, 30_000);
 
+  it('aligns the title column at the same offset across sprint panels with differently sized cells', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'wide-gap-change', {
+      tasks: '- [ ] todo\n',
+      meta: { gaps: [{ flag: 'needs-design-review', note: 'blocked on design sign-off from the platform team' }] },
+    });
+    await createChangeEpic(root, 'short-change', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint A', {
+      status: 'active',
+      startDate: '2026-01-01',
+      changes: ['wide-gap-change'],
+    });
+    await createArtifact(root, 'sprint-plan', 'Sprint B', {
+      status: 'active',
+      startDate: '2026-02-01',
+      changes: ['short-change'],
+    });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    const headerLines = stdout.split('\n').filter((line) => line.includes('missing') && line.includes('title'));
+    expect(headerLines.length).toBe(2);
+    const titleOffsets = new Set(headerLines.map((line) => line.indexOf('title')));
+    expect(titleOffsets.size).toBe(1);
+  }, 30_000);
+
   it('renders human board, dependency graph, and gaps report', async () => {
     const root = await setupBoardFixture();
     const board = await spawnCli(['board', '--cwd', root], root);
@@ -296,8 +321,14 @@ describe('CLI board command', () => {
     // JSON keeps `completed` for agents; human output shows `archived` instead.
     expect(defaultResult.sprints[0]!.changes[0]!.status).toBe('completed');
 
+    // A sprint whose only change is archived is fully satisfied -> hidden by default.
     const human = await spawnCli(['board', '--cwd', root], root);
-    const changeLine = human.stdout.split('\n').find((line) => line.includes('archived-in-sprint'))!;
+    expect(human.stdout).not.toContain('Sprint sprint-1');
+    expect(human.stdout).toContain('1 closed sprint hidden (--closed to show).');
+
+    const humanClosed = await spawnCli(['board', '--closed', '--cwd', root], root);
+    expect(humanClosed.stdout).toContain('Sprint sprint-1');
+    const changeLine = humanClosed.stdout.split('\n').find((line) => line.includes('archived-in-sprint'))!;
     expect(changeLine).toContain('archived');
     expect(changeLine).not.toContain('completed');
   }, 30_000);

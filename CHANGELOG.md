@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `spego board --closed`: shows sprints whose changes are all `done`/`completed` (the same condition behind the `closable-sprint` warning), rendered dim with an unbolded title. Without the flag such sprints are hidden and replaced by a trailing `N closed sprints hidden (--closed to show).` note. Purely a display filter — `--json` still lists every sprint, and hiding never writes `status: closed` to the sprint-plan artifact.
+
+### Changed
+- `spego board`'s human output now shares one column grid across every sprint panel and `Ungrouped`, so `status`/`group`/`blockers`/`gaps`/`missing`/`title` start at the same offset everywhere instead of each panel sizing its columns independently; columns shrink together, widest first, to fit the terminal width. Archived/blocked rows are now padded to the full panel width before the dim/strikethrough styling is applied, so the styling reaches the right edge instead of stopping wherever the row's own text ended.
+
 ## [0.18.0] - 2026-07-30
 
 ### Changed

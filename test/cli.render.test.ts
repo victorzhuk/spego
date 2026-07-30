@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  columnWidths,
   renderBox,
   renderPanel,
   renderTable,
@@ -144,6 +145,45 @@ describe('renderTable', () => {
     const out = renderTable(['col'], []);
     const lines = out.split('\n');
     expect(lines).toHaveLength(2);
+  });
+
+  it('uses explicit widths instead of deriving them from rows', () => {
+    const out = renderTable(['id', 'title'], [['c1', 'Short']], { widths: [10, 20] });
+    const lines = out.split('\n');
+    expect(lines[1]).toBe('─'.repeat(10) + '  ' + '─'.repeat(20));
+  });
+});
+
+describe('columnWidths', () => {
+  it('sizes each column to the header vs. longest cell', () => {
+    expect(columnWidths(['id', 'title'], [['c1', 'Short'], ['c22', 'A longer title']])).toEqual([3, 14]);
+  });
+
+  it('clamps to maxWidth', () => {
+    expect(columnWidths(['title'], [['x'.repeat(80)]], { maxWidth: 10 })).toEqual([10]);
+  });
+
+  it('returns natural widths unchanged when they already fit totalWidth', () => {
+    expect(columnWidths(['id', 'title'], [['c1', 'Short']], { totalWidth: 60 })).toEqual([2, 5]);
+  });
+
+  it('shrinks the widest column first, repeatedly, to fit totalWidth', () => {
+    // natural: id=2, wide=30, other=30 -> sum 62 + 4 separators = 66; budget 40.
+    const widths = columnWidths(
+      ['id', 'wide', 'other'],
+      [['c1', 'x'.repeat(30), 'y'.repeat(30)]],
+      { totalWidth: 40 },
+    );
+    const sum = widths.reduce((s, w) => s + w, 0) + 2 * (widths.length - 1);
+    expect(sum).toBeLessThanOrEqual(40);
+    // 'wide' and 'other' tie at 30; lowest index shrinks first, so 'wide' ends narrower or equal.
+    expect(widths[1]!).toBeLessThanOrEqual(widths[2]!);
+    expect(widths[0]!).toBe(2); // 'id' never grows past its natural width
+  });
+
+  it('stops shrinking at minWidth even if totalWidth is not met', () => {
+    const widths = columnWidths(['a', 'b'], [['x'.repeat(20), 'y'.repeat(20)]], { totalWidth: 5, minWidth: 6 });
+    expect(widths).toEqual([6, 6]);
   });
 });
 
