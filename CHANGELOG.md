@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-07-31
+
 ### Added
 - `spego sync` command: derives a reconciliation plan from the delivery mirror and applies the mechanical subset — `create-epic` for every ungroomed active change, `close-sprint` for every finished non-closed sprint — leaving judgment-only warnings (`orphan-epic`, `dangling-dep`, `dep-cycle`, `out-of-order-dep`) as `remaining`. Supports `--dry-run` (plan only, no writes) and the global `--json` flag (`{ actions, applied, remaining }`). Stale-revision conflicts during close-sprint are rejected, not silently skipped.
 
