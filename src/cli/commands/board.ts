@@ -12,7 +12,7 @@ import {
   type MirrorWarning,
 } from '../../delivery/mirror.js';
 import { columnWidths, padRight, renderHeader, renderPanel, renderTable } from '../render.js';
-import { deliveryStatusLabel } from '../status.js';
+import { deliveryGroupLabel, deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
 
 interface BoardOptions {
@@ -26,7 +26,7 @@ interface BoardOptions {
 
 const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'blockers', 'gaps', 'missing', 'title'];
 const DEFAULT_TERMINAL_WIDTH = 120;
-const PANEL_CHROME_WIDTH = 2; // "│ " rail prefix
+const PANEL_CHROME_WIDTH = 4; // "│ " prefix + " │" suffix
 
 export function registerBoard(program: Command): void {
   program
@@ -80,7 +80,7 @@ function renderBoard(board: MirrorBoard, plain: boolean, showClosed: boolean, bu
   const totalWidth = Math.max(0, budget - PANEL_CHROME_WIDTH);
   const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change, idBySlug)));
   const widths = columnWidths(BOARD_COLUMNS, rowsByColumn, { maxWidth: 36, totalWidth });
-  const warningRows = board.warnings.map((warning) => [warning.code, warning.message]);
+  const warningRows = aggregateWarningRows(board.warnings);
   const warningWidths = columnWidths(['code', 'message'], warningRows, { maxWidth: totalWidth, totalWidth });
   const panelWidth = Math.max(tableWidth(widths), board.warnings.length > 0 ? tableWidth(warningWidths) : 0);
   // Whichever table computed narrower than the shared panel grows its last (free-text) column
@@ -99,7 +99,7 @@ function renderBoard(board: MirrorBoard, plain: boolean, showClosed: boolean, bu
   }
 
   if (board.warnings.length > 0) {
-    const warningsTable = renderTable(['code', 'message'], warningRows, { widths: warningWidths });
+    const warningsTable = renderTable(['code', 'message'], warningRows, { widths: warningWidths, wrapLastColumn: true });
     lines.push(renderPanelSection('Warnings', warningsTable, panelWidth, plain, false));
     lines.push('');
   }
@@ -153,6 +153,7 @@ function renderPanelSection(
   finished: boolean,
   styleRows?: (lines: string[]) => string[],
 ): string {
+  // Pad on the unstyled line: styling happens after, so padRight measures raw length and the right rail stays aligned.
   const padded = table.split('\n').map((line) => padRight(line, width));
   const body = plain
     ? padded
@@ -162,7 +163,7 @@ function renderPanelSection(
   const panel = renderPanel(title, body, { width });
   if (plain) return panel;
   const lines = panel.split('\n');
-  lines[0] = lines[0]!.replace(title, () => styleText(finished ? 'dim' : ['bold', 'underline'], title));
+  lines[0] = lines[0]!.replace(title, () => styleText(finished ? 'dim' : 'bold', title));
   return lines.join('\n');
 }
 
@@ -230,12 +231,111 @@ function changeRow(change: MirrorChange, idBySlug: Map<string, string>): string[
     change.id,
     change.slug,
     deliveryStatusLabel(change.status),
-    change.group,
+    deliveryGroupLabel(change.group),
     formatBlockers(change, idBySlug),
     formatGaps(change),
     change.missing.join(', ') || '—',
     change.title,
   ];
+}
+
+/**
+ * Collapse the board's per-fact warnings into the rows the human board prints,
+ * one row per repair. Grouping is keyed per code: `archived-in-sprint` by
+ * sprint, `orphan-epic` by reason (a `missing` epic and an `archived` one never
+ * merge — different repairs), `dangling-dep`/`out-of-order-dep` by the
+ * dependent change, and `closable-sprint`/`dep-cycle`/`ungroomed-change` by
+ * code. `adapter-warning`/`adapter-unavailable` pass through untouched. A
+ * single-member group keeps its original message; a multi-member group lists
+ * every affected slug. The JSON payload stays per-fact — this only shapes the
+ * human table.
+ */
+export function aggregateWarningRows(warnings: MirrorWarning[]): Array<[string, string]> {
+  const groups = new Map<string, MirrorWarning[]>();
+  const order: Array<{ code: string; message?: string; key?: string }> = [];
+  for (const warning of warnings) {
+    if (warning.code === 'adapter-warning' || warning.code === 'adapter-unavailable') {
+      order.push({ code: warning.code, message: warning.message });
+      continue;
+    }
+    const key = `${warning.code}::${warningDiscriminator(warning)}`;
+    let members = groups.get(key);
+    if (!members) {
+      members = [];
+      groups.set(key, members);
+      order.push({ code: warning.code, key });
+    }
+    members.push(warning);
+  }
+  return order.map((slot) =>
+    slot.message !== undefined
+      ? [slot.code, slot.message]
+      : renderWarningGroup(slot.code, groups.get(slot.key!)!),
+  );
+}
+
+function warningDiscriminator(warning: MirrorWarning): string {
+  const details = warning.details ?? {};
+  switch (warning.code) {
+    case 'archived-in-sprint':
+      return `sprint:${details.sprint ?? ''}`;
+    case 'orphan-epic':
+      return `reason:${details.reason ?? ''}`;
+    case 'dangling-dep':
+    case 'out-of-order-dep':
+      return `change:${details.change ?? ''}`;
+    default:
+      return '';
+  }
+}
+
+function renderWarningGroup(code: string, members: MirrorWarning[]): [string, string] {
+  if (members.length === 1) return [code, members[0]!.message];
+  const changes = uniqueStrings(members.map((m) => (m.details ?? {}).change));
+  const first = members[0]!.details ?? {};
+  switch (code) {
+    case 'archived-in-sprint':
+      return [code, `Sprint "${first.sprint}" includes archived changes: ${quoteSlugs(changes)}.`];
+    case 'orphan-epic':
+      return first.reason === 'archived'
+        ? [code, `Epics ${quoteSlugs(changes)} point at archived OpenSpec changes.`]
+        : [code, `Epics ${quoteSlugs(changes)} do not resolve to an OpenSpec change.`];
+    case 'closable-sprint': {
+      const sprints = uniqueStrings(members.map((m) => (m.details ?? {}).sprint));
+      return [code, `Sprints ${quoteSlugs(sprints)} have no pending changes and can be closed.`];
+    }
+    case 'dep-cycle':
+      return [code, `Changes ${quoteSlugs(changes)} are part of a dependency cycle.`];
+    case 'dangling-dep': {
+      const deps = uniqueStrings(members.map((m) => (m.details ?? {}).dep));
+      return [code, `Change "${first.change}" depends on unknown changes: ${quoteSlugs(deps)}.`];
+    }
+    case 'out-of-order-dep': {
+      const deps = uniqueStrings(members.map((m) => (m.details ?? {}).dep));
+      return [code, `Change "${first.change}" depends on ${quoteSlugs(deps)}, each scheduled in a later sprint.`];
+    }
+    default:
+      return [code, `Active changes ${quoteSlugs(changes)} have no epic artifacts.`];
+  }
+}
+
+/** Deduplicate `values` (coerced to strings), preserving first-seen order. */
+function uniqueStrings(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const text = String(value);
+    if (!seen.has(text)) {
+      seen.add(text);
+      out.push(text);
+    }
+  }
+  return out;
+}
+
+/** Quote each slug and join with commas: `["a", "b"]` → `"a", "b"`. */
+function quoteSlugs(slugs: string[]): string {
+  return slugs.map((slug) => `"${slug}"`).join(', ');
 }
 
 function idMapFor(board: MirrorBoard): Map<string, string> {

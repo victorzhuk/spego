@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- `spego board`'s human panels now close on the right (`│` rail with `╮`/`╯` corners) instead of being left-railed only, and the panel title is bold without the underline. The `group` parallel-wave code renders as a letter in human output (`g001`→`A` … `g026`→`Z`, `g027`→`AA`), and the `Warnings` table aggregates per-fact drift warnings into one row per repair — grouped per code (`archived-in-sprint` by sprint, `orphan-epic` by reason, `dangling-dep`/`out-of-order-dep` by the dependent change, the rest by code) — with its `message` column wrapping onto continuation rows instead of truncating. `--json` is unchanged: the raw `gNNN` group code and one warning per fact stay as before, so agents parsing the payload see no contract change.
+
 ## [0.19.1] - 2026-07-30
 
 ### Fixed

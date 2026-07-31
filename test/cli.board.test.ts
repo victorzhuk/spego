@@ -136,6 +136,27 @@ async function setupStyledPanelFixture(): Promise<string> {
   return root;
 }
 
+/**
+ * Two archived changes sit alongside a pending one in an active sprint. The
+ * sprint is not finished (pending-c still open), so it stays visible and each
+ * archived change fires its own `archived-in-sprint` warning — the input the
+ * human board aggregates into one row. A closed sprint is avoided on purpose:
+ * a companion change will stop emitting `archived-in-sprint` for closed
+ * sprints, so this fixture stays robust against it.
+ */
+async function setupArchivedInSprintFixture(): Promise<string> {
+  const root = await setupOpenSpecWorkspace();
+  await writeOpenSpecChange(root, 'archived-a', { tasks: '- [x] done\n', archived: true });
+  await writeOpenSpecChange(root, 'archived-b', { tasks: '- [x] done\n', archived: true });
+  await createChangeEpic(root, 'pending-c', { tasks: '- [ ] todo\n' });
+  await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+    status: 'active',
+    startDate: '2026-01-01',
+    changes: ['archived-a', 'archived-b', 'pending-c'],
+  });
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -203,7 +224,7 @@ describe('CLI board command', () => {
     const uiLine = lines.find((line) => line.includes('ship-ui'))!;
 
     expect(titleLine).toContain('\x1b[1m');
-    expect(titleLine).toContain('\x1b[4m');
+    expect(titleLine).not.toContain('\x1b[4m');
 
     // ship-api: all tasks checked (done) -> satisfied, struck through even though it also has a blocker.
     expect(apiLine).toContain('\x1b[9m');
@@ -212,11 +233,10 @@ describe('CLI board command', () => {
     expect(uiLine).toContain('\x1b[2m');
   }, 30_000);
 
-  it('renders the sprint and Warnings sections as left-railed panels with aligned rules', async () => {
+  it('renders the sprint and Warnings sections as bordered panels with aligned rules', async () => {
     const root = await setupStyledPanelFixture();
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
     expect(stdout).toContain('╭─ Sprint sprint-1');
-    expect(stdout).toContain('│ ');
     expect(stdout).toContain('╭─ Warnings');
 
     const lines = stdout.split('\n');
@@ -227,12 +247,46 @@ describe('CLI board command', () => {
     expect(panelStarts.length).toBe(2);
 
     for (const start of panelStarts) {
-      const end = lines.findIndex((line, index) => index > start && /^╰─+$/.test(line));
+      const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(line));
       expect(end).toBeGreaterThan(start);
-      const panelLines = lines.slice(start, end + 1).filter((line) => line !== '│');
+      const panelLines = lines.slice(start, end + 1);
+      // Top closes on the right with ╮, bottom with ╯, every body line with │.
+      expect(panelLines[0]).toMatch(/╮$/);
+      expect(panelLines.at(-1)).toMatch(/^╰─+╯$/);
+      for (const body of panelLines.slice(1, -1)) {
+        expect(body).toMatch(/│$/);
+      }
       const widths = new Set(panelLines.map((line) => line.length));
       expect(widths.size).toBe(1);
     }
+  }, 30_000);
+
+  it('aggregates archived-in-sprint warnings for one sprint into a single row naming every change', async () => {
+    const root = await setupArchivedInSprintFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const archivedLines = stdout.split('\n').filter((line) => line.includes('archived-in-sprint'));
+    expect(archivedLines).toHaveLength(1);
+    expect(archivedLines[0]).toContain('archived-a');
+    expect(archivedLines[0]).toContain('archived-b');
+
+    // --json stays per-fact: one warning per archived change, untouched.
+    const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
+    const archivedWarnings = jsonBoard.warnings.filter((w) => w.code === 'archived-in-sprint');
+    expect(archivedWarnings).toHaveLength(2);
+  }, 30_000);
+
+  it('renders the group as a letter in human output while --json keeps the gNNN code', async () => {
+    const root = await setupWaveFixture();
+    const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
+    expect(new Set(jsonBoard.ungrouped.map((change) => change.group))).toEqual(new Set(['g001', 'g002']));
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    expect(stdout).not.toContain('g001');
+    expect(stdout).not.toContain('g002');
+    const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'))!;
+    expect(waveCLine).toContain('B');
   }, 30_000);
 
   it('aligns the title column at the same offset across sprint panels with differently sized cells', async () => {

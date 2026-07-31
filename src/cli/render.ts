@@ -112,11 +112,17 @@ export function columnWidths(
  * shared across several tables via `columnWidths`) instead of deriving them
  * from `rows`. An empty `rows` array still renders the header and divider so
  * callers can prepend a "no rows" hint above if they choose.
+ *
+ * Set `opts.wrapLastColumn` to wrap a last-column cell that doesn't fit onto
+ * continuation rows instead of truncating it with `…`. Each continuation row
+ * blanks every preceding column (kept at the same offset) and carries the
+ * next chunk of the last column, word-wrapped at the column width. Only the
+ * last column wraps; earlier columns still truncate as usual.
  */
 export function renderTable(
   columns: string[],
   rows: string[][],
-  opts: { maxWidth?: number; widths?: number[] } = {},
+  opts: { maxWidth?: number; widths?: number[]; wrapLastColumn?: boolean } = {},
 ): string {
   const widths = opts.widths ?? columnWidths(columns, rows, { maxWidth: opts.maxWidth });
 
@@ -125,30 +131,71 @@ export function renderTable(
 
   const header = formatRow(columns);
   const divider = widths.map((w) => '─'.repeat(w)).join('  ').trimEnd();
-  const body = rows.map(formatRow).join('\n');
 
+  if (!opts.wrapLastColumn) {
+    const body = rows.map(formatRow).join('\n');
+    return rows.length === 0 ? `${header}\n${divider}` : `${header}\n${divider}\n${body}`;
+  }
+
+  const lastIndex = widths.length - 1;
+  const lastWidth = widths[lastIndex] ?? 0;
+  const body = rows
+    .map((cells) => {
+      const head = widths.slice(0, lastIndex).map((w, i) => padRight(truncate(cells[i] ?? '', w), w));
+      const blank = widths.slice(0, lastIndex).map((w) => ' '.repeat(w));
+      return wrapText(cells[lastIndex] ?? '', lastWidth)
+        .map((chunk, row) => [...(row === 0 ? head : blank), padRight(chunk, lastWidth)].join('  ').trimEnd())
+        .join('\n');
+    })
+    .join('\n');
   return rows.length === 0 ? `${header}\n${divider}` : `${header}\n${divider}\n${body}`;
 }
 
+/** Word-wrap `value` into lines no wider than `width`, hard-breaking any single word longer than `width`. */
+function wrapText(value: string, width: number): string[] {
+  if (width <= 0) return [value];
+  const lines: string[] = [];
+  let line = '';
+  for (const word of value.split(' ')) {
+    for (const piece of breakWord(word, width)) {
+      if (line === '') line = piece;
+      else if (line.length + 1 + piece.length <= width) line += ` ${piece}`;
+      else {
+        lines.push(line);
+        line = piece;
+      }
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
+function breakWord(word: string, width: number): string[] {
+  if (word.length <= width) return [word];
+  const pieces: string[] = [];
+  for (let i = 0; i < word.length; i += width) pieces.push(word.slice(i, i + width));
+  return pieces;
+}
+
 /**
- * Wrap `bodyLines` in a left rail so a group of related lines (e.g. a
+ * Wrap `bodyLines` in a bordered panel so a group of related lines (e.g. a
  * sprint's title and its change table) reads as one bounded section.
  *
  * ```
- * ╭─ Sprint sprint-1 — Sprint 1 (active) ─────
- * │ id     change   status
- * │ ─────  ───────  ───────────
- * │ c4f2a  add-api  done
- * ╰────────────────────────────────────────────
+ * ╭─ Sprint sprint-1 — Sprint 1 (active) ─────╮
+ * │ id     change   status                    │
+ * │ ─────  ───────  ───────────               │
+ * │ c4f2a  add-api  done                      │
+ * ╰───────────────────────────────────────────╯
  * ```
  *
- * `opts.width` is the content width in visible characters; pass it
- * explicitly when `bodyLines` already carry ANSI styling, since `.length` on
- * a styled line counts escape bytes. Defaults to the longest line in
- * `bodyLines`, widened if needed to fit `title`. Blank lines render as a
- * bare `│` with no trailing space; every other line is padded to the
- * content width. No right border: callers may pass already-trimmed table
- * rows of varying length.
+ * `opts.width` is the content width in visible characters. Callers passing
+ * ANSI-styled `bodyLines` MUST supply it explicitly: `.length` on a styled
+ * line counts escape bytes, so the default (longest line) would mis-size the
+ * panel and break the right border. Defaults to the longest line in
+ * `bodyLines`, widened if needed to fit `title`. Every body line is padded to
+ * the content width and closed on the right with ` │`, so header, divider,
+ * short rows, and blank rows all align on both rails.
  */
 export function renderPanel(
   title: string,
@@ -157,15 +204,13 @@ export function renderPanel(
 ): string {
   const bodyMax = bodyLines.reduce((m, line) => Math.max(m, line.length), 0);
   const width = Math.max(opts.width ?? bodyMax, title.length + 3);
-  const total = width + 2;
+  const total = width + 4; // `│ ` + width + ` │`
 
-  const top = `╭─ ${title} ${'─'.repeat(Math.max(1, total - title.length - 4))}`;
-  const bottom = `╰${'─'.repeat(Math.max(1, total - 1))}`;
+  const top = `╭─ ${title} ${'─'.repeat(Math.max(1, total - title.length - 5))}╮`;
+  const bottom = `╰${'─'.repeat(Math.max(1, total - 2))}╯`;
   if (bodyLines.length === 0) return `${top}\n${bottom}`;
 
-  const body = bodyLines
-    .map((line) => (line === '' ? '│' : `│ ${padRight(line, width)}`))
-    .join('\n');
+  const body = bodyLines.map((line) => `│ ${padRight(line, width)} │`).join('\n');
   return `${top}\n${body}\n${bottom}`;
 }
 

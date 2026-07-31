@@ -73,37 +73,39 @@ describe('renderBox', () => {
 });
 
 describe('renderPanel', () => {
-  it('starts the top rule with the title and ends the bottom rule with no right border', () => {
+  it('embeds the title in the top rule and closes both rails on the right', () => {
     const out = renderPanel('Sprint 1', ['id  status', 'c1  done']);
     const lines = out.split('\n');
-    expect(lines[0]).toMatch(/^╭─ Sprint 1 /);
-    expect(lines.at(-1)).toMatch(/^╰─+$/);
+    expect(lines[0]).toMatch(/^╭─ Sprint 1 .+╮$/);
+    expect(lines.at(-1)).toMatch(/^╰─+╯$/);
   });
 
-  it('prefixes non-empty body lines with a rail and renders blank lines as a bare rail', () => {
+  it('closes every body line with a right rail, blank rows included', () => {
     const out = renderPanel('T', ['row-a', '', 'row-b']);
     const lines = out.split('\n');
-    expect(lines[1]).toMatch(/^│ row-a\s*$/);
-    expect(lines[2]).toBe('│');
-    expect(lines[3]).toMatch(/^│ row-b\s*$/);
+    expect(lines[1]).toMatch(/^│ row-a\s+│$/);
+    expect(lines[2]).toMatch(/^│\s+│$/);
+    expect(lines[3]).toMatch(/^│ row-b\s+│$/);
   });
 
-  it('aligns the top rule, bottom rule, and every non-blank body line to the same width', () => {
-    const out = renderPanel('Sprint 1', ['short', 'a much longer row of content']);
-    const lines = out.split('\n').filter((line) => line !== '│');
+  it('aligns the top rule, bottom rule, header, short rows, and blank rows to one width', () => {
+    const out = renderPanel('Sprint 1', ['short', 'a much longer row of content', '']);
+    const lines = out.split('\n');
     const widths = new Set(lines.map((line) => line.length));
     expect(widths.size).toBe(1);
   });
 
-  it('honors an explicit width wider than the content', () => {
-    const narrow = renderPanel('T', ['x'], { width: 4 });
-    const wide = renderPanel('T', ['x'], { width: 20 });
-    expect(wide.split('\n')[0]!.length).toBeGreaterThan(narrow.split('\n')[0]!.length);
+  it('honors an explicit width wider than the content and still closes on the right', () => {
+    const out = renderPanel('T', ['x'], { width: 20 });
+    const lines = out.split('\n');
+    const widths = new Set(lines.map((line) => line.length));
+    expect(widths.size).toBe(1);
+    expect(lines[1]).toMatch(/^│ x\s+│$/);
   });
 
   it('clamps a width narrower than the title so the top rule never falls short of the title', () => {
     const out = renderPanel('A very long sprint title', ['x'], { width: 1 });
-    const lines = out.split('\n').filter((line) => line !== '│');
+    const lines = out.split('\n');
     const widths = new Set(lines.map((line) => line.length));
     expect(widths.size).toBe(1);
     expect(lines[0]!.length).toBeGreaterThan('A very long sprint title'.length);
@@ -113,8 +115,8 @@ describe('renderPanel', () => {
     const out = renderPanel('Empty', []);
     const lines = out.split('\n');
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toMatch(/^╭─ Empty /);
-    expect(lines[1]).toMatch(/^╰─+$/);
+    expect(lines[0]).toMatch(/^╭─ Empty .+╮$/);
+    expect(lines[1]).toMatch(/^╰─+╯$/);
   });
 });
 
@@ -151,6 +153,36 @@ describe('renderTable', () => {
     const out = renderTable(['id', 'title'], [['c1', 'Short']], { widths: [10, 20] });
     const lines = out.split('\n');
     expect(lines[1]).toBe('─'.repeat(10) + '  ' + '─'.repeat(20));
+  });
+
+  it('wraps a long last-column cell onto continuation rows that blank the leading columns', () => {
+    const out = renderTable(
+      ['id', 'note'],
+      [['c1', 'alpha beta gamma delta epsilon']],
+      { widths: [4, 10], wrapLastColumn: true },
+    );
+    const lines = out.split('\n');
+    // header + divider + the wrapped data rows (no truncation, no ellipsis).
+    expect(lines).toHaveLength(6);
+    expect(lines.some((line) => line.includes('…'))).toBe(false);
+    const dataLines = lines.slice(2);
+    // First continuation carries the id; every later line blanks it but keeps the column offset.
+    expect(dataLines[0]!.slice(0, 4)).toBe('c1  ');
+    for (const cont of dataLines.slice(1)) {
+      expect(cont.slice(0, 4)).toBe('    ');
+    }
+    // Each wrapped chunk stays within the 10-char last column.
+    for (const line of dataLines) {
+      expect(line.trimEnd().length).toBeLessThanOrEqual(4 + 2 + 10);
+    }
+    expect(dataLines.join(' ')).toContain('epsilon');
+  });
+
+  it('leaves a short last-column cell on one row under wrapLastColumn', () => {
+    const out = renderTable(['id', 'note'], [['c1', 'fits']], { widths: [4, 10], wrapLastColumn: true });
+    const lines = out.split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain('fits');
   });
 });
 
