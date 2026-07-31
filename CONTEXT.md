@@ -21,7 +21,7 @@ The derived picture — graph of Epics, Sprint grouping, blockers, and gaps — 
 _Avoid_: board (rendering of the Mirror, not the state itself), dashboard
 
 **Groom**:
-The agent workflow (`spego-groom` skill) that syncs Epics with Changes, analyzes deps, flags Gaps, and proposes Sprint grouping — the only writer of Mirror state.
+The agent workflow (`spego-groom` skill) that owns the judgment layer of the Mirror — orphan-epic disposition, dependency analysis, gap flagging, and sprint grouping. Mechanical reconciliation (an epic for every ungroomed change, a close for every finished sprint) is owned by `spego sync`; both persist through `spego create`/`spego update`, and the CLI never mutates Mirror state while rendering.
 _Avoid_: analyze, refine, orchestrate
 
 **Gap**:

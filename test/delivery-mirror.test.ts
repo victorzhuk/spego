@@ -164,6 +164,7 @@ describe('deriveMirror', () => {
       sprints: [
         sprint('active', ['archived-change', 'pending-in-active'], { status: 'active', startDate: '2026-01-01' }),
         sprint('closable', ['done'], { status: 'active', startDate: '2026-01-02' }),
+        sprint('closed-holding-archived', ['archived-change'], { status: 'closed', startDate: '2026-01-03' }),
       ],
     });
 
@@ -192,6 +193,31 @@ describe('deriveMirror', () => {
     // 'active' mixes a pending change with a satisfied one -> not complete; 'closable' is all-satisfied.
     expect(result.sprints.find((row) => row.slug === 'active')?.complete).toBe(false);
     expect(result.sprints.find((row) => row.slug === 'closable')?.complete).toBe(true);
+
+    // closed sprints no longer fire archived-in-sprint: the archived change sits in both
+    // 'active' and 'closed-holding-archived', but only 'active' reports it.
+    const archivedWarnings = result.warnings.filter((w) => w.code === 'archived-in-sprint');
+    expect(archivedWarnings).toHaveLength(1);
+    expect(archivedWarnings[0]).toEqual(
+      expect.objectContaining({ details: { sprint: 'active', change: 'archived-change' } }),
+    );
+  });
+
+  it('skips archived-in-sprint for closed sprints but fires for planned and active', () => {
+    const result = board({
+      changes: [
+        change('archived-planned', 'completed', true),
+        change('archived-active', 'completed', true),
+        change('archived-closed', 'completed', true),
+      ],
+      sprints: [
+        sprint('planned-sprint', ['archived-planned'], { status: 'planned' }),
+        sprint('active-sprint', ['archived-active'], { status: 'active' }),
+        sprint('closed-sprint', ['archived-closed'], { status: 'closed' }),
+      ],
+    });
+    const archived = result.warnings.filter((w) => w.code === 'archived-in-sprint');
+    expect(archived.map((w) => w.details?.sprint).sort()).toEqual(['active-sprint', 'planned-sprint']);
   });
 
   it('marks an empty sprint as incomplete', () => {

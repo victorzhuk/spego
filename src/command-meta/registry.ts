@@ -164,6 +164,16 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     outputModes: ['markdown', 'json'],
   },
   {
+    name: 'sync',
+    description: 'Reconcile the delivery mirror: create missing epics and close finished sprints',
+    slashName: '/spego:sync',
+    category: 'planning',
+    inputSchema: {
+      dryRun: { name: 'dryRun', type: 'boolean', required: false, description: 'Derive and print the plan without applying' },
+    },
+    outputModes: ['markdown', 'json'],
+  },
+  {
     name: 'workflows',
     description: 'List available workflow skills',
     slashName: '/spego:workflows',

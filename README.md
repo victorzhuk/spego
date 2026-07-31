@@ -28,6 +28,7 @@ spego init --agents claude,opencode --demo false
 | `spego tasks <change> [task]` | List tasks for a change, or get one task |
 | `spego sprints` | List sprint plans in board order |
 | `spego board` | Show the delivery board (sprints, blockers, gaps) |
+| `spego sync` | Reconcile the delivery mirror: create missing epics, close finished sprints |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.
@@ -84,6 +85,7 @@ deliveryAdapter:
 The default delivery adapter is OpenSpec. `spego epics` exposes active OpenSpec changes as delivery epics, and `spego tasks --change <name>` exposes checklist items from the change's `tasks.md`.
 
 The adapter is read-only. It observes OpenSpec state but does not create, continue, apply, verify, sync, or archive OpenSpec changes.
+`spego sync` reconciles the delivery mirror — it creates a missing epic for every ungroomed change and closes every finished sprint — and is unrelated to OpenSpec's own `sync` / `/opsx:sync`, which merges a change's spec deltas into the main specs tree.
 
 | Source | spego view |
 |--------|------------|
@@ -108,7 +110,7 @@ Archived changes are excluded from the `Ungrouped` list by default — they stil
 
 Each sprint (and the `Ungrouped` list, and the trailing `Warnings` table) renders as a bordered panel — a left rail closed on the right with `│`, corners `╮`/`╯` — with its title bolded, so a reader can see where one section ends and the next begins. Every change table shares one column grid — `status`/`group`/`blockers`/`gaps`/`missing`/`title` start at the same offset in every panel — and columns shrink together, widest first, to fit the terminal width (or 120 columns when not a TTY) instead of each panel sizing itself independently. The `Warnings` table's `message` column, and each change table's `title` column, absorb whatever width is left over once every panel is sized against the widest one, instead of stopping short and leaving a blank band inside the panel; the `message` column also wraps onto continuation rows instead of truncating with `…`. Rows for satisfied changes (`done`, `completed`) are struck through; rows that are merely blocked are dimmed instead — a satisfied change that still carries a stale blocker is struck through, not dimmed, since there is nothing left to act on. The rail itself is structural and always renders, including under `--plain`; only the bold/strikethrough/dim decorations are gated. Human output also renders each change's `group` wave as a letter (`g001`→`A` … `g026`→`Z`, `g027`→`AA`), and aggregates the per-fact drift warnings into one row per repair — grouped per code (`archived-in-sprint` by sprint, `orphan-epic` by reason, `dangling-dep`/`out-of-order-dep` by the dependent change, the rest by code) — so a repeated cause reads as a single line; `--json` keeps the raw `gNNN` group code and one warning per fact, so agents parsing the payload see no contract change. Pass `--plain` to force plain output regardless of terminal detection; color is otherwise skipped automatically when stdout is not a TTY, and the `NO_COLOR` env var disables it too. `--json` output never carries ANSI codes.
 
-Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. `out-of-order-dep` flags a scheduled change blocked by a dependency scheduled into a later sprint. Repair belongs to the groom workflow; the board only reports.
+Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, and `closable-sprint`. `out-of-order-dep` flags a scheduled change blocked by a dependency scheduled into a later sprint. The mechanical subset — `ungroomed-change` and `closable-sprint` — is repaired by `spego sync`; the judgment-only warnings (`orphan-epic`, `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `archived-in-sprint`) belong to the groom workflow. The board only reports.
 
 A sprint whose changes are all `done`/`completed` — the same condition behind `closable-sprint` — is hidden from the default board and replaced by a trailing `N closed sprints hidden (--closed to show).` note; pass `--closed` to render it anyway, muted (dim panel, unbolded title). This is purely a display filter: `--json` always lists every sprint regardless of `--closed`, and hiding never writes `status: closed` to the sprint-plan artifact — that persistence still belongs to the groom workflow, after your confirmation.
 
@@ -239,12 +241,12 @@ If a combined workflow discovers that OpenSpec artifacts need to change, use the
 Delivery-mirror workflow that reconciles active OpenSpec changes with `epic` and `sprint-plan` artifacts. One Groomer persona runs five phases:
 
 1. `orient` — read `spego board --json` and `spego epics --json`, then classify drift warnings.
-2. `sync` — create missing epics for ungroomed active changes and propose orphan-epic disposition.
+2. `sync` — run `spego sync` to mechanically create missing epics and close finished sprints, then propose orphan-epic disposition.
 3. `analyze` — update deps, requires, supporting links, and gap notes on epics.
 4. `plan` — propose releasable, testable sprint groupings and create or update `sprint-plan` artifacts after confirmation.
 5. `summarize` — report epics, dispositions, sprint plans, and the next-change suggestion.
 
-Sole writer: groom persists mirror state only through `spego create` / `spego update` with `--expected-revision`; it never writes `openspec/` or mutates OpenSpec lifecycle. Orphan disposition and sprint closes require explicit confirmation; default is keep.
+Sole writers: groom and `spego sync` persist mirror state only through `spego create` / `spego update` with `--expected-revision`; neither writes `openspec/` or mutates OpenSpec lifecycle. Orphan disposition requires explicit confirmation; default is keep. Finished sprints are closed deterministically by `spego sync` (preview with `--dry-run`), not by hand-confirmation in groom.
 
 ### elicit
 

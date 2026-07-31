@@ -21,6 +21,7 @@ import { registerSkills } from './cli/commands/skills.js';
 import { registerDelivery } from './cli/commands/delivery.js';
 import { registerBoard } from './cli/commands/board.js';
 import { registerSprints } from './cli/commands/sprints.js';
+import { registerSync } from './cli/commands/sync.js';
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -59,6 +60,7 @@ export function buildProgram(): Command {
   registerDelivery(program);
   registerBoard(program);
   registerSprints(program);
+  registerSync(program);
 
   return program;
 }

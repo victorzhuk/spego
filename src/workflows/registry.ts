@@ -385,7 +385,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'sync',
       instruction:
-        'For each active change without an epic, create one epic via `spego --json create --type epic`. For each orphan epic, propose disposition; default keep. Note archived-change orphans. Apply orphan disposition only after explicit user confirmation.',
+        'Run `spego sync --json` first to mechanically reconcile the mirror: it creates an epic for every ungroomed active change and closes every finished non-closed sprint. Review the `remaining` warnings for the judgment-only work — orphan-epic disposition, dependency analysis, gap flagging, and sprint grouping — handled in the phases below. For each orphan epic, propose disposition; default keep, applied only after explicit user confirmation.',
     },
     {
       name: 'analyze',
@@ -395,7 +395,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'plan',
       instruction:
-        'Propose sprint grouping as releasable, testable units. Create or update `sprint-plan` artifacts via `spego --json create --type sprint-plan` or `spego --json update --id <sprint-plan id> --expected-revision <current revision>` after user confirmation. Surface `closable-sprint` warnings and get explicit user confirmation before sprint close.',
+        'Propose sprint grouping as releasable, testable units. Create or update `sprint-plan` artifacts via `spego --json create --type sprint-plan` or `spego --json update --id <sprint-plan id> --expected-revision <current revision>` after user confirmation. Finished sprints are closed mechanically by `spego sync`, not here.',
     },
     {
       name: 'summarize',
@@ -417,7 +417,7 @@ const GROOM: WorkflowMeta = {
     ...OPENSPEC_CHANGE_SAFETY,
     'Persistence ONLY via `spego create` / `spego update`; NEVER write files under openspec/ and never run OpenSpec lifecycle-mutating commands (archive/apply/etc.) — direct the user to the matching OpenSpec command instead.',
     'MANDATORY: always pass --expected-revision on every spego update.',
-    'Orphan-epic disposition and sprint closes require explicit user confirmation; default is keep.',
+    'Orphan-epic disposition requires explicit user confirmation; default is keep. Finished sprints are closed deterministically by `spego sync` (preview with `--dry-run`); groom never closes sprints by hand.',
   ],
 };
 

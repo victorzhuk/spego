@@ -239,6 +239,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     }
   }
   for (const sprint of sprints) {
+    if (sprint.status === 'closed') continue;
     for (const slug of sprint.changes) {
       if (!inputChangeBySlug.get(slug)?.archived) continue;
       warnings.push({
