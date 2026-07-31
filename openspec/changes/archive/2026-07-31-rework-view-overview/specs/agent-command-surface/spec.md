@@ -30,7 +30,7 @@ The system SHALL expose a view command that exports all or filtered artifacts. B
 - **AND** an `epic` artifact with no resolvable delivery status falls back to its own `meta.status`, or `—` when that is also absent
 
 ### Requirement: Human output uses pretty rendering primitives
-The system SHALL render human output using a small fixed set of visual primitives so the surface stays scannable, copy-pasteable, and stable across commands. Every command SHALL render a section: an emoji header line, one blank line, then content blocks separated by blank lines; empty states keep the section header above the message.
+The system SHALL render human output using a small fixed set of visual primitives so the surface stays scannable, copy-pasteable, and stable across commands. Every command SHALL render a section: an emoji header line, one blank line, then content blocks separated by blank lines; empty states keep the section header above the message. A left-railed panel — a title embedded in a top rule, each body line prefixed by a left rail, and a bottom rule, with no right border — is one of these primitives; it SHALL render identically regardless of `--plain`, `NO_COLOR`, or TTY detection, since it is structural rather than a color or text decoration.
 
 #### Scenario: Workspace status uses a bordered summary box
 - **WHEN** an agent invokes `spego status` without `--json` against an initialized workspace
@@ -55,7 +55,7 @@ The system SHALL render human output using a small fixed set of visual primitive
 - **AND** it contains a bordered summary box drawn with rounded box-drawing characters
 - **AND** it contains one aligned table per artifact type, each with a header row separated from data rows by `─` characters
 
-#### Scenario: View detail separates artifacts with a divider
+#### Scenario: View bundle separates artifacts with a divider
 - **WHEN** an agent invokes `spego view --detail` without `--json` against a workspace with multiple artifacts
 - **THEN** the output begins with a section header line
 - **AND** consecutive artifacts in the bundle are separated by a single `────` divider line
@@ -63,3 +63,12 @@ The system SHALL render human output using a small fixed set of visual primitive
 #### Scenario: Empty list prints a plain message
 - **WHEN** an agent invokes `spego list` without `--json` against a workspace with no artifacts
 - **THEN** the output is a single line `No artifacts.` with no emoji and no table
+
+#### Scenario: Board sections use a left-railed panel
+- **WHEN** an agent invokes `spego board` without `--json` against a workspace with at least one sprint
+- **THEN** the sprint section renders as a left-railed panel: a top rule carrying the title, a `│ `-prefixed body, and a bottom rule with no right border
+
+#### Scenario: The rail is structural, not a color decoration
+- **WHEN** an agent invokes `spego board --plain`, or when stdout is not a TTY
+- **THEN** the left-railed panel still renders
+- **AND** only the bold, underline, strikethrough, and dim decorations are suppressed
