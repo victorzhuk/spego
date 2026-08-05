@@ -169,7 +169,6 @@ describe('deriveMirror', () => {
     });
 
     expect(warningCodes(result.warnings)).toEqual([
-      'archived-in-sprint',
       'closable-sprint',
       'dangling-dep',
       'dep-cycle',
@@ -182,7 +181,6 @@ describe('deriveMirror', () => {
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'dangling-dep', details: { change: 'has-dangling', dep: 'missing-dep' } }),
-        expect.objectContaining({ code: 'archived-in-sprint', details: { sprint: 'active', change: 'archived-change' } }),
         expect.objectContaining({ code: 'closable-sprint', details: { sprint: 'closable' } }),
         expect.objectContaining({ code: 'ungroomed-change', details: { change: 'active-without-epic' } }),
         expect.objectContaining({ code: 'orphan-epic', details: { change: 'archived-change', reason: 'archived' } }),
@@ -194,16 +192,11 @@ describe('deriveMirror', () => {
     expect(result.sprints.find((row) => row.slug === 'active')?.complete).toBe(false);
     expect(result.sprints.find((row) => row.slug === 'closable')?.complete).toBe(true);
 
-    // closed sprints no longer fire archived-in-sprint: the archived change sits in both
-    // 'active' and 'closed-holding-archived', but only 'active' reports it.
-    const archivedWarnings = result.warnings.filter((w) => w.code === 'archived-in-sprint');
-    expect(archivedWarnings).toHaveLength(1);
-    expect(archivedWarnings[0]).toEqual(
-      expect.objectContaining({ details: { sprint: 'active', change: 'archived-change' } }),
-    );
+    // An archived change in a live sprint is satisfied history, not drift.
+    expect(result.warnings.some((w) => /includes archived change/.test(w.message))).toBe(false);
   });
 
-  it('skips archived-in-sprint for closed sprints but fires for planned and active', () => {
+  it('does not warn when an archived change sits in a live sprint', () => {
     const result = board({
       changes: [
         change('archived-planned', 'completed', true),
@@ -216,8 +209,7 @@ describe('deriveMirror', () => {
         sprint('closed-sprint', ['archived-closed'], { status: 'closed' }),
       ],
     });
-    const archived = result.warnings.filter((w) => w.code === 'archived-in-sprint');
-    expect(archived.map((w) => w.details?.sprint).sort()).toEqual(['active-sprint', 'planned-sprint']);
+    expect(result.warnings.some((w) => /includes archived change/.test(w.message))).toBe(false);
   });
 
   it('marks an empty sprint as incomplete', () => {

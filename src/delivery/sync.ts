@@ -4,8 +4,9 @@
  * `deriveSyncPlan` is pure, like `deriveMirror`: it reads the derived board
  * plus the mirror input and splits the board's warnings into the mechanical
  * subset an agent (or `spego sync`) can apply without judgment — create an epic
- * for every ungroomed change, close every finished non-closed sprint — and the
- * judgment-only remainder (orphan-epic, dangling-dep, dep-cycle,
+ * for every ungroomed change, close every finished non-closed sprint, retire
+ * every epic whose backing change is archived — and the judgment-only remainder
+ * (orphan-epic whose change is missing, dangling-dep, dep-cycle,
  * out-of-order-dep) that still belongs to the groom workflow.
  */
 
@@ -31,7 +32,15 @@ export interface CloseSprintAction {
   id: string;
 }
 
-export type SyncAction = CreateEpicAction | CloseSprintAction;
+export interface RetireEpicAction {
+  kind: 'retire-epic';
+  /** Epic slug, for display. */
+  slug: string;
+  /** Epic artifact id, the soft-delete target. */
+  id: string;
+}
+
+export type SyncAction = CreateEpicAction | CloseSprintAction | RetireEpicAction;
 
 export interface SyncPlan {
   actions: SyncAction[];
@@ -44,7 +53,8 @@ export interface SyncPlan {
  *
  * Warning order is preserved as `deriveMirror` returns it (sorted by
  * `WARNING_ORDER`): `ungroomed-change` → `create-epic`, `closable-sprint` →
- * `close-sprint`, every other code → `remaining`.
+ * `close-sprint`, `orphan-epic` with an archived change → `retire-epic`, every
+ * other code (and a missing-reason orphan) → `remaining`.
  */
 export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan {
   const titleBySlug = new Map<string, string>();
@@ -59,6 +69,8 @@ export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan
 
   const sprintIdBySlug = new Map<string, string>();
   for (const artifact of input.sprints) sprintIdBySlug.set(artifact.slug, artifact.id);
+  const epicIdBySlug = new Map<string, string>();
+  for (const epic of input.epics) epicIdBySlug.set(epic.slug, epic.id);
 
   const actions: SyncAction[] = [];
   const remaining: MirrorWarning[] = [];
@@ -73,6 +85,14 @@ export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan
       const id = sprintIdBySlug.get(slug);
       if (id) {
         actions.push({ kind: 'close-sprint', slug, id });
+      } else {
+        remaining.push(warning);
+      }
+    } else if (warning.code === 'orphan-epic' && warning.details?.reason === 'archived') {
+      const slug = String(warning.details?.change ?? '');
+      const id = epicIdBySlug.get(slug);
+      if (id) {
+        actions.push({ kind: 'retire-epic', slug, id });
       } else {
         remaining.push(warning);
       }

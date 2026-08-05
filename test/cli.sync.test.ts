@@ -30,11 +30,12 @@ async function setupOpenSpecWorkspace(): Promise<string> {
 async function writeOpenSpecChange(
   root: string,
   changeName: string,
-  opts: { tasks?: string } = {},
+  opts: { tasks?: string; archived?: boolean } = {},
 ): Promise<void> {
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
-  await fs.writeFile(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf8');
+  const archived = opts.archived ? 'archived: true\n' : '';
+  await fs.writeFile(path.join(changeDir, '.openspec.yaml'), `schema: spec-driven\n${archived}`, 'utf8');
   await fs.writeFile(path.join(changeDir, 'proposal.md'), `# ${changeName}\n`, 'utf8');
   if (opts.tasks !== undefined) await fs.writeFile(path.join(changeDir, 'tasks.md'), opts.tasks, 'utf8');
 }
@@ -161,5 +162,50 @@ describe('CLI sync command', () => {
     const parsed = JSON.parse(err.stderr);
     expect(parsed.error.code).toBe('REVISION_CONFLICT');
     expect(parsed.error.details).toBeTruthy();
+  }, 30_000);
+
+  it('retires the epic of an archived change, clears its orphan-epic warning, and is idempotent', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'archived-change', { tasks: '- [x] done\n', archived: true });
+    await withEngine(root, (engine) =>
+      engine.create({ type: 'epic', title: 'Archived Change', slug: 'archived-change', body: '', meta: {} }),
+    );
+
+    const { stdout } = await spawnCli(['--json', 'sync', '--cwd', root], root);
+    const payload = JSON.parse(stdout);
+    expect(payload.applied).toEqual([
+      expect.objectContaining({ kind: 'retire-epic', slug: 'archived-change' }),
+    ]);
+
+    await withEngine(root, async (engine) => {
+      expect(engine.list({ type: 'epic' })).toHaveLength(0);
+      const deleted = engine.list({ type: 'epic', includeDeleted: true });
+      expect(deleted).toHaveLength(1);
+      expect(deleted[0]!.deletedAt).toBeTruthy();
+    });
+
+    const { stdout: secondOut } = await spawnCli(['--json', 'sync', '--cwd', root], root);
+    const second = JSON.parse(secondOut);
+    expect(second.actions).toEqual([]);
+    expect(second.applied).toEqual([]);
+
+    const { stdout: boardOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const board = JSON.parse(boardOut);
+    expect(board.warnings.some((w) => w.code === 'orphan-epic')).toBe(false);
+  }, 30_000);
+
+  it('leaves a missing-reason orphan epic byte-identical and in remaining', async () => {
+    const root = await setupOpenSpecWorkspace();
+    const epic = await withEngine(root, (engine) =>
+      engine.create({ type: 'epic', title: 'Ghost', slug: 'ghost', body: '', meta: {} }),
+    );
+    const before = await fs.readFile(epic.path, 'utf8');
+
+    const { stdout } = await spawnCli(['--json', 'sync', '--cwd', root], root);
+    const payload = JSON.parse(stdout);
+    expect(payload.applied).toEqual([]);
+    expect(payload.remaining.some((w) => w.code === 'orphan-epic')).toBe(true);
+
+    expect(await fs.readFile(epic.path, 'utf8')).toBe(before);
   }, 30_000);
 });

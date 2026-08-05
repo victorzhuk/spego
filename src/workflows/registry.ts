@@ -385,7 +385,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'sync',
       instruction:
-        'Run `spego sync --json` first to mechanically reconcile the mirror: it creates an epic for every ungroomed active change and closes every finished non-closed sprint. Review the `remaining` warnings for the judgment-only work — orphan-epic disposition, dependency analysis, gap flagging, and sprint grouping — handled in the phases below. For each orphan epic, propose disposition; default keep, applied only after explicit user confirmation.',
+        'Run `spego sync --json` first to mechanically reconcile the mirror: it creates an epic for every ungroomed active change, closes every finished non-closed sprint, and retires the epic of any change that has been archived. Review the `remaining` warnings for the judgment-only work — orphan-epic disposition (only for epics resolving to no OpenSpec change at all), dependency analysis, gap flagging, and sprint grouping — handled in the phases below. For each such orphan epic, propose disposition; default keep, applied only after explicit user confirmation.',
     },
     {
       name: 'analyze',
@@ -417,7 +417,7 @@ const GROOM: WorkflowMeta = {
     ...OPENSPEC_CHANGE_SAFETY,
     'Persistence ONLY via `spego create` / `spego update`; NEVER write files under openspec/ and never run OpenSpec lifecycle-mutating commands (archive/apply/etc.) — direct the user to the matching OpenSpec command instead.',
     'MANDATORY: always pass --expected-revision on every spego update.',
-    'Orphan-epic disposition requires explicit user confirmation; default is keep. Finished sprints are closed deterministically by `spego sync` (preview with `--dry-run`); groom never closes sprints by hand.',
+    'Orphan-epic disposition (only for epics resolving to no OpenSpec change at all) requires explicit user confirmation; default is keep. Epics of archived changes are retired, and finished sprints are closed, deterministically by `spego sync` (preview with `--dry-run`); groom never retires or closes by hand.',
   ],
 };
 

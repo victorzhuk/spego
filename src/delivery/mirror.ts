@@ -7,7 +7,6 @@ export type WarningCode =
   | 'out-of-order-dep'
   | 'ungroomed-change'
   | 'orphan-epic'
-  | 'archived-in-sprint'
   | 'closable-sprint'
   | 'adapter-warning'
   | 'adapter-unavailable';
@@ -115,7 +114,6 @@ const STATUS_VALUES: Record<DeliveryStatus, true> = {
 const WARNING_ORDER: Record<WarningCode, number> = {
   'adapter-unavailable': 0,
   'adapter-warning': 1,
-  'archived-in-sprint': 2,
   'closable-sprint': 3,
   'dangling-dep': 4,
   'dep-cycle': 5,
@@ -235,17 +233,6 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
         code: 'orphan-epic',
         message: `Epic "${epic.slug}" points at an archived OpenSpec change.`,
         details: { change: epic.slug, reason: 'archived' },
-      });
-    }
-  }
-  for (const sprint of sprints) {
-    if (sprint.status === 'closed') continue;
-    for (const slug of sprint.changes) {
-      if (!inputChangeBySlug.get(slug)?.archived) continue;
-      warnings.push({
-        code: 'archived-in-sprint',
-        message: `Sprint "${sprint.artifact.slug}" includes archived change "${slug}".`,
-        details: { sprint: sprint.artifact.slug, change: slug },
       });
     }
   }

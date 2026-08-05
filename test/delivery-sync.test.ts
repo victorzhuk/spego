@@ -114,4 +114,35 @@ describe('deriveSyncPlan', () => {
     expect(remaining.some((w) => w.code === 'ungroomed-change')).toBe(false);
     expect(remaining.some((w) => w.code === 'closable-sprint')).toBe(false);
   });
+
+  it('plans retire-epic for an orphan epic whose backing change is archived', () => {
+    const { actions, remaining } = plan({
+      changes: [change('archived-change', 'completed', true)],
+      epics: [epic('archived-change')],
+    });
+    expect(actions).toEqual([{ kind: 'retire-epic', slug: 'archived-change', id: 'epic-archived-change' }]);
+    expect(remaining.some((w) => w.code === 'orphan-epic')).toBe(false);
+  });
+
+  it('leaves a missing-reason orphan epic in remaining without planning a retire', () => {
+    const { actions, remaining } = plan({ epics: [epic('ghost')] });
+    expect(actions.some((a) => a.kind === 'retire-epic')).toBe(false);
+    expect(actions).toEqual([]);
+    expect(remaining.some((w) => w.code === 'orphan-epic')).toBe(true);
+  });
+
+  it('routes dangling-dep, dep-cycle, and out-of-order-dep warnings to remaining without actions', () => {
+    const { actions, remaining } = plan({
+      changes: [change('a'), change('b')],
+      epics: [epic('a', { deps: ['b', 'ghost'] }), epic('b', { deps: ['a'] })],
+      sprints: [
+        sprint('s1', ['a'], { status: 'active', startDate: '2026-01-01' }),
+        sprint('s2', ['b'], { status: 'active', startDate: '2026-02-01' }),
+      ],
+    });
+    expect(actions).toEqual([]);
+    expect(remaining.some((w) => w.code === 'dangling-dep')).toBe(true);
+    expect(remaining.some((w) => w.code === 'dep-cycle')).toBe(true);
+    expect(remaining.some((w) => w.code === 'out-of-order-dep')).toBe(true);
+  });
 });

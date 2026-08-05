@@ -10,7 +10,7 @@ import { renderBox, renderSection } from '../render.js';
 import { runCommand } from '../runtime.js';
 
 const DRIFT_CODES = new Set([
-  'dangling-dep', 'dep-cycle', 'out-of-order-dep', 'ungroomed-change', 'orphan-epic', 'archived-in-sprint',
+  'dangling-dep', 'dep-cycle', 'out-of-order-dep', 'ungroomed-change', 'orphan-epic',
   'closable-sprint',
 ]);
 

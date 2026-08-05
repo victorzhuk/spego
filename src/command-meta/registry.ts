@@ -165,7 +165,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'sync',
-    description: 'Reconcile the delivery mirror: create missing epics and close finished sprints',
+    description: 'Reconcile the delivery mirror: create missing epics, close finished sprints, retire epics of archived changes',
     slashName: '/spego:sync',
     category: 'planning',
     inputSchema: {
@@ -183,7 +183,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'board',
-    description: 'Show the delivery board (sprints, blockers, gaps)',
+    description: 'Show the delivery board with per-change signals; --sync reconciles before render',
     slashName: '/spego:board',
     category: 'planning',
     inputSchema: {
@@ -192,6 +192,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       plain: { name: 'plain', type: 'boolean', required: false, description: 'Disable ANSI color in human output' },
       archived: { name: 'archived', type: 'boolean', required: false, description: 'Include archived changes in the ungrouped list' },
       closed: { name: 'closed', type: 'boolean', required: false, description: 'Show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)' },
+      sync: { name: 'sync', type: 'boolean', required: false, description: 'Apply the mechanical reconciliation plan before rendering' },
     },
     outputModes: ['markdown', 'json'],
   },

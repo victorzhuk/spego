@@ -8,7 +8,7 @@
 
 import type { Command } from 'commander';
 import { loadBoardState } from '../../delivery/load.js';
-import { deriveSyncPlan, type SyncAction } from '../../delivery/sync.js';
+import { deriveSyncPlan, type SyncAction, type SyncPlan } from '../../delivery/sync.js';
 import { resolveAdapter, type DeliveryAdapter } from '../../delivery/index.js';
 import type { MirrorWarning } from '../../delivery/mirror.js';
 import { assertWorkspace } from '../../delivery/openspec-discover.js';
@@ -24,7 +24,7 @@ interface SyncOptions {
 }
 
 interface AppliedResult {
-  kind: 'create-epic' | 'close-sprint';
+  kind: 'create-epic' | 'close-sprint' | 'retire-epic';
   slug: string;
   id: string;
   revision: number;
@@ -37,7 +37,7 @@ interface SyncPayload {
   remaining: MirrorWarning[];
 }
 
-async function resolveEpicAdapter(engine: ArtifactEngine): Promise<DeliveryAdapter | null> {
+export async function resolveEpicAdapter(engine: ArtifactEngine): Promise<DeliveryAdapter | null> {
   const adapter = resolveAdapter(engine.paths.projectRoot, engine.config);
   try {
     await assertWorkspace(engine.paths.projectRoot);
@@ -50,11 +50,76 @@ async function resolveEpicAdapter(engine: ArtifactEngine): Promise<DeliveryAdapt
   return adapter;
 }
 
+export async function applySyncPlan(
+  engine: ArtifactEngine,
+  plan: SyncPlan,
+  adapter: DeliveryAdapter | null,
+): Promise<AppliedResult[]> {
+  const revisionById = new Map<string, number>();
+  for (const row of engine.list({ type: 'sprint-plan' })) {
+    revisionById.set(row.id, row.revision);
+  }
+
+  const applied: AppliedResult[] = [];
+  for (const action of plan.actions) {
+    if (action.kind === 'create-epic') {
+      await assertEpicSlugActive(adapter, action.slug);
+      const record = await engine.create({
+        type: 'epic',
+        title: action.title,
+        slug: action.slug,
+        body: '',
+        meta: {},
+      });
+      applied.push({
+        kind: 'create-epic',
+        slug: record.frontmatter.slug,
+        id: record.frontmatter.id,
+        revision: record.frontmatter.revision,
+      });
+    } else if (action.kind === 'close-sprint') {
+      const expectedRevision = revisionById.get(action.id);
+      if (expectedRevision === undefined) {
+        throw new SpegoError(
+          'ARTIFACT_NOT_FOUND',
+          `Sprint artifact not found for close: ${action.slug}`,
+          { id: action.id, slug: action.slug },
+        );
+      }
+      const current = await engine.readById(action.id);
+      const record = await engine.update(action.id, {
+        expectedRevision,
+        meta: { ...current.frontmatter.meta, status: 'closed' },
+      });
+      applied.push({
+        kind: 'close-sprint',
+        slug: record.frontmatter.slug,
+        id: record.frontmatter.id,
+        revision: record.frontmatter.revision,
+      });
+    } else if (action.kind === 'retire-epic') {
+      const record = await engine.softDelete(action.id);
+      applied.push({
+        kind: 'retire-epic',
+        slug: action.slug,
+        id: record.frontmatter.id,
+        revision: record.frontmatter.revision,
+      });
+    } else {
+      throw new Error(`Unknown sync action kind: ${JSON.stringify(action)}`);
+    }
+  }
+  return applied;
+}
+
 function syncRows(actions: SyncAction[], applied: AppliedResult[], dryRun: boolean): string[][] {
   if (dryRun) {
     return actions.map((action) => {
       if (action.kind === 'create-epic') {
         return ['create-epic', `epic:${action.slug}`, action.title];
+      }
+      if (action.kind === 'retire-epic') {
+        return ['retire-epic', `epic:${action.slug}`, 'retire'];
       }
       return ['close-sprint', `sprint:${action.slug}`, 'close'];
     });
@@ -62,6 +127,9 @@ function syncRows(actions: SyncAction[], applied: AppliedResult[], dryRun: boole
   return applied.map((result) => {
     if (result.kind === 'create-epic') {
       return ['create-epic', `epic:${result.slug}`, `created → rev ${result.revision}`];
+    }
+    if (result.kind === 'retire-epic') {
+      return ['retire-epic', `epic:${result.slug}`, `retired → rev ${result.revision}`];
     }
     return ['close-sprint', `sprint:${result.slug}`, `closed → rev ${result.revision}`];
   });
@@ -104,53 +172,9 @@ export function registerSync(program: Command): void {
           return { payload, human: () => renderSync(payload) };
         }
 
-        const revisionById = new Map<string, number>();
-        for (const row of engine.list({ type: 'sprint-plan' })) {
-          revisionById.set(row.id, row.revision);
-        }
-
         const needsAdapter = plan.actions.some((action) => action.kind === 'create-epic');
         const adapter = needsAdapter ? await resolveEpicAdapter(engine) : null;
-
-        const applied: AppliedResult[] = [];
-        for (const action of plan.actions) {
-          if (action.kind === 'create-epic') {
-            await assertEpicSlugActive(adapter, action.slug);
-            const record = await engine.create({
-              type: 'epic',
-              title: action.title,
-              slug: action.slug,
-              body: '',
-              meta: {},
-            });
-            applied.push({
-              kind: 'create-epic',
-              slug: record.frontmatter.slug,
-              id: record.frontmatter.id,
-              revision: record.frontmatter.revision,
-            });
-          } else {
-            const expectedRevision = revisionById.get(action.id);
-            if (expectedRevision === undefined) {
-              throw new SpegoError(
-                'ARTIFACT_NOT_FOUND',
-                `Sprint artifact not found for close: ${action.slug}`,
-                { id: action.id, slug: action.slug },
-              );
-            }
-            const current = await engine.readById(action.id);
-            const record = await engine.update(action.id, {
-              expectedRevision,
-              meta: { ...current.frontmatter.meta, status: 'closed' },
-            });
-            applied.push({
-              kind: 'close-sprint',
-              slug: record.frontmatter.slug,
-              id: record.frontmatter.id,
-              revision: record.frontmatter.revision,
-            });
-          }
-        }
+        const applied = await applySyncPlan(engine, plan, adapter);
 
         const payload: SyncPayload = {
           actions: plan.actions,

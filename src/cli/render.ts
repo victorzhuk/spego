@@ -61,25 +61,29 @@ const DEFAULT_TABLE_MIN_WIDTH = 6;
 
 /**
  * Compute one width per column: the natural size (header vs. longest cell,
- * default 60), clamped by `opts.maxWidth`.
+ * default 60), clamped by `opts.maxWidth`. Columns listed in `opts.protect`
+ * skip the cap and keep their natural width.
  *
  * When `opts.totalWidth` is given and the natural widths don't fit within it
  * (accounting for the two-space separator between columns), the currently
- * widest column is shrunk by 1 repeatedly until it fits or every column has
- * hit `opts.minWidth` (default 6). Deterministic and index-stable: ties for
- * "widest" always shrink the lowest index first.
+ * widest non-protected column is shrunk by 1 repeatedly until it fits or every
+ * non-protected column has hit `opts.minWidth` (default 6); protected columns
+ * never shrink, so a budget that still can't be met leaves the table exceeding
+ * `totalWidth`. Deterministic and index-stable: ties for "widest" always shrink
+ * the lowest index first.
  */
 export function columnWidths(
   columns: string[],
   rows: string[][],
-  opts: { maxWidth?: number; totalWidth?: number; minWidth?: number } = {},
+  opts: { maxWidth?: number; totalWidth?: number; minWidth?: number; protect?: number[] } = {},
 ): number[] {
   const maxWidth = opts.maxWidth ?? DEFAULT_TABLE_MAX_WIDTH;
   const minWidth = opts.minWidth ?? DEFAULT_TABLE_MIN_WIDTH;
+  const protect = new Set(opts.protect ?? []);
   const widths = columns.map((col, i) => {
     const dataMax = rows.reduce((m, r) => Math.max(m, (r[i] ?? '').length), 0);
     const target = Math.max(col.length, dataMax);
-    return Math.min(target, maxWidth);
+    return protect.has(i) ? target : Math.min(target, maxWidth);
   });
 
   if (opts.totalWidth === undefined) return widths;
@@ -88,6 +92,7 @@ export function columnWidths(
   while (widths.reduce((sum, w) => sum + w, 0) + separatorWidth > opts.totalWidth) {
     let widestIndex = -1;
     for (let i = 0; i < widths.length; i++) {
+      if (protect.has(i)) continue;
       if (widths[i]! > minWidth && (widestIndex === -1 || widths[i]! > widths[widestIndex]!)) {
         widestIndex = i;
       }

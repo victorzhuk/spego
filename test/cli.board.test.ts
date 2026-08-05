@@ -137,12 +137,9 @@ async function setupStyledPanelFixture(): Promise<string> {
 }
 
 /**
- * Two archived changes sit alongside a pending one in an active sprint. The
- * sprint is not finished (pending-c still open), so it stays visible and each
- * archived change fires its own `archived-in-sprint` warning — the input the
- * human board aggregates into one row. A closed sprint is avoided on purpose:
- * a companion change will stop emitting `archived-in-sprint` for closed
- * sprints, so this fixture stays robust against it.
+ * Two archived changes sit alongside a pending one in an active sprint. Archived
+ * changes in a live sprint are satisfied history, not drift, so neither fires a
+ * warning; the sprint stays visible because pending-c is still open.
  */
 async function setupArchivedInSprintFixture(): Promise<string> {
   const root = await setupOpenSpecWorkspace();
@@ -155,6 +152,23 @@ async function setupArchivedInSprintFixture(): Promise<string> {
     changes: ['archived-a', 'archived-b', 'pending-c'],
   });
   return root;
+}
+
+async function artifactSnapshot(root: string): Promise<Record<string, number>> {
+  const dir = path.join(root, '.spego', 'artifacts');
+  const out: Record<string, number> = {};
+  try {
+    const entries = await fs.readdir(dir, { recursive: true, withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const full = path.join(entry.parentPath, entry.name);
+        out[path.relative(root, full)] = (await fs.stat(full)).mtimeMs;
+      }
+    }
+  } catch {
+    // no artifacts dir yet
+  }
+  return out;
 }
 
 describe('CLI board command', () => {
@@ -192,7 +206,7 @@ describe('CLI board command', () => {
     expect(bySlug.get('wave-c')?.blockers).toEqual(['wave-a']);
   }, 30_000);
 
-  it('renders blockers as short ids in the human board table', async () => {
+  it('renders the new id/change/status/group/signals columns and drops the old blocker/gaps/missing/title columns', async () => {
     const root = await setupWaveFixture();
     const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
@@ -200,10 +214,15 @@ describe('CLI board command', () => {
     expect(waveAId).toMatch(/^c[0-9a-f]{4,}$/);
 
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
-    const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'));
+    const header = stdout.split('\n').find((line) => line.includes('signals'))!;
+    expect(header).toContain('change');
+    expect(header).toContain('group');
+    expect(header).not.toContain('blockers');
+    expect(header).not.toContain('title');
 
-    expect(waveCLine).toContain(waveAId);
-    expect(waveCLine).not.toContain('wave-a');
+    const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'))!;
+    expect(waveCLine).toContain('1 blk');
+    expect(waveCLine).not.toContain(waveAId);
   }, 30_000);
 
   it('honors --plain to suppress ANSI color even when color is forced on', async () => {
@@ -219,7 +238,7 @@ describe('CLI board command', () => {
     const root = await setupStyledPanelFixture();
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
     const lines = stdout.split('\n');
-    const titleLine = lines.find((line) => line.includes('Sprint sprint-1'))!;
+    const titleLine = lines.find((line) => line.startsWith('╭─') && line.includes('sprint-1'))!;
     const apiLine = lines.find((line) => line.includes('ship-api'))!;
     const uiLine = lines.find((line) => line.includes('ship-ui'))!;
 
@@ -236,7 +255,7 @@ describe('CLI board command', () => {
   it('renders the sprint and Warnings sections as bordered panels with aligned rules', async () => {
     const root = await setupStyledPanelFixture();
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
-    expect(stdout).toContain('╭─ Sprint sprint-1');
+    expect(stdout).toContain('╭─ Sprint 1 · active · sprint-1');
     expect(stdout).toContain('╭─ Warnings');
 
     const lines = stdout.split('\n');
@@ -261,19 +280,14 @@ describe('CLI board command', () => {
     }
   }, 30_000);
 
-  it('aggregates archived-in-sprint warnings for one sprint into a single row naming every change', async () => {
+  it('does not warn when archived changes sit in a live sprint', async () => {
     const root = await setupArchivedInSprintFixture();
-    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
-    const archivedLines = stdout.split('\n').filter((line) => line.includes('archived-in-sprint'));
-    expect(archivedLines).toHaveLength(1);
-    expect(archivedLines[0]).toContain('archived-a');
-    expect(archivedLines[0]).toContain('archived-b');
-
-    // --json stays per-fact: one warning per archived change, untouched.
     const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
-    const archivedWarnings = jsonBoard.warnings.filter((w) => w.code === 'archived-in-sprint');
-    expect(archivedWarnings).toHaveLength(2);
+    expect(jsonBoard.warnings).toEqual([]);
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    expect(stdout).not.toContain('includes archived changes');
   }, 30_000);
 
   it('renders the group as a letter in human output while --json keeps the gNNN code', async () => {
@@ -289,7 +303,7 @@ describe('CLI board command', () => {
     expect(waveCLine).toContain('B');
   }, 30_000);
 
-  it('aligns the title column at the same offset across sprint panels with differently sized cells', async () => {
+  it('aligns the signals column at the same offset across sprint panels with differently sized cells', async () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'wide-gap-change', {
       tasks: '- [ ] todo\n',
@@ -308,10 +322,10 @@ describe('CLI board command', () => {
     });
 
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
-    const headerLines = stdout.split('\n').filter((line) => line.includes('missing') && line.includes('title'));
+    const headerLines = stdout.split('\n').filter((line) => line.includes('signals'));
     expect(headerLines.length).toBe(2);
-    const titleOffsets = new Set(headerLines.map((line) => line.indexOf('title')));
-    expect(titleOffsets.size).toBe(1);
+    const signalOffsets = new Set(headerLines.map((line) => line.indexOf('signals')));
+    expect(signalOffsets.size).toBe(1);
   }, 30_000);
 
   it('does not truncate a warning message that fits the shared panel width', async () => {
@@ -338,7 +352,7 @@ describe('CLI board command', () => {
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '200' } });
     const lines = stdout.split('\n');
     const dividerContentLength = (line: string): number => line.replace(/^│ /, '').trimEnd().length;
-    const sprintDivider = lines[lines.findIndex((line) => line.startsWith('╭─ Sprint sprint-1')) + 2]!;
+    const sprintDivider = lines[lines.findIndex((line) => line.startsWith('╭─') && line.includes('sprint-1')) + 2]!;
     const warningsDivider = lines[lines.findIndex((line) => line.startsWith('╭─ Warnings')) + 2]!;
     expect(dividerContentLength(sprintDivider)).toBe(dividerContentLength(warningsDivider));
   }, 30_000);
@@ -347,7 +361,7 @@ describe('CLI board command', () => {
     const root = await setupBoardFixture();
     const board = await spawnCli(['board', '--cwd', root], root);
     expect(board.stdout).toContain('Delivery board');
-    expect(board.stdout).toContain('Sprint sprint-1');
+    expect(board.stdout).toContain('Sprint 1 · active · sprint-1');
     expect(board.stdout).toContain('Suggestion: add-ui in sprint-1');
 
     const graph = await spawnCli(['board', '--graph', '--cwd', root], root);
@@ -383,35 +397,35 @@ describe('CLI board command', () => {
 
   it('keeps an archived change inside a sprint list regardless of --archived', async () => {
     const root = await setupOpenSpecWorkspace();
-    await writeOpenSpecChange(root, 'archived-in-sprint', { tasks: '- [x] done\n', archived: true });
+    await writeOpenSpecChange(root, 'archived-scheduled', { tasks: '- [x] done\n', archived: true });
     await withEngine(root, (engine) =>
-      engine.create({ type: 'epic', title: 'archived-in-sprint', slug: 'archived-in-sprint', body: '', meta: {} }),
+      engine.create({ type: 'epic', title: 'archived-scheduled', slug: 'archived-scheduled', body: '', meta: {} }),
     );
     await createArtifact(root, 'sprint-plan', 'Sprint 1', {
       status: 'active',
       startDate: '2026-01-01',
-      changes: ['archived-in-sprint'],
+      changes: ['archived-scheduled'],
     });
 
     const { stdout: defaultOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const defaultResult = JSON.parse(defaultOut) as MirrorBoard;
-    expect(defaultResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-in-sprint']);
+    expect(defaultResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-scheduled']);
 
     const { stdout: archivedOut } = await spawnCli(['--json', 'board', '--archived', '--cwd', root], root);
     const archivedResult = JSON.parse(archivedOut) as MirrorBoard;
-    expect(archivedResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-in-sprint']);
+    expect(archivedResult.sprints[0]!.changes.map((change) => change.slug)).toEqual(['archived-scheduled']);
 
     // JSON keeps `completed` for agents; human output shows `archived` instead.
     expect(defaultResult.sprints[0]!.changes[0]!.status).toBe('completed');
 
     // A sprint whose only change is archived is fully satisfied -> hidden by default.
     const human = await spawnCli(['board', '--cwd', root], root);
-    expect(human.stdout).not.toContain('Sprint sprint-1');
+    expect(human.stdout).not.toContain('Sprint 1 · active · sprint-1');
     expect(human.stdout).toContain('1 closed sprint hidden (--closed to show).');
 
     const humanClosed = await spawnCli(['board', '--closed', '--cwd', root], root);
-    expect(humanClosed.stdout).toContain('Sprint sprint-1');
-    const changeLine = humanClosed.stdout.split('\n').find((line) => line.includes('archived-in-sprint'))!;
+    expect(humanClosed.stdout).toContain('Sprint 1 · active · sprint-1');
+    const changeLine = humanClosed.stdout.split('\n').find((line) => line.includes('archived-scheduled'))!;
     expect(changeLine).toContain('archived');
     expect(changeLine).not.toContain('completed');
   }, 30_000);
@@ -478,4 +492,92 @@ describe('CLI board command', () => {
       ]),
     );
   });
+
+  it('renders the signals column as nonzero counts joined by middle dots, or an em dash when all zero', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'plain-change', { tasks: '- [ ] todo\n' });
+    await createChangeEpic(root, 'signal-change', {
+      tasks: '- [ ] todo\n',
+      meta: { deps: ['plain-change'], gaps: [{ flag: 'g1', note: 'one' }, { flag: 'g2', note: 'two' }] },
+    });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const signalLine = stdout.split('\n').find((line) => line.includes('signal-change'))!;
+    expect(signalLine).toContain('1 blk · 2 gap');
+    expect(signalLine).not.toContain('mis');
+
+    const plainLine = stdout.split('\n').find((line) => line.includes('plain-change'))!;
+    expect(plainLine).toContain('—');
+  }, 30_000);
+
+  it('keeps the change slug untruncated when the terminal is too narrow for every column', async () => {
+    const root = await setupOpenSpecWorkspace();
+    const longSlug = 'a-very-long-and-descriptive-change-slug';
+    await createChangeEpic(root, longSlug, { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: [longSlug] });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '60' } });
+    expect(stdout).toContain(longSlug);
+  }, 30_000);
+
+  it('renders footer hints for signals detail and pending mechanical fixes when conditions hold', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'has-gap', {
+      tasks: '- [ ] todo\n',
+      meta: { gaps: [{ flag: 'needs-review', note: 'awaiting sign-off' }] },
+    });
+    await writeOpenSpecChange(root, 'ungroomed-one', { tasks: '- [ ] todo\n' });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    expect(stdout).toContain('spego board --gaps');
+    expect(stdout).toContain('1 mechanical fix — run spego sync');
+  }, 30_000);
+
+  it('omits footer hints when no rendered change has signals and the mechanical plan is empty', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'plain-change', { tasks: '- [ ] todo\n' });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    expect(stdout).not.toContain('spego board --gaps');
+    expect(stdout).not.toContain('mechanical fix');
+  }, 30_000);
+
+  it('keeps the --json payload as full signal arrays with no signals counter string', async () => {
+    const root = await setupBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const addUi = result.sprints[0]!.changes.find((change) => change.slug === 'add-ui')!;
+    expect(addUi.blockers).toEqual([]);
+    expect(addUi.gaps).toEqual([{ flag: 'api-contract', note: 'API artifact missing' }]);
+    expect(addUi.missing).toEqual(['api']);
+    expect(stdout).not.toContain('"signals"');
+    expect(result.warnings.some((warning) => /includes archived change/.test(warning.message))).toBe(false);
+  }, 30_000);
+
+  it('board --sync applies the mechanical plan before rendering, grooming an ungroomed change', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'ungroomed-one', { tasks: '- [ ] todo\n' });
+
+    const { stdout: beforeOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const beforeBoard = JSON.parse(beforeOut);
+    expect(beforeBoard.warnings.some((w) => w.code === 'ungroomed-change')).toBe(true);
+
+    await spawnCli(['board', '--sync', '--cwd', root], root);
+
+    await withEngine(root, async (engine) => {
+      const epic = await engine.readByTypeSlug('epic', 'ungroomed-one');
+      expect(epic.frontmatter.slug).toBe('ungroomed-one');
+    });
+
+    const { stdout: afterOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const afterBoard = JSON.parse(afterOut);
+    expect(afterBoard.warnings.some((w) => w.code === 'ungroomed-change')).toBe(false);
+  }, 30_000);
+
+  it('plain board writes nothing to the .spego artifacts', async () => {
+    const root = await setupBoardFixture();
+    const before = await artifactSnapshot(root);
+    await spawnCli(['board', '--cwd', root], root);
+    expect(await artifactSnapshot(root)).toEqual(before);
+  }, 30_000);
 });

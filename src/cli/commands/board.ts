@@ -11,6 +11,8 @@ import {
   type MirrorSprint,
   type MirrorWarning,
 } from '../../delivery/mirror.js';
+import { deriveSyncPlan } from '../../delivery/sync.js';
+import { applySyncPlan, resolveEpicAdapter } from './sync.js';
 import { columnWidths, padRight, renderHeader, renderPanel, renderTable } from '../render.js';
 import { deliveryGroupLabel, deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
@@ -22,9 +24,10 @@ interface BoardOptions {
   plain?: boolean;
   archived?: boolean;
   closed?: boolean;
+  sync?: boolean;
 }
 
-const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'blockers', 'gaps', 'missing', 'title'];
+const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'signals'];
 const DEFAULT_TERMINAL_WIDTH = 120;
 const PANEL_CHROME_WIDTH = 4; // "│ " prefix + " │" suffix
 
@@ -37,10 +40,21 @@ export function registerBoard(program: Command): void {
     .option('--plain', 'disable ANSI color in human output', false)
     .option('--archived', 'include archived changes in the ungrouped list', false)
     .option('--closed', 'show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)', false)
+    .option('--sync', 'apply the mechanical reconciliation plan before rendering', false)
     .option('--cwd <dir>', 'project root')
     .action(async (opts: BoardOptions) => {
       await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
-        const state = await loadBoardState(engine, opts.cwd);
+        let state = await loadBoardState(engine, opts.cwd);
+        if (opts.sync) {
+          const syncPlan = deriveSyncPlan(state.board, state.input);
+          if (syncPlan.actions.length > 0) {
+            const adapter = syncPlan.actions.some((action) => action.kind === 'create-epic')
+              ? await resolveEpicAdapter(engine)
+              : null;
+            await applySyncPlan(engine, syncPlan, adapter);
+            state = await loadBoardState(engine, opts.cwd);
+          }
+        }
         const unarchived = opts.archived ? state.board : filterMirrorArchived(state.board);
         const payload = opts.gaps ? filterMirrorGaps(unarchived) : unarchived;
         return {
@@ -48,7 +62,7 @@ export function registerBoard(program: Command): void {
           human: () => {
             if (opts.graph) return renderGraph(payload, state.input);
             if (opts.gaps) return renderGaps(payload);
-            return renderBoard(payload, opts.plain === true, opts.closed === true, terminalWidth());
+            return renderBoard(payload, state.input, opts.plain === true, opts.closed === true, terminalWidth());
           },
         };
       });
@@ -70,16 +84,15 @@ interface BoardSection {
   finished: boolean;
 }
 
-function renderBoard(board: MirrorBoard, plain: boolean, showClosed: boolean, budget: number): string {
-  const idBySlug = idMapFor(board);
+function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, showClosed: boolean, budget: number): string {
   const lines = [renderHeader('📋', 'Delivery board'), ''];
   const allSections = buildChangeSections(board);
   const sections = showClosed ? allSections : allSections.filter((section) => !section.finished);
   const hiddenCount = allSections.length - sections.length;
 
   const totalWidth = Math.max(0, budget - PANEL_CHROME_WIDTH);
-  const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change, idBySlug)));
-  const widths = columnWidths(BOARD_COLUMNS, rowsByColumn, { maxWidth: 36, totalWidth });
+  const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change)));
+  const widths = columnWidths(BOARD_COLUMNS, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
   const warningRows = aggregateWarningRows(board.warnings);
   const warningWidths = columnWidths(['code', 'message'], warningRows, { maxWidth: totalWidth, totalWidth });
   const panelWidth = Math.max(tableWidth(widths), board.warnings.length > 0 ? tableWidth(warningWidths) : 0);
@@ -92,7 +105,7 @@ function renderBoard(board: MirrorBoard, plain: boolean, showClosed: boolean, bu
     lines.push('No groomed delivery board.');
   } else {
     for (const section of sections) {
-      const table = renderTable(BOARD_COLUMNS, section.changes.map((change) => changeRow(change, idBySlug)), { widths });
+      const table = renderTable(BOARD_COLUMNS, section.changes.map((change) => changeRow(change)), { widths });
       lines.push(renderPanelSection(section.title, table, panelWidth, plain, section.finished, (l) => styleChangeRows(l, section.changes)));
       lines.push('');
     }
@@ -110,13 +123,24 @@ function renderBoard(board: MirrorBoard, plain: boolean, showClosed: boolean, bu
     lines.push(plain ? note : styleText('dim', note));
     lines.push('');
   }
+  const renderedChanges = sections.flatMap((section) => section.changes);
+  if (renderedChanges.some((change) => change.blockers.length + change.gaps.length + change.missing.length > 0)) {
+    const note = 'Detail: spego board --gaps';
+    lines.push(plain ? note : styleText('dim', note));
+  }
+  const syncActions = deriveSyncPlan(board, input).actions.length;
+  if (syncActions > 0) {
+    const noun = syncActions === 1 ? 'fix' : 'fixes';
+    const note = `${syncActions} mechanical ${noun} — run spego sync`;
+    lines.push(plain ? note : styleText('dim', note));
+  }
   lines.push(nextLine(board));
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
 function buildChangeSections(board: MirrorBoard): BoardSection[] {
   const sections: BoardSection[] = board.sprints.map((sprint) => ({
-    title: `Sprint ${sprint.slug} — ${sprint.title} (${sprint.status})`,
+    title: `${sprint.title} · ${sprint.status} · ${sprint.slug}`,
     changes: sprint.changes,
     finished: isFinished(sprint),
   }));
@@ -226,25 +250,22 @@ function renderGaps(board: MirrorBoard): string {
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
-function changeRow(change: MirrorChange, idBySlug: Map<string, string>): string[] {
+function changeRow(change: MirrorChange): string[] {
   return [
     change.id,
     change.slug,
     deliveryStatusLabel(change.status),
     deliveryGroupLabel(change.group),
-    formatBlockers(change, idBySlug),
-    formatGaps(change),
-    change.missing.join(', ') || '—',
-    change.title,
+    formatSignals(change),
   ];
 }
 
 /**
  * Collapse the board's per-fact warnings into the rows the human board prints,
- * one row per repair. Grouping is keyed per code: `archived-in-sprint` by
- * sprint, `orphan-epic` by reason (a `missing` epic and an `archived` one never
- * merge — different repairs), `dangling-dep`/`out-of-order-dep` by the
- * dependent change, and `closable-sprint`/`dep-cycle`/`ungroomed-change` by
+ * one row per repair. Grouping is keyed per code: `orphan-epic` by reason (a
+ * `missing` epic and an `archived` one never merge — different repairs),
+ * `dangling-dep`/`out-of-order-dep` by the dependent change, and
+ * `closable-sprint`/`dep-cycle`/`ungroomed-change` by
  * code. `adapter-warning`/`adapter-unavailable` pass through untouched. A
  * single-member group keeps its original message; a multi-member group lists
  * every affected slug. The JSON payload stays per-fact — this only shapes the
@@ -277,8 +298,6 @@ export function aggregateWarningRows(warnings: MirrorWarning[]): Array<[string, 
 function warningDiscriminator(warning: MirrorWarning): string {
   const details = warning.details ?? {};
   switch (warning.code) {
-    case 'archived-in-sprint':
-      return `sprint:${details.sprint ?? ''}`;
     case 'orphan-epic':
       return `reason:${details.reason ?? ''}`;
     case 'dangling-dep':
@@ -294,8 +313,6 @@ function renderWarningGroup(code: string, members: MirrorWarning[]): [string, st
   const changes = uniqueStrings(members.map((m) => (m.details ?? {}).change));
   const first = members[0]!.details ?? {};
   switch (code) {
-    case 'archived-in-sprint':
-      return [code, `Sprint "${first.sprint}" includes archived changes: ${quoteSlugs(changes)}.`];
     case 'orphan-epic':
       return first.reason === 'archived'
         ? [code, `Epics ${quoteSlugs(changes)} point at archived OpenSpec changes.`]
@@ -350,6 +367,14 @@ function formatBlockers(change: MirrorChange, idBySlug: Map<string, string>): st
 function formatGaps(change: MirrorChange): string {
   if (change.gaps.length === 0) return '—';
   return change.gaps.map((gap) => gap.note ? `${gap.flag}: ${gap.note}` : gap.flag).join(', ');
+}
+
+function formatSignals(change: MirrorChange): string {
+  const parts: string[] = [];
+  if (change.blockers.length > 0) parts.push(`${change.blockers.length} blk`);
+  if (change.gaps.length > 0) parts.push(`${change.gaps.length} gap`);
+  if (change.missing.length > 0) parts.push(`${change.missing.length} mis`);
+  return parts.length === 0 ? '—' : parts.join(' · ');
 }
 
 function appendWarnings(lines: string[], warnings: MirrorWarning[]): void {

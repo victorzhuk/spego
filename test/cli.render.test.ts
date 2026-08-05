@@ -217,6 +217,32 @@ describe('columnWidths', () => {
     const widths = columnWidths(['a', 'b'], [['x'.repeat(20), 'y'.repeat(20)]], { totalWidth: 5, minWidth: 6 });
     expect(widths).toEqual([6, 6]);
   });
+
+  it('keeps a protected column at its natural width even when totalWidth is too small', () => {
+    const widths = columnWidths(['id', 'change', 'status'], [['c1', 'x'.repeat(30), 'x']], {
+      totalWidth: 20,
+      protect: [1],
+    });
+    expect(widths[1]).toBe(30);
+    const sum = widths.reduce((s, w) => s + w, 0) + 2 * (widths.length - 1);
+    expect(sum).toBeGreaterThan(20);
+  });
+
+  it('lets the table exceed totalWidth when a protected column cannot shrink', () => {
+    const widths = columnWidths(['id', 'change', 'status'], [['c1', 'x'.repeat(40), 'x']], {
+      totalWidth: 24,
+      minWidth: 6,
+      protect: [1],
+    });
+    const sum = widths.reduce((s, w) => s + w, 0) + 2 * (widths.length - 1);
+    expect(sum).toBeGreaterThan(24);
+    expect(widths[1]).toBe(40);
+  });
+
+  it('still caps non-protected columns at maxWidth while a protected column keeps its natural width', () => {
+    const widths = columnWidths(['id', 'change'], [['c1', 'x'.repeat(80)]], { maxWidth: 10, protect: [1] });
+    expect(widths).toEqual([2, 80]);
+  });
 });
 
 describe('renderHeader', () => {
