@@ -14,7 +14,7 @@ import {
 import { deriveSyncPlan } from '../../delivery/sync.js';
 import { applySyncPlan, resolveEpicAdapter } from './sync.js';
 import { columnWidths, padRight, renderHeader, renderPanel, renderTable } from '../render.js';
-import { deliveryGroupLabel, deliveryStatusLabel } from '../status.js';
+import { deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
 
 interface BoardOptions {
@@ -255,7 +255,7 @@ function changeRow(change: MirrorChange): string[] {
     change.id,
     change.slug,
     deliveryStatusLabel(change.status),
-    deliveryGroupLabel(change.group),
+    change.group,
     formatSignals(change),
   ];
 }

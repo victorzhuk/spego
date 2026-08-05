@@ -48,6 +48,7 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
         }),
       )
       .optional(),
+    track: z.string().min(1).optional(),
     tags: z.array(z.string()).optional(),
   }),
 
@@ -115,7 +116,7 @@ export const ARTIFACT_META_DOCS: Record<BuiltinArtifactType, string> = {
   retro: 'sprint, date, tags[]',
   'sprint-plan':
     'sprint, startDate, endDate, status (planned|active|closed), tags[], changes[] (change slugs; must be unique within the sprint)',
-  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), tags[]',
+  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tags[]',
   brainstorm: 'status (open|closed), tags[]',
   usecases: 'status (draft|reviewed|approved), tags[]',
   design: 'status (draft|in-review|approved), category (ux|ui|workflow|system), tags[]',

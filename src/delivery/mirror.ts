@@ -277,10 +277,16 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     }
   }
 
-  const waveMemo = new Map<string, Wave>();
   const groupBySlug = new Map<string, string>();
   for (const slug of sortedSlugs) {
-    groupBySlug.set(slug, renderGroup(computeWave(slug, blockersBySlug, changeStates, knownSlugs, waveMemo)));
+    const state = changeStates.get(slug);
+    const track = state?.epic?.meta?.track;
+    const group = isSatisfied(state?.status)
+      ? '—'
+      : typeof track === 'string' && track.length > 0
+        ? track
+        : '?';
+    groupBySlug.set(slug, group);
   }
 
   const sortedWarnings = sortWarnings(warnings);
@@ -323,7 +329,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       title: state?.title ?? slug,
       status: state?.status ?? 'unknown',
       blockers: blockersBySlug.get(slug) ?? [],
-      group: groupBySlug.get(slug) ?? '!',
+      group: groupBySlug.get(slug) ?? '?',
       gaps: gapsBySlug.get(slug) ?? [],
       missing: missingBySlug.get(slug) ?? [],
       warnings: warningCodesByChange.get(slug) ?? [],
@@ -332,7 +338,8 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   };
 
   const sprintRows: MirrorSprint[] = sprints.map((sprint) => {
-    const changes = sprint.changes.map((slug) => toMirrorChange(slug));
+    const ordered = topoSortSprint(sprint.changes, depsBySlug);
+    const changes = ordered.map((slug) => toMirrorChange(slug));
     return {
       slug: sprint.artifact.slug,
       title: sprint.artifact.title,
@@ -629,50 +636,52 @@ function blockersFor(
   return [...blockers].sort();
 }
 
-type Wave = number | 'done' | 'unresolved';
-
 /**
- * Longest-path DAG level for `slug`, memoized. Two changes anywhere on the
- * board with the same wave are guaranteed to have no dependency path between
- * them, so they can run in parallel regardless of sprint boundaries.
+ * Stable topological order of a sprint's changes over intra-sprint dep edges
+ * (both endpoints in the sprint). At each step the ready change with the
+ * smallest stored index is placed; cycle members keep stored order and
+ * append last. Cross-sprint and unknown deps do not reorder anything.
  */
-function computeWave(
-  slug: string,
-  blockersBySlug: Map<string, string[]>,
-  changeStates: Map<string, ChangeState>,
-  knownSlugs: Set<string>,
-  memo: Map<string, Wave>,
-): Wave {
-  const cached = memo.get(slug);
-  if (cached !== undefined) return cached;
-  const status = changeStates.get(slug)?.status;
-  if (isSatisfied(status)) {
-    memo.set(slug, 'done');
-    return 'done';
+function topoSortSprint(slugs: string[], depsBySlug: Map<string, string[]>): string[] {
+  const members = new Set(slugs);
+  const remaining = new Map<string, number>();
+  const dependents = new Map<string, string[]>();
+  for (const slug of slugs) {
+    remaining.set(slug, 0);
+    dependents.set(slug, []);
   }
-  const blockers = blockersBySlug.get(slug) ?? [];
-  if (blockers.some((token) => !knownSlugs.has(token))) {
-    memo.set(slug, 'unresolved');
-    return 'unresolved';
-  }
-  let maxBlockerWave = -1;
-  for (const blocker of blockers) {
-    const wave = computeWave(blocker, blockersBySlug, changeStates, knownSlugs, memo);
-    if (wave === 'unresolved') {
-      memo.set(slug, 'unresolved');
-      return 'unresolved';
+  for (const slug of slugs) {
+    for (const dep of depsBySlug.get(slug) ?? []) {
+      if (members.has(dep)) {
+        remaining.set(slug, (remaining.get(slug) ?? 0) + 1);
+        dependents.get(dep)!.push(slug);
+      }
     }
-    if (wave !== 'done' && wave > maxBlockerWave) maxBlockerWave = wave;
   }
-  const result = maxBlockerWave + 1;
-  memo.set(slug, result);
-  return result;
-}
-
-function renderGroup(wave: Wave): string {
-  if (wave === 'unresolved') return '!';
-  if (wave === 'done') return '—';
-  return `g${String(wave + 1).padStart(3, '0')}`;
+  const order: string[] = [];
+  const placed = new Set<string>();
+  while (order.length < slugs.length) {
+    let picked: string | undefined;
+    for (const slug of slugs) {
+      if (placed.has(slug)) continue;
+      if ((remaining.get(slug) ?? 0) === 0) {
+        picked = slug;
+        break;
+      }
+    }
+    if (picked === undefined) break;
+    order.push(picked);
+    placed.add(picked);
+    for (const dependent of dependents.get(picked) ?? []) {
+      if (!placed.has(dependent)) {
+        remaining.set(dependent, (remaining.get(dependent) ?? 0) - 1);
+      }
+    }
+  }
+  for (const slug of slugs) {
+    if (!placed.has(slug)) order.push(slug);
+  }
+  return order;
 }
 
 function leadsToCycle(

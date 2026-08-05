@@ -368,7 +368,7 @@ const CHANGE_RETRO: WorkflowMeta = {
 
 const GROOM: WorkflowMeta = {
   name: 'groom',
-  description: 'Delivery-mirror grooming. Syncs epics with active OpenSpec changes, analyzes deps/requires/gaps, and maintains sprint plans. Use when the mirror reports drift or epics need dependency and gap analysis.',
+  description: 'Delivery-mirror grooming. Syncs epics with active OpenSpec changes, analyzes deps/requires/gaps, assigns conflict tracks, and maintains sprint plans. Use when the mirror reports drift or epics need dependency, gap, or conflict-track analysis.',
   personas: [
     {
       name: 'Groomer',
@@ -390,7 +390,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'analyze',
       instruction:
-        'For each epic, declare deps, judge requires (`design` for UI work, `decision` for architectural calls), link supporting artifacts, and flag gaps (`weak-spec`, `research-thin`) with notes. Persist updates with `spego --json update --id <epic id> --expected-revision <current revision>`, then read returned `revision` for the next call.',
+        'For each epic, declare deps, judge requires (`design` for UI work, `decision` for architectural calls), link supporting artifacts, flag gaps (`weak-spec`, `research-thin`) with notes, and assign a `track`: judge it from file/subsystem overlap with the other pending changes — changes expected to conflict share a track; independent changes get distinct tracks. Maintain deps, requires, links, gaps, and track together. Persist updates with `spego --json update --id <epic id> --expected-revision <current revision>`, then read returned `revision` for the next call.',
     },
     {
       name: 'plan',

@@ -6,8 +6,13 @@
 - `spego board --sync`: applies the mechanical reconciliation plan (create missing epics, close finished sprints, retire archived-change epics) before rendering. The default `board` path stays strictly write-free.
 - `retire-epic` reconciliation action: `spego sync` (and `board --sync`) now soft-deletes the epic of any change archived in OpenSpec, clearing its `orphan-epic` warning. The `--json` payload gains a `retire-epic` entry in `applied`; the groom workflow's confirmation-gated orphan-epic disposition now covers only epics resolving to no OpenSpec change at all.
 
+- Epic metadata gains an optional `track` field — a conflict lane (e.g. `api-contract`, `storage`) judged by the groom workflow from file/subsystem overlap; the delivery mirror's `group` takes its value.
+
 ### Changed
 - **Breaking:** `spego board`'s human change table is rebuilt around five columns — `id`, `change`, `status`, `group`, `signals` — replacing `blockers`/`gaps`/`missing`/`title`. The `change` column is protected and never truncates (other columns shrink first); `signals` summarizes drift as nonzero counts (`N blk · N gap · N mis`, else `—`). Sprint panel titles render as `<title> · <status> · <slug>`; the footer adds a dim `spego board --gaps` hint when any rendered change carries a signal and a dim `N mechanical fixes — run spego sync` line when the plan is non-empty. `--json` is unchanged: each change still carries full `blockers`, `gaps`, and `missing` arrays.
+
+- **Breaking:** the `--json` `group` field now carries the change's conflict track — the epic's `track` meta value (or `?` for a pending change with no track, `—` for `done`/`completed`) — instead of the `gNNN` parallel-dependency wave code. Human output renders the same value (the track name); the separate `gNNN`→letter mapping is removed. Same group now means the changes conflict and run sequentially; different groups are parallel-safe (the inverse of the old wave meaning).
+- **Breaking:** `sprints[].changes` in `--json` output (and the human board, and the `next` suggestion) are now ordered by execution order — a stable topological sort over each sprint's own dependency edges — instead of the `sprint-plan`'s stored list order. `ungrouped` stays slug-sorted.
 
 ### Removed
 - **Breaking:** the `archived-in-sprint` drift warning is removed entirely. An archived change scheduled into a live sprint is normal progress — already visible as a struck-through row — not drift; end-of-sprint cleanup is owned by `closable-sprint`. Agent-facing `--json` change: the `warnings` array no longer contains `archived-in-sprint` objects.

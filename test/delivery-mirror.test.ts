@@ -450,45 +450,106 @@ describe('id (stable hash)', () => {
   });
 });
 
-describe('group (parallel wave)', () => {
-  it('assigns the same group to two independent changes', () => {
+describe('group (conflict track)', () => {
+  it('groups two pending changes with the same track under that track string', () => {
     const result = board({
       changes: [change('a'), change('b')],
-      epics: [epic('a'), epic('b')],
+      epics: [epic('a', { track: 'storage' }), epic('b', { track: 'storage' })],
     });
 
-    const a = findChange(result, 'a');
-    const b = findChange(result, 'b');
-    expect(a?.group).toBe('g001');
-    expect(b?.group).toBe('g001');
+    expect(findChange(result, 'a')?.group).toBe('storage');
+    expect(findChange(result, 'b')?.group).toBe('storage');
   });
 
-  it('assigns a strictly later group to a change blocked by another', () => {
+  it('groups pending changes with different tracks under their distinct track strings', () => {
     const result = board({
-      changes: [change('dep'), change('blocked')],
-      epics: [epic('dep'), epic('blocked', { deps: ['dep'] })],
+      changes: [change('a'), change('b')],
+      epics: [epic('a', { track: 'storage' }), epic('b', { track: 'ui' })],
     });
 
-    expect(findChange(result, 'dep')?.group).toBe('g001');
-    expect(findChange(result, 'blocked')?.group).toBe('g002');
+    expect(findChange(result, 'a')?.group).toBe('storage');
+    expect(findChange(result, 'b')?.group).toBe('ui');
   });
 
-  it('marks a change with a dangling dep as unresolved', () => {
+  it('marks a pending change with no track as ?', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a')],
+    });
+
+    expect(findChange(result, 'a')?.group).toBe('?');
+  });
+
+  it('marks a pending change with a dangling dep and no track as ? (no ! marker)', () => {
     const result = board({
       changes: [change('has-dangling')],
       epics: [epic('has-dangling', { deps: ['missing-dep'] })],
     });
 
-    expect(findChange(result, 'has-dangling')?.group).toBe('!');
+    expect(findChange(result, 'has-dangling')?.group).toBe('?');
   });
 
-  it('marks a completed change as done', () => {
+  it('marks a satisfied change as — regardless of track', () => {
     const result = board({
       changes: [change('done', 'completed')],
-      epics: [epic('done')],
+      epics: [epic('done', { track: 'storage' })],
     });
 
     expect(findChange(result, 'done')?.group).toBe('—');
+  });
+});
+
+describe('execution order (intra-sprint topological sort)', () => {
+  it('reorders a sprint so a dependency precedes its dependent (stored [b, a], b depends on a -> [a, b])', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a'), epic('b', { deps: ['a'] })],
+      sprints: [sprint('active', ['b', 'a'], { status: 'active' })],
+    });
+
+    expect(result.sprints[0]!.changes.map((item) => item.slug)).toEqual(['a', 'b']);
+  });
+
+  it('exposes the sorted order to chooseNext (a is the first pending unblocked change)', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a'), epic('b', { deps: ['a'] })],
+      sprints: [sprint('active', ['b', 'a'], { status: 'active' })],
+    });
+
+    expect(result.next).toMatchObject({ change: 'a', sprint: 'active' });
+  });
+
+  it('keeps stored order for an intra-sprint cycle and still fires dep-cycle warnings', () => {
+    const result = board({
+      changes: [change('x'), change('y')],
+      epics: [epic('x', { deps: ['y'] }), epic('y', { deps: ['x'] })],
+      sprints: [sprint('active', ['x', 'y'], { status: 'active' })],
+    });
+
+    expect(result.sprints[0]!.changes.map((item) => item.slug)).toEqual(['x', 'y']);
+    expect(
+      result.warnings.filter((w) => w.code === 'dep-cycle').map((w) => w.details?.change).sort(),
+    ).toEqual(['x', 'y']);
+  });
+
+  it('leaves a no-dependency sprint in stored list order', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a'), epic('b')],
+      sprints: [sprint('active', ['b', 'a'], { status: 'active' })],
+    });
+
+    expect(result.sprints[0]!.changes.map((item) => item.slug)).toEqual(['b', 'a']);
+  });
+
+  it('keeps ungrouped changes slug-sorted regardless of dependency order', () => {
+    const result = board({
+      changes: [change('b'), change('a')],
+      epics: [epic('b', { deps: ['a'] }), epic('a')],
+    });
+
+    expect(result.ungrouped.map((item) => item.slug)).toEqual(['a', 'b']);
   });
 });
 

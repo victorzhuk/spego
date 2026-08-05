@@ -103,11 +103,11 @@ async function setupBoardFixture(): Promise<string> {
 
 async function setupWaveFixture(): Promise<string> {
   const root = await setupOpenSpecWorkspace();
-  await createChangeEpic(root, 'wave-a', { tasks: '- [ ] todo\n' });
-  await createChangeEpic(root, 'wave-b', { tasks: '- [ ] todo\n' });
+  await createChangeEpic(root, 'wave-a', { tasks: '- [ ] todo\n', meta: { track: 'storage' } });
+  await createChangeEpic(root, 'wave-b', { tasks: '- [ ] todo\n', meta: { track: 'storage' } });
   await createChangeEpic(root, 'wave-c', {
     tasks: '- [ ] todo\n',
-    meta: { deps: ['wave-a'] },
+    meta: { deps: ['wave-a'], track: 'ui' },
   });
   return root;
 }
@@ -194,15 +194,15 @@ describe('CLI board command', () => {
     expect(result.next).toMatchObject({ change: 'add-ui', sprint: 'sprint-1' });
   }, 30_000);
 
-  it('computes parallel-wave groups: independent changes share a group, blocked changes get a later one', async () => {
+  it('groups changes by conflict track: same track shared, distinct tracks separate', async () => {
     const root = await setupWaveFixture();
     const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const result = JSON.parse(stdout) as MirrorBoard;
     const bySlug = new Map(result.ungrouped.map((change) => [change.slug, change]));
 
-    expect(bySlug.get('wave-a')?.group).toBe('g001');
-    expect(bySlug.get('wave-b')?.group).toBe('g001');
-    expect(bySlug.get('wave-c')?.group).toBe('g002');
+    expect(bySlug.get('wave-a')?.group).toBe('storage');
+    expect(bySlug.get('wave-b')?.group).toBe('storage');
+    expect(bySlug.get('wave-c')?.group).toBe('ui');
     expect(bySlug.get('wave-c')?.blockers).toEqual(['wave-a']);
   }, 30_000);
 
@@ -290,17 +290,17 @@ describe('CLI board command', () => {
     expect(stdout).not.toContain('includes archived changes');
   }, 30_000);
 
-  it('renders the group as a letter in human output while --json keeps the gNNN code', async () => {
+  it('renders the raw track value in human output identical to --json', async () => {
     const root = await setupWaveFixture();
     const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
-    expect(new Set(jsonBoard.ungrouped.map((change) => change.group))).toEqual(new Set(['g001', 'g002']));
+    expect(new Set(jsonBoard.ungrouped.map((change) => change.group))).toEqual(new Set(['storage', 'ui']));
 
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
     expect(stdout).not.toContain('g001');
     expect(stdout).not.toContain('g002');
     const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'))!;
-    expect(waveCLine).toContain('B');
+    expect(waveCLine).toContain('ui');
   }, 30_000);
 
   it('aligns the signals column at the same offset across sprint panels with differently sized cells', async () => {

@@ -114,6 +114,34 @@ describe('artifact metadata schemas', () => {
       valid: true,
     },
     {
+      type: 'epic',
+      name: 'accepts track string',
+      meta: { track: 'storage' },
+      valid: true,
+    },
+    {
+      type: 'epic',
+      name: 'rejects empty-string track',
+      meta: { track: '' },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'accepts track omitted',
+      meta: { deps: ['core/change-a'] },
+      valid: true,
+    },
+    {
+      type: 'epic',
+      name: 'accepts track composing with existing fields',
+      meta: {
+        track: 'storage',
+        deps: ['core/change-a'],
+        requires: ['docs/change-b'],
+      },
+      valid: true,
+    },
+    {
       type: 'sprint-plan',
       name: 'accepts ordered changes',
       meta: {
