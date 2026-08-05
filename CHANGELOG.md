@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-08-05
+
 ### Added
 - `spego board --sync`: applies the mechanical reconciliation plan (create missing epics, close finished sprints, retire archived-change epics) before rendering. The default `board` path stays strictly write-free.
 - `retire-epic` reconciliation action: `spego sync` (and `board --sync`) now soft-deletes the epic of any change archived in OpenSpec, clearing its `orphan-epic` warning. The `--json` payload gains a `retire-epic` entry in `applied`; the groom workflow's confirmation-gated orphan-epic disposition now covers only epics resolving to no OpenSpec change at all.
