@@ -79,9 +79,9 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 - **THEN** the board footer reports `2 mechanical fixes — run spego sync`
 - **AND** a board whose mechanical plan is empty renders no such hint
 
-#### Scenario: Group renders the track in both output modes
+#### Scenario: Human output shows a group letter, JSON keeps the wave index
 - **WHEN** a pending change's epic carries `track: api-contract`
-- **THEN** the human board's `group` column reads `api-contract`
+- **THEN** the human board's `group` column reads `api-contract` — the track name verbatim, not a wave letter
 - **AND** the `--json` payload reports `group: "api-contract"` for the same change
 - **AND** no wave code (`g001`) or letter label (`A`) appears in either mode
 
