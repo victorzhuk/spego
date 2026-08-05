@@ -351,7 +351,7 @@ The system SHALL expose `spego sprints` as a read-only listing of `sprint-plan` 
 - **THEN** stdout carries a JSON array where each entry has `id`, `slug`, `title`, `status`, `startDate`, `endDate`, and `changes`
 
 ### Requirement: Status reports delivery drift
-The system SHALL include an advisory drift summary in `spego status` when the workspace has an OpenSpec delivery source: counts of board drift warnings (`dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `archived-in-sprint`, `closable-sprint`) and a pointer to the groom workflow. Drift derivation failures SHALL NOT fail the status command.
+The system SHALL include an advisory drift summary in `spego status` when the workspace has an OpenSpec delivery source: counts of board drift warnings (`dangling-dep`, `dep-cycle`, `ungroomed-change`, `orphan-epic`, `closable-sprint`) and a pointer to the groom workflow. Drift derivation failures SHALL NOT fail the status command.
 
 #### Scenario: Drift present
 - **WHEN** an agent runs `spego status --json` in a workspace with ungroomed changes
