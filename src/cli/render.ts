@@ -194,13 +194,19 @@ function breakWord(word: string, width: number): string[] {
  * ╰───────────────────────────────────────────╯
  * ```
  *
- * `opts.width` is the content width in visible characters. Callers passing
- * ANSI-styled `bodyLines` MUST supply it explicitly: `.length` on a styled
- * line counts escape bytes, so the default (longest line) would mis-size the
- * panel and break the right border. Defaults to the longest line in
- * `bodyLines`, widened if needed to fit `title`. Every body line is padded to
- * the content width and closed on the right with ` │`, so header, divider,
- * short rows, and blank rows all align on both rails.
+ * `opts.width` is the content width in visible characters and is authoritative
+ * when given — the panel never grows past it, even for a `title` that doesn't
+ * fit; the title truncates instead, down to a bare `…` at the narrowest widths,
+ * with the box geometry staying consistent throughout. Callers passing
+ * ANSI-styled `bodyLines` MUST supply `opts.width` explicitly: `.length` on a styled line counts
+ * escape bytes, so the default (longest line) would mis-size the panel and
+ * break the right border — and so would a `renderPanel`-computed width wider
+ * than what the caller already padded its body to, since this function's own
+ * padding is measured against those same inflated lengths. Without
+ * `opts.width`, defaults to the longest line in `bodyLines`, widened if needed
+ * to fit `title` in full. Every body line is padded to the content width and
+ * closed on the right with ` │`, so header, divider, short rows, and blank
+ * rows all align on both rails.
  */
 export function renderPanel(
   title: string,
@@ -208,10 +214,14 @@ export function renderPanel(
   opts: { width?: number } = {},
 ): string {
   const bodyMax = bodyLines.reduce((m, line) => Math.max(m, line.length), 0);
-  const width = Math.max(opts.width ?? bodyMax, title.length + 3);
+  const width = Math.max(1, opts.width ?? Math.max(bodyMax, title.length + 3));
+  // Reserve 1 rule char after the title: truncating to `width - 2` (title's own
+  // two flanking spaces) guarantees the top rule's dash count below never goes
+  // negative, so the top line always lands at exactly `total` regardless of title length.
+  const shownTitle = truncate(title, Math.max(0, width - 2));
   const total = width + 4; // `│ ` + width + ` │`
 
-  const top = `╭─ ${title} ${'─'.repeat(Math.max(1, total - title.length - 5))}╮`;
+  const top = `╭─ ${shownTitle} ${'─'.repeat(Math.max(0, width - shownTitle.length - 1))}╮`;
   const bottom = `╰${'─'.repeat(Math.max(1, total - 2))}╯`;
   if (bodyLines.length === 0) return `${top}\n${bottom}`;
 

@@ -9,6 +9,14 @@ import type { ArtifactRecord } from '../src/artifacts/types.js';
 import type { CommandMeta } from '../src/command-meta/registry.js';
 import type { MirrorBoard } from '../src/delivery/mirror.js';
 
+const ESC = String.fromCharCode(27);
+const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;]*m`, 'g');
+
+/** Strip ANSI escape codes so `.length` reflects visible width, not escape bytes. */
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, '');
+}
+
 const cleanups: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
@@ -119,7 +127,7 @@ async function setupWaveFixture(): Promise<string> {
  * gives every row a real blocker regardless of scheduling, so this fixture
  * exercises strikethrough (satisfied) and dim (blocked-only) side by side.
  */
-async function setupStyledPanelFixture(): Promise<string> {
+async function setupStyledPanelFixture(sprintTitle = 'Sprint 1'): Promise<string> {
   const root = await setupOpenSpecWorkspace();
   await createChangeEpic(root, 'ship-api', {
     tasks: '- [x] design\n',
@@ -129,7 +137,19 @@ async function setupStyledPanelFixture(): Promise<string> {
     tasks: '- [ ] build\n',
     meta: { deps: ['ghost'] },
   });
-  await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+  await createArtifact(root, 'sprint-plan', sprintTitle, {
+    status: 'active',
+    changes: ['ship-api', 'ship-ui'],
+  });
+  return root;
+}
+
+/** Every change satisfied, so the sprint is `complete` and hidden by default — visible, fully dim, only via `--closed`. */
+async function setupFinishedPanelFixture(sprintTitle: string): Promise<string> {
+  const root = await setupOpenSpecWorkspace();
+  await createChangeEpic(root, 'ship-api', { tasks: '- [x] design\n' });
+  await createChangeEpic(root, 'ship-ui', { tasks: '- [x] build\n' });
+  await createArtifact(root, 'sprint-plan', sprintTitle, {
     status: 'active',
     changes: ['ship-api', 'ship-ui'],
   });
@@ -254,30 +274,109 @@ describe('CLI board command', () => {
 
   it('renders the sprint and Warnings sections as bordered panels with aligned rules', async () => {
     const root = await setupStyledPanelFixture();
-    const { stdout } = await spawnCli(['board', '--cwd', root], root);
-    expect(stdout).toContain('╭─ Sprint 1 · active · sprint-1');
-    expect(stdout).toContain('╭─ Warnings');
+    // FORCE_COLOR exercises the ANSI-styled strikethrough/dim rows: their raw .length
+    // includes escape bytes, so geometry must be checked on stripped lines.
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    expect(stripAnsi(stdout)).toContain('╭─ Sprint 1 · active · sprint-1');
+    expect(stripAnsi(stdout)).toContain('╭─ Warnings');
 
+    const lines = stdout.split('\n');
+    const panelStarts = lines.reduce<number[]>((acc, line, index) => {
+      if (stripAnsi(line).startsWith('╭─')) acc.push(index);
+      return acc;
+    }, []);
+    expect(panelStarts.length).toBe(2);
+
+    for (const start of panelStarts) {
+      const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(stripAnsi(line)));
+      expect(end).toBeGreaterThan(start);
+      const panelLines = lines.slice(start, end + 1);
+      // Top closes on the right with ╮, bottom with ╯, every body line with │.
+      expect(stripAnsi(panelLines[0]!)).toMatch(/╮$/);
+      expect(stripAnsi(panelLines.at(-1)!)).toMatch(/^╰─+╯$/);
+      for (const body of panelLines.slice(1, -1)) {
+        expect(stripAnsi(body)).toMatch(/│$/);
+      }
+      const widths = new Set(panelLines.map((line) => stripAnsi(line).length));
+      expect(widths.size).toBe(1);
+    }
+  }, 30_000);
+
+  it('keeps every panel line at one stripped width when a sprint title is longer than its table', async () => {
+    const longTitle = 'Sprint 1: A deliberately long sprint title that outruns the table grid';
+    const root = await setupStyledPanelFixture(longTitle);
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    expect(stdout).toContain('\x1b[9m'); // ship-api is satisfied -> struck through, the case that broke the rail
+
+    const lines = stdout.split('\n');
+    const panelStarts = lines.reduce<number[]>((acc, line, index) => {
+      if (stripAnsi(line).startsWith('╭─')) acc.push(index);
+      return acc;
+    }, []);
+    expect(panelStarts.length).toBe(2);
+    for (const start of panelStarts) {
+      const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(stripAnsi(line)));
+      const panelLines = lines.slice(start, end + 1);
+      const widths = new Set(panelLines.map((line) => stripAnsi(line).length));
+      expect(widths.size).toBe(1);
+    }
+  }, 30_000);
+
+  it('renders every panel at the same width, regardless of how much longer one sprint title is than another', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
+    await createChangeEpic(root, 'y', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1: A deliberately long sprint title that outruns the table grid', {
+      status: 'active',
+      startDate: '2026-01-01',
+      changes: ['x'],
+    });
+    await createArtifact(root, 'sprint-plan', 'Sprint 2', {
+      status: 'active',
+      startDate: '2026-02-01',
+      changes: ['y'],
+    });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
     const lines = stdout.split('\n');
     const panelStarts = lines.reduce<number[]>((acc, line, index) => {
       if (line.startsWith('╭─')) acc.push(index);
       return acc;
     }, []);
     expect(panelStarts.length).toBe(2);
+    const panelWidths = panelStarts.map((start) => lines[start]!.length);
+    expect(new Set(panelWidths).size).toBe(1);
+  }, 30_000);
 
-    for (const start of panelStarts) {
-      const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(line));
-      expect(end).toBeGreaterThan(start);
-      const panelLines = lines.slice(start, end + 1);
-      // Top closes on the right with ╮, bottom with ╯, every body line with │.
-      expect(panelLines[0]).toMatch(/╮$/);
-      expect(panelLines.at(-1)).toMatch(/^╰─+╯$/);
-      for (const body of panelLines.slice(1, -1)) {
-        expect(body).toMatch(/│$/);
-      }
-      const widths = new Set(panelLines.map((line) => line.length));
-      expect(widths.size).toBe(1);
-    }
+  it('truncates a title too long for the terminal instead of widening the panel past it', async () => {
+    const longTitle = 'Sprint 1: A deliberately long sprint title that outruns the table grid';
+    const root = await setupStyledPanelFixture(longTitle);
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '60' } });
+    const lines = stdout.split('\n');
+    const start = lines.findIndex((line) => line.startsWith('╭─'));
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(lines[start]).toContain('…');
+    expect(lines[start]).not.toContain(longTitle);
+    expect(lines[start]).toMatch(/╮$/);
+    const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(line));
+    const panelLines = lines.slice(start, end + 1);
+    const widths = new Set(panelLines.map((line) => line.length));
+    expect(widths.size).toBe(1);
+  }, 30_000);
+
+  it('dims the whole panel including header and divider under --closed without breaking the rail', async () => {
+    const longTitle = 'Sprint 1: A deliberately long finished sprint title that outruns the table grid';
+    const root = await setupFinishedPanelFixture(longTitle);
+    const { stdout } = await spawnCli(['board', '--closed', '--cwd', root], root, { env: { FORCE_COLOR: '1' } });
+    expect(stdout).toContain('\x1b[2m');
+
+    const lines = stdout.split('\n');
+    const start = lines.findIndex((line) => stripAnsi(line).startsWith('╭─'));
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = lines.findIndex((line, index) => index > start && /^╰─+╯$/.test(stripAnsi(line)));
+    const panelLines = lines.slice(start, end + 1);
+    const widths = new Set(panelLines.map((line) => stripAnsi(line).length));
+    expect(widths.size).toBe(1);
   }, 30_000);
 
   it('does not warn when archived changes sit in a live sprint', async () => {
@@ -342,7 +441,7 @@ describe('CLI board command', () => {
     expect(warningLine).not.toContain('…');
   }, 30_000);
 
-  it("grows the narrower table's last column to close the gap instead of leaving dead space", async () => {
+  it('pads a narrower table with blank space instead of stretching its last column into a long divider', async () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
     await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['x'] });
@@ -351,10 +450,19 @@ describe('CLI board command', () => {
 
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '200' } });
     const lines = stdout.split('\n');
-    const dividerContentLength = (line: string): number => line.replace(/^│ /, '').trimEnd().length;
-    const sprintDivider = lines[lines.findIndex((line) => line.startsWith('╭─') && line.includes('sprint-1')) + 2]!;
-    const warningsDivider = lines[lines.findIndex((line) => line.startsWith('╭─ Warnings')) + 2]!;
-    expect(dividerContentLength(sprintDivider)).toBe(dividerContentLength(warningsDivider));
+    // Strip the panel's own border (leading "│ " / trailing " │") first, then trim the blank
+    // padding renderPanelSection adds past the table's natural width — what's left is the
+    // table's own content, unpadded, so a stretched last column would show up as extra dashes here.
+    const tableContent = (line: string): string => line.replace(/^│ /, '').replace(/ │$/, '').replace(/\s+$/, '');
+    const sprintLine = lines[lines.findIndex((line) => line.startsWith('╭─') && line.includes('sprint-1')) + 2]!;
+    const warningsLine = lines[lines.findIndex((line) => line.startsWith('╭─ Warnings')) + 2]!;
+
+    // The panel border itself still lines up across both panels...
+    expect(sprintLine.length).toBe(warningsLine.length);
+    // ...but the change table's own `signals` divider stays at its natural width (matching its
+    // header) instead of stretching out to match the Warnings table's much longer message column.
+    expect(tableContent(sprintLine)).toMatch(/─{7}$/);
+    expect(tableContent(sprintLine).length).toBeLessThan(tableContent(warningsLine).length - 20);
   }, 30_000);
 
   it('renders human board, dependency graph, and gaps report', async () => {

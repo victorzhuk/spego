@@ -13,7 +13,7 @@ import {
 } from '../../delivery/mirror.js';
 import { deriveSyncPlan } from '../../delivery/sync.js';
 import { applySyncPlan, resolveEpicAdapter } from './sync.js';
-import { columnWidths, padRight, renderHeader, renderPanel, renderTable } from '../render.js';
+import { columnWidths, padRight, renderHeader, renderPanel, renderTable, truncate } from '../render.js';
 import { deliveryStatusLabel } from '../status.js';
 import { runEngineCommand } from '../runtime.js';
 
@@ -95,11 +95,17 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
   const widths = columnWidths(BOARD_COLUMNS, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
   const warningRows = aggregateWarningRows(board.warnings);
   const warningWidths = columnWidths(['code', 'message'], warningRows, { maxWidth: totalWidth, totalWidth });
-  const panelWidth = Math.max(tableWidth(widths), board.warnings.length > 0 ? tableWidth(warningWidths) : 0);
-  // Whichever table computed narrower than the shared panel grows its last (free-text) column
-  // to close the gap, instead of leaving blank space inside the panel.
-  growLastColumn(widths, panelWidth);
-  if (board.warnings.length > 0) growLastColumn(warningWidths, panelWidth);
+  // Every panel — each sprint's table, Warnings, and the title rail — shares one width, capped
+  // at the terminal budget. A table or title narrower than that shared width is right-padded
+  // with plain blank space by `renderPanelSection`, not stretched: no individual table column
+  // grows to close the gap, so a long Warnings message never blows up the `signals` divider.
+  const titleWidths = sections.map((section) => section.title.length + 3);
+  if (board.warnings.length > 0) titleWidths.push('Warnings'.length + 3);
+  const panelWidth = Math.max(
+    tableWidth(widths),
+    board.warnings.length > 0 ? tableWidth(warningWidths) : 0,
+    Math.min(Math.max(0, ...titleWidths), totalWidth),
+  );
 
   if (sections.length === 0 && hiddenCount === 0) {
     lines.push('No groomed delivery board.');
@@ -155,19 +161,16 @@ function tableWidth(widths: number[]): number {
   return widths.reduce((sum, w) => sum + w, 0) + 2 * Math.max(0, widths.length - 1);
 }
 
-/** Widens the last column of `widths` in place to make the table reach `targetWidth`; a no-op once it already does. */
-function growLastColumn(widths: number[], targetWidth: number): void {
-  const gap = targetWidth - tableWidth(widths);
-  if (gap > 0 && widths.length > 0) widths[widths.length - 1]! += gap;
-}
-
 /**
  * Wraps `table` in a panel with `title` embedded in the top rail. Every line
  * is padded to `width` before `styleRows` runs, so strikethrough/dim spans
  * the full row instead of stopping where ANSI-inflated `.length` would
  * otherwise defeat `renderPanel`'s own padding. A `finished` section renders
  * fully dim with no bold/underline title — the muted state for a closed
- * sprint shown only via `--closed`.
+ * sprint shown only via `--closed`. `title` is truncated here, matching
+ * `renderPanel`'s own truncation exactly, so the bold/dim `replace` below
+ * still finds it — `renderPanel` truncating internally on a mismatched
+ * string would leave the title unstyled.
  */
 function renderPanelSection(
   title: string,
@@ -177,6 +180,7 @@ function renderPanelSection(
   finished: boolean,
   styleRows?: (lines: string[]) => string[],
 ): string {
+  const shownTitle = truncate(title, Math.max(0, width - 2));
   // Pad on the unstyled line: styling happens after, so padRight measures raw length and the right rail stays aligned.
   const padded = table.split('\n').map((line) => padRight(line, width));
   const body = plain
@@ -184,10 +188,10 @@ function renderPanelSection(
     : finished
       ? padded.map((line) => styleText('dim', line))
       : (styleRows?.(padded) ?? padded);
-  const panel = renderPanel(title, body, { width });
+  const panel = renderPanel(shownTitle, body, { width });
   if (plain) return panel;
   const lines = panel.split('\n');
-  lines[0] = lines[0]!.replace(title, () => styleText(finished ? 'dim' : 'bold', title));
+  lines[0] = lines[0]!.replace(shownTitle, () => styleText(finished ? 'dim' : 'bold', shownTitle));
   return lines.join('\n');
 }
 

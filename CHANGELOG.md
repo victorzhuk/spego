@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `spego board`'s bordered panels no longer break geometry in three cases: a struck-through/dimmed row's right rail could fall short of the panel border because ANSI escape bytes inflated its measured length; a sprint title longer than its table widened that one panel past its siblings instead of keeping every panel on the board the same width (a too-long title now truncates with `…` instead); and a long `Warnings` message no longer stretches the change table's `signals` column into a mostly-empty divider — narrower tables now get plain blank padding instead of a stretched last column.
+
 ## [0.21.0] - 2026-08-05
 
 ### Added

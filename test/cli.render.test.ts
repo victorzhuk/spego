@@ -103,12 +103,24 @@ describe('renderPanel', () => {
     expect(lines[1]).toMatch(/^│ x\s+│$/);
   });
 
-  it('clamps a width narrower than the title so the top rule never falls short of the title', () => {
-    const out = renderPanel('A very long sprint title', ['x'], { width: 1 });
+  it('truncates the title instead of growing the panel when width is narrower than the title', () => {
+    const out = renderPanel('A very long sprint title', ['x'], { width: 10 });
     const lines = out.split('\n');
     const widths = new Set(lines.map((line) => line.length));
     expect(widths.size).toBe(1);
-    expect(lines[0]!.length).toBeGreaterThan('A very long sprint title'.length);
+    expect(lines[0]!.length).toBe(14); // width + 4
+    expect(lines[0]).toContain('…');
+    expect(lines[0]).not.toContain('A very long sprint title');
+  });
+
+  it('keeps box geometry consistent even at widths too narrow for any title text', () => {
+    for (const width of [1, 2, 3]) {
+      const out = renderPanel('A very long sprint title', ['x'], { width });
+      const lines = out.split('\n');
+      const widths = new Set(lines.map((line) => line.length));
+      expect(widths.size).toBe(1);
+      expect([...widths][0]).toBe(width + 4);
+    }
   });
 
   it('renders only the top and bottom rule for an empty body', () => {
