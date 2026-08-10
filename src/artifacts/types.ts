@@ -24,6 +24,15 @@ export const BUILTIN_ARTIFACT_TYPES = [
 export type BuiltinArtifactType = (typeof BUILTIN_ARTIFACT_TYPES)[number];
 export type ArtifactType = string;
 
+/**
+ * Fixed Size Tier scale for change pricing — epic `tier` values and the keys
+ * of every `flows` hours table. Fixed in code so every profile table's
+ * validity is independent of config, and every project agrees on what `m`
+ * means. Adding a tier is a schema change.
+ */
+export const SIZE_TIERS = ['xs', 's', 'm', 'l', 'xl'] as const;
+export type SizeTier = (typeof SIZE_TIERS)[number];
+
 /** ISO-8601 datetime string. */
 export const isoDateTime = z
  .string()

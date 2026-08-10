@@ -142,6 +142,42 @@ describe('artifact metadata schemas', () => {
       valid: true,
     },
     {
+      type: 'epic',
+      name: 'accepts tier from the size scale',
+      meta: { tier: 'm' },
+      valid: true,
+    },
+    {
+      type: 'epic',
+      name: 'rejects tier outside the size scale',
+      meta: { tier: 'xxl' },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'rejects non-string tier',
+      meta: { tier: 3 },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'accepts flow string',
+      meta: { flow: 'opsx-apply' },
+      valid: true,
+    },
+    {
+      type: 'epic',
+      name: 'rejects empty-string flow',
+      meta: { flow: '' },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'accepts tier and flow omitted',
+      meta: { deps: ['core/change-a'] },
+      valid: true,
+    },
+    {
       type: 'sprint-plan',
       name: 'accepts ordered changes',
       meta: {

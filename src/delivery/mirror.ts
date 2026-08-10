@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { SIZE_TIERS, type SizeTier } from '../artifacts/types.js';
+import type { FlowsConfig } from '../workspace/config.js';
 import type { DeliveryStatus } from './types.js';
 
 export type WarningCode =
@@ -39,6 +41,8 @@ export interface MirrorInput {
   sprints: MirrorArtifact[];
   linkedArtifacts?: MirrorArtifact[];
   warnings?: MirrorWarning[];
+  /** Resolved pricing tables; absent means the board renders unpriced. */
+  flows?: FlowsConfig;
 }
 
 export interface MirrorGap {
@@ -57,6 +61,12 @@ export interface MirrorChange {
   missing: string[];
   warnings: WarningCode[];
   archived: boolean;
+  /** Flow Estimate in hours from the change's Flow profile; absent when unpriced. Derived, never stored. */
+  flowEstimate?: number;
+  /** Human Estimate in hours from the shared human table; absent when unpriced. */
+  humanEstimate?: number;
+  /** The pricing rung that produced the estimates; absent when unpriced. */
+  rung?: string;
 }
 
 export interface MirrorSprint {
@@ -68,6 +78,10 @@ export interface MirrorSprint {
   changes: MirrorChange[];
   /** True when the sprint has at least one change and every change is done/completed. */
   complete: boolean;
+  /** Total Flow Estimate of pending changes; absent when the workspace declares no flows block. */
+  flowTotal?: number;
+  /** Pending changes with no price; a nonzero count marks the total as incomplete. */
+  unpricedPending?: number;
 }
 
 export interface MirrorNext {
@@ -321,6 +335,14 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     gapsBySlug.set(slug, gapsFromMeta(epic.meta.gaps));
   }
 
+  const priceBySlug = new Map<string, ChangePrice>();
+  if (input.flows) {
+    for (const slug of sortedSlugs) {
+      const price = priceChange(changeStates.get(slug)?.epic, input.flows);
+      if (price) priceBySlug.set(slug, price);
+    }
+  }
+
   const toMirrorChange = (slug: string): MirrorChange => {
     const state = changeStates.get(slug);
     return {
@@ -334,13 +356,14 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       missing: missingBySlug.get(slug) ?? [],
       warnings: warningCodesByChange.get(slug) ?? [],
       archived: state?.archived ?? false,
+      ...priceBySlug.get(slug),
     };
   };
 
   const sprintRows: MirrorSprint[] = sprints.map((sprint) => {
     const ordered = topoSortSprint(sprint.changes, depsBySlug);
     const changes = ordered.map((slug) => toMirrorChange(slug));
-    return {
+    const row: MirrorSprint = {
       slug: sprint.artifact.slug,
       title: sprint.artifact.title,
       status: sprint.status,
@@ -349,6 +372,18 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       changes,
       complete: changes.length > 0 && changes.every((item) => isSatisfied(item.status)),
     };
+    if (input.flows) {
+      let total = 0;
+      let unpriced = 0;
+      for (const item of changes) {
+        if (isSatisfied(item.status)) continue;
+        if (item.flowEstimate === undefined) unpriced += 1;
+        else total += item.flowEstimate;
+      }
+      row.flowTotal = total;
+      row.unpricedPending = unpriced;
+    }
+    return row;
   });
   for (const sprint of sprintRows) {
     if (sprint.status === 'closed') continue;
@@ -435,6 +470,38 @@ export function summarizeSprints(artifacts: MirrorArtifact[]): SprintSummary[] {
     endDate: plan.endDate,
     changes: plan.changes,
   }));
+}
+
+/** The only pricing rung in this slice: the workspace's declared seed tables. */
+const PRICING_RUNG = 'config-seed';
+
+interface ChangePrice {
+  flowEstimate: number;
+  humanEstimate: number;
+  rung: string;
+}
+
+/**
+ * Price one change from its epic's `tier` and Flow profile — the epic's `flow`
+ * when set, otherwise the workspace default. Unpriced (undefined) when the
+ * epic has no usable tier or names a Flow absent from the config; the render
+ * succeeds either way.
+ */
+function priceChange(epic: MirrorArtifact | undefined, flows: FlowsConfig): ChangePrice | undefined {
+  if (!epic) return undefined;
+  const tier = epic.meta.tier;
+  if (typeof tier !== 'string' || !(SIZE_TIERS as readonly string[]).includes(tier)) return undefined;
+  const flow = epic.meta.flow;
+  if (flow !== undefined && (typeof flow !== 'string' || !Object.hasOwn(flows.profiles, flow))) {
+    return undefined;
+  }
+  const profile = flows.profiles[flow === undefined ? flows.default : (flow as string)];
+  if (!profile) return undefined;
+  return {
+    flowEstimate: profile[tier as SizeTier],
+    humanEstimate: flows.human[tier as SizeTier],
+    rung: PRICING_RUNG,
+  };
 }
 
 function sortArtifacts(artifacts: MirrorArtifact[]): MirrorArtifact[] {

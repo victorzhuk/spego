@@ -612,3 +612,138 @@ describe('filterMirrorArchived', () => {
     expect(filterMirrorArchived(result).ungrouped.map((item) => item.slug)).toEqual(['plain-one']);
   });
 });
+
+describe('deriveMirror pricing', () => {
+  const flows = {
+    default: 'zapply',
+    profiles: {
+      zapply: { xs: 0.5, s: 1, m: 2, l: 4, xl: 8 },
+      'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
+    },
+    human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+  };
+
+  const pricingCases: Array<{
+    name: string;
+    meta: Record<string, unknown>;
+    flowEstimate?: number;
+    humanEstimate?: number;
+  }> = [
+    { name: 'prices a tier against the default flow', meta: { tier: 'm' }, flowEstimate: 2, humanEstimate: 16 },
+    { name: 'prices xs against the default flow', meta: { tier: 'xs' }, flowEstimate: 0.5, humanEstimate: 2 },
+    { name: 'prices a per-epic flow override against that profile', meta: { tier: 'm', flow: 'opsx-apply' }, flowEstimate: 4, humanEstimate: 16 },
+    { name: 'leaves a change with an unknown flow unpriced', meta: { tier: 'm', flow: 'nope' } },
+    { name: 'leaves a change without a tier unpriced', meta: { flow: 'zapply' } },
+    { name: 'leaves a change with neither tier nor flow unpriced', meta: {} },
+  ];
+
+  for (const item of pricingCases) {
+    it(item.name, () => {
+      const result = board({
+        changes: [change('target')],
+        epics: [epic('target', item.meta)],
+        flows,
+      });
+      const priced = findChange(result, 'target');
+      expect(priced?.flowEstimate).toBe(item.flowEstimate);
+      expect(priced?.humanEstimate).toBe(item.flowEstimate === undefined ? undefined : item.humanEstimate);
+      expect(priced?.rung).toBe(item.flowEstimate === undefined ? undefined : 'config-seed');
+    });
+  }
+
+  it('reports the rung on every priced change', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a', { tier: 's' }), epic('b', { tier: 'xl', flow: 'opsx-apply' })],
+      flows,
+    });
+    expect(findChange(result, 'a')?.rung).toBe('config-seed');
+    expect(findChange(result, 'b')?.rung).toBe('config-seed');
+  });
+
+  it('carries no estimates when the workspace declares no flows block', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { tier: 'm' })],
+      sprints: [sprint('s1', ['a'])],
+    });
+    const row = findChange(result, 'a');
+    expect(row && 'flowEstimate' in row).toBe(false);
+    expect(row && 'humanEstimate' in row).toBe(false);
+    expect(row && 'rung' in row).toBe(false);
+    expect('flowTotal' in result.sprints[0]!).toBe(false);
+  });
+
+  it('totals the flow estimates of pending changes only', () => {
+    const result = board({
+      changes: [change('a'), change('b'), change('c', 'done'), change('d', 'completed')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        epic('b', { tier: 's' }),
+        epic('c', { tier: 'l' }),
+        epic('d', { tier: 'xl' }),
+      ],
+      sprints: [sprint('s1', ['a', 'b', 'c', 'd'])],
+      flows,
+    });
+    // pending: a (m → 2) + b (s → 1) = 3; done c (4) and completed d (8) excluded
+    expect(result.sprints[0]!.flowTotal).toBe(3);
+    expect(result.sprints[0]!.unpricedPending).toBe(0);
+  });
+
+  it('excludes unpriced pending changes from the total and counts them', () => {
+    const result = board({
+      changes: [change('a'), change('b'), change('c', 'done')],
+      epics: [epic('a', { tier: 'm' }), epic('b'), epic('c')],
+      sprints: [sprint('s1', ['a', 'b', 'c'])],
+      flows,
+    });
+    // pending priced: a (2); pending unpriced: b; done unpriced c is not pending
+    expect(result.sprints[0]!.flowTotal).toBe(2);
+    expect(result.sprints[0]!.unpricedPending).toBe(1);
+  });
+
+  it('totals zero for an empty sprint', () => {
+    const result = board({
+      changes: [],
+      epics: [],
+      sprints: [sprint('s1', [])],
+      flows,
+    });
+    expect(result.sprints[0]!.flowTotal).toBe(0);
+    expect(result.sprints[0]!.unpricedPending).toBe(0);
+  });
+
+  it('totals zero when every change is satisfied', () => {
+    const result = board({
+      changes: [change('a', 'done'), change('b', 'completed')],
+      epics: [epic('a', { tier: 'm' }), epic('b', { tier: 'l' })],
+      sprints: [sprint('s1', ['a', 'b'])],
+      flows,
+    });
+    expect(result.sprints[0]!.flowTotal).toBe(0);
+    expect(result.sprints[0]!.unpricedPending).toBe(0);
+  });
+
+  it('sums unrounded values into the sprint total', () => {
+    const result = board({
+      changes: [change('a'), change('b'), change('c')],
+      epics: [epic('a', { tier: 'xs' }), epic('b', { tier: 'xs' }), epic('c', { tier: 'xs' })],
+      sprints: [sprint('s1', ['a', 'b', 'c'])],
+      flows,
+    });
+    // 0.5 + 0.5 + 0.5 = 1.5, no per-row rounding before summing
+    expect(result.sprints[0]!.flowTotal).toBe(1.5);
+  });
+
+  it('prices ungrouped changes the same way', () => {
+    const result = board({
+      changes: [change('loose')],
+      epics: [epic('loose', { tier: 'l' })],
+      flows,
+    });
+    expect(result.ungrouped[0]?.flowEstimate).toBe(4);
+    expect(result.ungrouped[0]?.humanEstimate).toBe(40);
+    expect(result.ungrouped[0]?.rung).toBe('config-seed');
+  });
+});

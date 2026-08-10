@@ -128,3 +128,82 @@ describe('init', () => {
     expect(status.indexPath).toMatch(/spego\.db$/);
   });
 });
+
+describe('workspace config flows block', () => {
+  const cleanups: Array<() => Promise<void>> = [];
+
+  afterEach(async () => {
+    for (const fn of cleanups.splice(0)) await fn();
+  });
+
+  async function configWithFlows(flowsYaml: string): Promise<string> {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+    const summary = await initWorkspace({ projectRoot: root, agents: ['claude'], demo: false });
+    const base = await fs.readFile(summary.configPath, 'utf8');
+    await fs.writeFile(summary.configPath, `${base}\n${flowsYaml}\n`, 'utf8');
+    return summary.configPath;
+  }
+
+  const validFlows = [
+    'flows:',
+    '  default: zapply',
+    '  profiles:',
+    '    zapply:',
+    '      xs: 0.5',
+    '      s: 1',
+    '      m: 2',
+    '      l: 4',
+    '      xl: 8',
+    '  human:',
+    '    xs: 2',
+    '    s: 6',
+    '    m: 16',
+    '    l: 40',
+    '    xl: 80',
+  ].join('\n');
+
+  it('parses a valid flows block', async () => {
+    const configPath = await configWithFlows(validFlows);
+    const config = await readConfig(configPath);
+    expect(config.flows?.default).toBe('zapply');
+    expect(config.flows?.profiles.zapply).toEqual({ xs: 0.5, s: 1, m: 2, l: 4, xl: 8 });
+    expect(config.flows?.human).toEqual({ xs: 2, s: 6, m: 16, l: 40, xl: 80 });
+  });
+
+  it('leaves flows undefined when the block is absent', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+    const summary = await initWorkspace({ projectRoot: root, agents: ['claude'], demo: false });
+    const config = await readConfig(summary.configPath);
+    expect(config.flows).toBeUndefined();
+  });
+
+  it('rejects a default naming no profile', async () => {
+    const configPath = await configWithFlows(validFlows.replace('default: zapply', 'default: nope'));
+    const err = await readConfig(configPath).catch((e) => e);
+    expect(err).toBeInstanceOf(SpegoError);
+    expect(err.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('rejects a profile missing a tier', async () => {
+    const configPath = await configWithFlows(validFlows.replace('      xl: 8\n', ''));
+    const err = await readConfig(configPath).catch((e) => e);
+    expect(err).toBeInstanceOf(SpegoError);
+    expect(err.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('rejects negative hours', async () => {
+    const configPath = await configWithFlows(validFlows.replace('      m: 2\n', '      m: -2\n'));
+    const err = await readConfig(configPath).catch((e) => e);
+    expect(err).toBeInstanceOf(SpegoError);
+    expect(err.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('rejects non-finite hours', async () => {
+    const configPath = await configWithFlows(validFlows.replace('      m: 2\n', '      m: .inf\n'));
+    const err = await readConfig(configPath).catch((e) => e);
+    expect(err).toBeInstanceOf(SpegoError);
+    expect(err.code).toBe('VALIDATION_FAILED');
+  });
+});

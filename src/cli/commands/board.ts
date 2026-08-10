@@ -28,6 +28,7 @@ interface BoardOptions {
 }
 
 const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'signals'];
+const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'hours', 'signals'];
 const DEFAULT_TERMINAL_WIDTH = 120;
 const PANEL_CHROME_WIDTH = 4; // "│ " prefix + " │" suffix
 
@@ -86,13 +87,15 @@ interface BoardSection {
 
 function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, showClosed: boolean, budget: number): string {
   const lines = [renderHeader('📋', 'Delivery board'), ''];
+  const priced = input.flows !== undefined;
+  const columns = priced ? PRICED_BOARD_COLUMNS : BOARD_COLUMNS;
   const allSections = buildChangeSections(board);
   const sections = showClosed ? allSections : allSections.filter((section) => !section.finished);
   const hiddenCount = allSections.length - sections.length;
 
   const totalWidth = Math.max(0, budget - PANEL_CHROME_WIDTH);
-  const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change)));
-  const widths = columnWidths(BOARD_COLUMNS, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
+  const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change, priced)));
+  const widths = columnWidths(columns, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
   const warningRows = aggregateWarningRows(board.warnings);
   const warningWidths = columnWidths(['code', 'message'], warningRows, { maxWidth: totalWidth, totalWidth });
   // Every panel — each sprint's table, Warnings, and the title rail — shares one width, capped
@@ -111,7 +114,7 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     lines.push('No groomed delivery board.');
   } else {
     for (const section of sections) {
-      const table = renderTable(BOARD_COLUMNS, section.changes.map((change) => changeRow(change)), { widths });
+      const table = renderTable(columns, section.changes.map((change) => changeRow(change, priced)), { widths });
       lines.push(renderPanelSection(section.title, table, panelWidth, plain, section.finished, (l) => styleChangeRows(l, section.changes)));
       lines.push('');
     }
@@ -146,7 +149,7 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
 
 function buildChangeSections(board: MirrorBoard): BoardSection[] {
   const sections: BoardSection[] = board.sprints.map((sprint) => ({
-    title: `${sprint.title} · ${sprint.status} · ${sprint.slug}`,
+    title: sprintTitle(sprint),
     changes: sprint.changes,
     finished: isFinished(sprint),
   }));
@@ -154,6 +157,14 @@ function buildChangeSections(board: MirrorBoard): BoardSection[] {
     sections.push({ title: 'Ungrouped', changes: board.ungrouped, finished: false });
   }
   return sections;
+}
+
+/** `<title> · <status> · <slug>`, plus the remaining Flow Estimate when the sprint is priced; `+?` flags pending unpriced changes. */
+function sprintTitle(sprint: MirrorSprint): string {
+  const base = `${sprint.title} · ${sprint.status} · ${sprint.slug}`;
+  if (sprint.flowTotal === undefined) return base;
+  const unpriced = (sprint.unpricedPending ?? 0) > 0 ? '+?' : '';
+  return `${base} · ${formatHours(sprint.flowTotal)}${unpriced}h`;
 }
 
 /** Total rendered width of a table built from `widths`: columns plus the two-space separators between them. */
@@ -254,14 +265,21 @@ function renderGaps(board: MirrorBoard): string {
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
-function changeRow(change: MirrorChange): string[] {
-  return [
+function changeRow(change: MirrorChange, priced: boolean): string[] {
+  const row = [
     change.id,
     change.slug,
     deliveryStatusLabel(change.status),
     change.group,
-    formatSignals(change),
   ];
+  if (priced) row.push(change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate));
+  row.push(formatSignals(change));
+  return row;
+}
+
+/** Decimal hours with trailing zeros trimmed: 0.5 → `0.5`, 2 → `2`. */
+function formatHours(hours: number): string {
+  return String(Math.round(hours * 100) / 100);
 }
 
 /**

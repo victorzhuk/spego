@@ -32,7 +32,7 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
   const config = await readConfig(wsPaths.configPath);
   const adapter = resolveAdapter(projectRoot, config);
   try {
-    const input = await collectMirrorInput(engine, projectRoot, adapter);
+    const input = await collectMirrorInput(engine, projectRoot, adapter, config.flows);
     return { input, board: deriveMirror(input) };
   } catch (err) {
     if (err instanceof SpegoError && err.code === 'DELIVERY_ADAPTER_ERROR') {
@@ -47,6 +47,7 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
         sprints: [],
         linkedArtifacts: [],
         warnings: [warning],
+        flows: config.flows,
       };
       return { input, board: deriveMirror(input) };
     }
@@ -58,6 +59,7 @@ async function collectMirrorInput(
   engine: ArtifactEngine,
   projectRoot: string,
   adapter: DeliveryAdapter,
+  flows: MirrorInput['flows'],
 ): Promise<MirrorInput> {
   if (adapter.name === 'openspec') await assertWorkspace(projectRoot);
   const discovered = await discoverChanges(projectRoot);
@@ -86,7 +88,7 @@ async function collectMirrorInput(
   const epics = engine.list({ type: 'epic' }).map(toMirrorArtifact);
   const sprints = engine.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
   const linkedArtifacts = await resolveLinkedArtifacts(engine, epics);
-  return { changes, epics, sprints, linkedArtifacts, warnings: [] };
+  return { changes, epics, sprints, linkedArtifacts, warnings: [], flows };
 }
 
 function sourceChange(slug: string, archived: boolean, epic: DeliveryEpicLink | undefined) {

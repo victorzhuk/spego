@@ -4,6 +4,39 @@ import { z } from 'zod';
 import { SpegoError } from '../errors.js';
 import { BUILTIN_ARTIFACT_TYPES } from '../artifacts/types.js';
 
+const hours = z.number().finite().nonnegative();
+
+/** Hours per Size Tier for one Flow profile or the shared human table. */
+const tierHoursSchema = z
+  .object({
+    xs: hours,
+    s: hours,
+    m: hours,
+    l: hours,
+    xl: hours,
+  })
+  .strict();
+
+export type TierHours = z.infer<typeof tierHoursSchema>;
+
+/** Pricing configuration: per-Flow seed tables plus one shared human table. */
+export const flowsSchema = z
+  .object({
+    /** Flow profile that prices a change whose epic declares no `flow`. */
+    default: z.string().min(1),
+    /** Per-Flow seed tables mapping Size Tier to Flow Hours. */
+    profiles: z.record(z.string().min(1), tierHoursSchema),
+    /** Human Hours table, shared across Flows. */
+    human: tierHoursSchema,
+  })
+  .strict()
+  .refine((flows) => Object.hasOwn(flows.profiles, flows.default), {
+    path: ['default'],
+    message: 'flows.default must name a declared profile',
+  });
+
+export type FlowsConfig = z.infer<typeof flowsSchema>;
+
 export const workspaceConfigSchema = z
   .object({
     /** Schema version. Bump when config layout changes. */
@@ -20,6 +53,8 @@ export const workspaceConfigSchema = z
       name: z.string().default('openspec'),
       options: z.record(z.string(), z.unknown()).default({}),
     }).default({ name: 'openspec', options: {} }),
+    /** Change pricing tables; absent means the workspace renders unpriced. */
+    flows: flowsSchema.optional(),
   })
   .strict();
 

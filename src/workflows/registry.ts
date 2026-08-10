@@ -390,7 +390,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'analyze',
       instruction:
-        'For each epic, declare deps, judge requires (`design` for UI work, `decision` for architectural calls), link supporting artifacts, flag gaps (`weak-spec`, `research-thin`) with notes, and assign a `track`: judge it from file/subsystem overlap with the other pending changes — changes expected to conflict share a track; independent changes get distinct tracks. Maintain deps, requires, links, gaps, and track together. Persist updates with `spego --json update --id <epic id> --expected-revision <current revision>`, then read returned `revision` for the next call.',
+        'For each epic, declare deps, judge requires (`design` for UI work, `decision` for architectural calls), link supporting artifacts, flag gaps (`weak-spec`, `research-thin`) with notes, assign a `track` — judge it from file/subsystem overlap with the other pending changes: changes expected to conflict share a track; independent changes get distinct tracks — and judge a `tier` on the fixed Size Tier scale (`xs`, `s`, `m`, `l`, `xl`): size the change itself, not the machinery that will build it, so hours stay derivable from one recorded judgment. Maintain deps, requires, links, gaps, track, and tier together. Persist updates with `spego --json update --id <epic id> --expected-revision <current revision>`, then read returned `revision` for the next call.',
     },
     {
       name: 'plan',

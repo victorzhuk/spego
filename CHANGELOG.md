@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Change pricing from a declared flow profile: workspace config gains an optional `flows` block (`default` Flow, per-Flow `profiles` mapping the fixed `xs`/`s`/`m`/`l`/`xl` Size Tier scale to Flow Hours, and one shared `human` table); epic metadata gains optional `tier` (Size Tier) and `flow` (profile override) fields. The delivery mirror derives a Flow Estimate, a Human Estimate, and the source rung (`config-seed`) per priced change — on render, never stored — plus each sprint's total Flow Estimate over pending changes (`flowTotal`, `unpricedPending`). A change with no `tier` or an unknown `flow` renders `?` and is excluded from its sprint's total, which then carries a `+?` suffix.
+- `spego board`'s change table gains an `hours` column (between `group` and `signals`) and each sprint panel title reports its remaining total in a priced workspace; a workspace with no `flows` block omits the column, the totals, and every pricing field in `--json`.
+- The groom workflow's analyze phase now judges and persists each epic's `tier` alongside deps, requires, links, gaps, and track — sizing the change itself, not the flow machinery that will build it.
+
 ## [0.21.1] - 2026-08-06
 
 ### Fixed

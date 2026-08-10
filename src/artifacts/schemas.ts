@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BuiltinArtifactType } from './types.js';
+import { SIZE_TIERS, type BuiltinArtifactType } from './types.js';
 
 export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
   prd: z.object({
@@ -49,6 +49,8 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
       )
       .optional(),
     track: z.string().min(1).optional(),
+    tier: z.enum(SIZE_TIERS).optional(),
+    flow: z.string().min(1).optional(),
     tags: z.array(z.string()).optional(),
   }),
 
@@ -116,7 +118,7 @@ export const ARTIFACT_META_DOCS: Record<BuiltinArtifactType, string> = {
   retro: 'sprint, date, tags[]',
   'sprint-plan':
     'sprint, startDate, endDate, status (planned|active|closed), tags[], changes[] (change slugs; must be unique within the sprint)',
-  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tags[]',
+  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tier (size tier: xs|s|m|l|xl; prices the change from the workspace flows tables), flow (Flow profile overriding the workspace default when pricing), tags[]',
   brainstorm: 'status (open|closed), tags[]',
   usecases: 'status (draft|reviewed|approved), tags[]',
   design: 'status (draft|in-review|approved), category (ux|ui|workflow|system), tags[]',

@@ -191,6 +191,55 @@ async function artifactSnapshot(root: string): Promise<Record<string, number>> {
   return out;
 }
 
+/**
+ * Priced workspace: `flows` block in the config, two tiered changes (one with a
+ * flow override), one untiered change, one satisfied change. Hand-computed
+ * expectations: priced-a m → 2/16, priced-b s via opsx-apply → 2/6, sprint
+ * total 4 over pending priced work with 1 pending unpriced.
+ */
+async function setupPricedBoardFixture(): Promise<string> {
+  const root = await setupOpenSpecWorkspace();
+  await fs.appendFile(
+    path.join(root, '.spego', 'config.yaml'),
+    [
+      '',
+      'flows:',
+      '  default: zapply',
+      '  profiles:',
+      '    zapply:',
+      '      xs: 0.5',
+      '      s: 1',
+      '      m: 2',
+      '      l: 4',
+      '      xl: 8',
+      '    opsx-apply:',
+      '      xs: 1',
+      '      s: 2',
+      '      m: 4',
+      '      l: 8',
+      '      xl: 16',
+      '  human:',
+      '    xs: 2',
+      '    s: 6',
+      '    m: 16',
+      '    l: 40',
+      '    xl: 80',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await createChangeEpic(root, 'priced-a', { tasks: '- [ ] todo\n', meta: { tier: 'm' } });
+  await createChangeEpic(root, 'priced-b', { tasks: '- [ ] todo\n', meta: { tier: 's', flow: 'opsx-apply' } });
+  await createChangeEpic(root, 'untiered-c', { tasks: '- [ ] todo\n' });
+  await createChangeEpic(root, 'done-d', { tasks: '- [x] done\n', meta: { tier: 'l' } });
+  await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+    status: 'active',
+    startDate: '2026-01-01',
+    changes: ['priced-a', 'priced-b', 'untiered-c', 'done-d'],
+  });
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -687,5 +736,70 @@ describe('CLI board command', () => {
     const before = await artifactSnapshot(root);
     await spawnCli(['board', '--cwd', root], root);
     expect(await artifactSnapshot(root)).toEqual(before);
+  }, 30_000);
+
+  it('--json carries both estimates, the rung, and the sprint total in a priced workspace', async () => {
+    const root = await setupPricedBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    expect(ANSI_PATTERN.test(stdout)).toBe(false);
+    const result = JSON.parse(stdout) as MirrorBoard;
+
+    const sprint = result.sprints[0]!;
+    const bySlug = new Map(sprint.changes.map((change) => [change.slug, change]));
+    expect(bySlug.get('priced-a')).toMatchObject({ flowEstimate: 2, humanEstimate: 16, rung: 'config-seed' });
+    expect(bySlug.get('priced-b')).toMatchObject({ flowEstimate: 2, humanEstimate: 6, rung: 'config-seed' });
+    expect(bySlug.get('untiered-c') && 'flowEstimate' in bySlug.get('untiered-c')!).toBe(false);
+    expect(bySlug.get('done-d')).toMatchObject({ flowEstimate: 4, humanEstimate: 40, rung: 'config-seed' });
+    expect(sprint.flowTotal).toBe(4);
+    expect(sprint.unpricedPending).toBe(1);
+  }, 30_000);
+
+  it('renders the hours column and the sprint total in a priced workspace', async () => {
+    const root = await setupPricedBoardFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const plain = stripAnsi(stdout);
+
+    expect(plain).toMatch(/id\s+change\s+status\s+group\s+hours\s+signals/);
+    expect(plain).toContain('4+?h');
+    const untieredRow = plain.split('\n').find((line) => line.includes('untiered-c'))!;
+    expect(untieredRow).toContain('?');
+    const pricedRow = plain.split('\n').find((line) => line.includes('priced-a'))!;
+    expect(pricedRow).toContain('2');
+  }, 30_000);
+
+  it('omits the hours column and totals when the workspace declares no flows block', async () => {
+    const root = await setupBoardFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const plain = stripAnsi(stdout);
+
+    expect(plain).not.toContain('hours');
+    expect(plain).not.toMatch(/\dh\b/);
+
+    const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(jsonOut) as MirrorBoard;
+    expect('flowTotal' in result.sprints[0]!).toBe(false);
+    for (const sprint of result.sprints) {
+      for (const change of sprint.changes) {
+        expect('flowEstimate' in change).toBe(false);
+        expect('humanEstimate' in change).toBe(false);
+        expect('rung' in change).toBe(false);
+      }
+    }
+  }, 30_000);
+
+  it('--plain output is ANSI-free in a priced workspace', async () => {
+    const root = await setupPricedBoardFixture();
+    const { stdout } = await spawnCli(['board', '--plain', '--cwd', root], root);
+    expect(ANSI_PATTERN.test(stdout)).toBe(false);
+    expect(stdout).toContain('4+?h');
+  }, 30_000);
+
+  it('shows every change slug in full on a narrow terminal in a priced workspace', async () => {
+    const root = await setupPricedBoardFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '60' } });
+    const plain = stripAnsi(stdout);
+    for (const slug of ['priced-a', 'priced-b', 'untiered-c', 'done-d']) {
+      expect(plain).toContain(slug);
+    }
   }, 30_000);
 });
