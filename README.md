@@ -29,6 +29,7 @@ spego init --agents claude,opencode --demo false
 | `spego sprints` | List sprint plans in board order |
 | `spego board` | Show the delivery board (sprints, change signals, drift); --sync reconciles first |
 | `spego sync` | Reconcile the delivery mirror: create missing epics, close finished sprints, retire epics of archived changes |
+| `spego record <change>` | Record one measured run (`--flow`, `--hours`) against a change's epic `actuals`; appends, never overwrites |
 | `spego index rebuild` | Rebuild SQLite index from files |
 
 All commands accept `--cwd <dir>` to set the project root.

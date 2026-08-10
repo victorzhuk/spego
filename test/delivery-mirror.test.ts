@@ -747,3 +747,50 @@ describe('deriveMirror pricing', () => {
     expect(result.ungrouped[0]?.rung).toBe('config-seed');
   });
 });
+
+describe('deriveMirror actuals', () => {
+  it('carries recorded runs and their total on the derived change', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { actuals: [{ flow: 'zapply', hours: 1.75 }, { flow: 'zapply', hours: 0.5 }] })],
+    });
+    const row = findChange(result, 'a');
+    expect(row?.actuals).toEqual([
+      { flow: 'zapply', hours: 1.75 },
+      { flow: 'zapply', hours: 0.5 },
+    ]);
+    expect(row?.actualsTotal).toBe(2.25);
+  });
+
+  it('reports none for a change with no actuals', () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a', { actuals: [{ flow: 'zapply', hours: 2 }] }), epic('b')],
+    });
+    expect(findChange(result, 'b')?.actuals).toEqual([]);
+    expect(findChange(result, 'b')?.actualsTotal).toBe(0);
+  });
+
+  it('keeps flow attribution across runs from two flows', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { actuals: [{ flow: 'zapply', hours: 1 }, { flow: 'opsx-apply', hours: 2 }] })],
+    });
+    const row = findChange(result, 'a');
+    expect(row?.actuals).toEqual([
+      { flow: 'zapply', hours: 1 },
+      { flow: 'opsx-apply', hours: 2 },
+    ]);
+    expect(row?.actualsTotal).toBe(3);
+  });
+
+  it('drops malformed stored entries instead of failing the render', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { actuals: [{ flow: '', hours: 1 }, { flow: 'zapply', hours: -2 }, { flow: 'zapply', hours: 1 }, 'junk'] })],
+    });
+    const row = findChange(result, 'a');
+    expect(row?.actuals).toEqual([{ flow: 'zapply', hours: 1 }]);
+    expect(row?.actualsTotal).toBe(1);
+  });
+});

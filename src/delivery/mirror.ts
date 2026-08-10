@@ -67,6 +67,10 @@ export interface MirrorChange {
   humanEstimate?: number;
   /** The pricing rung that produced the estimates; absent when unpriced. */
   rung?: string;
+  /** Recorded runs from the epic's `actuals` (stored measurements, not derived). */
+  actuals: ActualRun[];
+  /** Total recorded hours across all runs. */
+  actualsTotal: number;
 }
 
 export interface MirrorSprint {
@@ -343,8 +347,14 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     }
   }
 
+  const actualsBySlug = new Map<string, ActualRun[]>();
+  for (const slug of sortedSlugs) {
+    actualsBySlug.set(slug, parseActuals(changeStates.get(slug)?.epic?.meta.actuals));
+  }
+
   const toMirrorChange = (slug: string): MirrorChange => {
     const state = changeStates.get(slug);
+    const actuals = actualsBySlug.get(slug) ?? [];
     return {
       id: idBySlug.get(slug) ?? slug,
       slug,
@@ -356,6 +366,8 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       missing: missingBySlug.get(slug) ?? [],
       warnings: warningCodesByChange.get(slug) ?? [],
       archived: state?.archived ?? false,
+      actuals,
+      actualsTotal: Math.round(actuals.reduce((sum, run) => sum + run.hours, 0) * 100) / 100,
       ...priceBySlug.get(slug),
     };
   };
@@ -470,6 +482,30 @@ export function summarizeSprints(artifacts: MirrorArtifact[]): SprintSummary[] {
     endDate: plan.endDate,
     changes: plan.changes,
   }));
+}
+
+/** One recorded run against a change: the Flow that ran it and the Flow Hours it took. */
+export interface ActualRun {
+  flow: string;
+  hours: number;
+}
+
+/**
+ * Read an epic meta's `actuals` list, dropping malformed entries. Stored
+ * entries are validated at write time by the epic schema; this guard keeps
+ * hand-edited or legacy artifacts from breaking the render.
+ */
+export function parseActuals(value: unknown): ActualRun[] {
+  if (!Array.isArray(value)) return [];
+  const runs: ActualRun[] = [];
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null) continue;
+    const record = item as Record<string, unknown>;
+    if (typeof record.flow !== 'string' || record.flow.length === 0) continue;
+    if (typeof record.hours !== 'number' || !Number.isFinite(record.hours) || record.hours < 0) continue;
+    runs.push({ flow: record.flow, hours: record.hours });
+  }
+  return runs;
 }
 
 /** The only pricing rung in this slice: the workspace's declared seed tables. */

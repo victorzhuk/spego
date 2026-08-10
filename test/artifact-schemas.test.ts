@@ -178,6 +178,36 @@ describe('artifact metadata schemas', () => {
       valid: true,
     },
     {
+      type: 'epic',
+      name: 'accepts actuals entry list',
+      meta: { actuals: [{ flow: 'zapply', hours: 1.75 }, { flow: 'zapply', hours: 0.5 }] },
+      valid: true,
+    },
+    {
+      type: 'epic',
+      name: 'rejects actuals entry missing flow',
+      meta: { actuals: [{ hours: 1.75 }] },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'rejects actuals entry with empty-string flow',
+      meta: { actuals: [{ flow: '', hours: 1.75 }] },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'rejects actuals entry with negative hours',
+      meta: { actuals: [{ flow: 'zapply', hours: -1 }] },
+      valid: false,
+    },
+    {
+      type: 'epic',
+      name: 'rejects actuals entry with non-finite hours',
+      meta: { actuals: [{ flow: 'zapply', hours: Number.POSITIVE_INFINITY }] },
+      valid: false,
+    },
+    {
       type: 'sprint-plan',
       name: 'accepts ordered changes',
       meta: {

@@ -174,6 +174,19 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
     outputModes: ['markdown', 'json'],
   },
   {
+    name: 'record',
+    description: 'Record one measured run (flow hours) against a change',
+    slashName: '/spego:record',
+    category: 'planning',
+    inputSchema: {
+      change: { name: 'change', type: 'string', required: true, description: 'OpenSpec change slug', positional: true },
+      flow: { name: 'flow', type: 'string', required: true, description: 'Flow that ran the change' },
+      hours: { name: 'hours', type: 'number', required: true, description: 'Elapsed Flow Hours for this run' },
+      expectedRevision: { name: 'expectedRevision', type: 'number', required: false, description: 'Expected current epic revision (optimistic concurrency)' },
+    },
+    outputModes: ['markdown', 'json'],
+  },
+  {
     name: 'workflows',
     description: 'List available workflow skills',
     slashName: '/spego:workflows',

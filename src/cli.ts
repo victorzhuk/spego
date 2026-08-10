@@ -22,6 +22,7 @@ import { registerDelivery } from './cli/commands/delivery.js';
 import { registerBoard } from './cli/commands/board.js';
 import { registerSprints } from './cli/commands/sprints.js';
 import { registerSync } from './cli/commands/sync.js';
+import { registerRecord } from './cli/commands/record.js';
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -61,6 +62,7 @@ export function buildProgram(): Command {
   registerBoard(program);
   registerSprints(program);
   registerSync(program);
+  registerRecord(program);
 
   return program;
 }
