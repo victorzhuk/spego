@@ -119,6 +119,10 @@ Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `out-of-or
 
 A sprint whose changes are all `done`/`completed` — the same condition behind `closable-sprint` — is hidden from the default board and replaced by a trailing `N closed sprints hidden (--closed to show).` note; pass `--closed` to render it anyway, muted (dim panel, unbolded title). This is purely a display filter: `--json` always lists every sprint regardless of `--closed`, and hiding never writes `status: closed` to the sprint-plan artifact — that persistence still belongs to the groom workflow, after your confirmation.
 
+### Authoring a priced change
+
+This project forks OpenSpec's `spec-driven` schema into `openspec/schemas/spec-driven-custom` (selected in `openspec/config.yaml`) and adds an `estimating` artifact between `proposal` and `tasks`: once the proposal settles the scope, the author judges the change's Size Tier (`xs`, `s`, `m`, `l`, `xl`) — sizing the change itself, not the flow machinery that will build it — and persists it through `spego sync` plus `spego update` onto the change's epic. The generated `estimating.md` records the tier and its one-line rationale as the human-readable trace; the epic's `tier` meta is the state the board prices from, so a change arrives priced instead of waiting for the next groom run. OpenSpec owns the ritual, spego owns the state — the step writes nothing under `openspec/` beyond its own artifact file. Changes authored without the fork are unaffected: grooming judges their tier as before. The `openspec schema` surface is experimental; if it changes, the prompt disappears and every recorded tier stays on its epic.
+
 ## OpenCode Workflows
 
 When `opencode` is listed in `.spego/config.yaml` agents, `spego init` and `spego skills` generate static OpenCode commands under `.opencode/commands/`:
