@@ -794,3 +794,161 @@ describe('deriveMirror actuals', () => {
     expect(row?.actualsTotal).toBe(1);
   });
 });
+
+describe('deriveMirror profile ladder', () => {
+  const flows = {
+    default: 'zapply',
+    profiles: {
+      zapply: { xs: 0.5, s: 1, m: 2, l: 4, xl: 8 },
+      'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
+    },
+    human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+  };
+
+  function runEpic(slug: string, tier: string, flow: string, runs: number[]): MirrorArtifact {
+    return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
+  }
+
+  it('prices from the seed when runs are below the threshold', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    expect(row?.flowEstimate).toBe(2); // seed m, runs 3+5 below threshold of 3
+    expect(row?.rung).toBe('config-seed');
+  });
+
+  it('prices from observation at exactly the threshold', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [4]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // median of [3, 5, 4] = 4
+    expect(row?.flowEstimate).toBe(4);
+    expect(row?.rung).toBe('observed');
+  });
+
+  it('takes the midpoint of the middle pair for an even run count', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3'), change('h4')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3, 7]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [4]),
+        runEpic('h4', 'm', 'zapply', []),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // runs [3, 7, 5, 4] sorted [3, 4, 5, 7] → midpoint (4+5)/2 = 4.5
+    expect(row?.flowEstimate).toBe(4.5);
+    expect(row?.rung).toBe('observed');
+  });
+
+  it('does not count runs recorded under another flow', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'opsx-apply', [10]),
+        runEpic('h2', 'm', 'opsx-apply', [10]),
+        runEpic('h3', 'm', 'opsx-apply', [10]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // runs all under opsx-apply; zapply m stays on its seed of 2
+    expect(row?.flowEstimate).toBe(2);
+    expect(row?.rung).toBe('config-seed');
+    // and opsx-apply prices m from its own observation
+    const other = board({
+      changes: [change('b'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('b', { tier: 'm', flow: 'opsx-apply' }),
+        runEpic('h1', 'm', 'opsx-apply', [10]),
+        runEpic('h2', 'm', 'opsx-apply', [10]),
+        runEpic('h3', 'm', 'opsx-apply', [10]),
+      ],
+      flows,
+    });
+    expect(findChange(other, 'b')?.flowEstimate).toBe(10);
+    expect(findChange(other, 'b')?.rung).toBe('observed');
+  });
+
+  it('resolves tiers independently on the same board', () => {
+    const result = board({
+      changes: [change('a'), change('b'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 's' }),
+        epic('b', { tier: 'l' }),
+        runEpic('h1', 's', 'zapply', [2]),
+        runEpic('h2', 's', 'zapply', [4]),
+        runEpic('h3', 's', 'zapply', [6]),
+      ],
+      flows,
+    });
+    // s observed at median 4; l has no runs and falls back to the seed 4 — same value, different rung
+    const aRow = findChange(result, 'a');
+    expect(aRow?.flowEstimate).toBe(4);
+    expect(aRow?.rung).toBe('observed');
+    const bRow = findChange(result, 'b');
+    expect(bRow?.flowEstimate).toBe(4);
+    expect(bRow?.rung).toBe('config-seed');
+  });
+
+  it('reports a flow with no seed and no runs as unpriced', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { tier: 'm', flow: 'nope' })],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    expect(row && 'flowEstimate' in row).toBe(false);
+    expect(row && 'rung' in row).toBe(false);
+  });
+
+  it('prices a flow with no seed from observation once the threshold is met', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm', flow: 'nope' }),
+        runEpic('h1', 'm', 'nope', [2]),
+        runEpic('h2', 'm', 'nope', [8]),
+        runEpic('h3', 'm', 'nope', [5]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // median of [2, 8, 5] = 5
+    expect(row?.flowEstimate).toBe(5);
+    expect(row?.rung).toBe('observed');
+  });
+
+  it('keeps the human estimate on the shared table regardless of rung', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [4]),
+      ],
+      flows,
+    });
+    expect(findChange(result, 'a')?.humanEstimate).toBe(16);
+  });
+});

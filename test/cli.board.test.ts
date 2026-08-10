@@ -240,6 +240,23 @@ async function setupPricedBoardFixture(): Promise<string> {
   return root;
 }
 
+
+/**
+ * Ladder fixture: priced workspace plus three history changes with recorded
+ * zapply runs at tier m ([2, 4, 6] → median 4, threshold met), so priced-a
+ * resolves observed and priced-b (opsx-apply, no runs) stays on the seed.
+ */
+async function setupLadderBoardFixture(): Promise<string> {
+  const root = await setupPricedBoardFixture();
+  for (const [name, hours] of [['hist-1', 2], ['hist-2', 4], ['hist-3', 6]] as Array<[string, number]>) {
+    await createChangeEpic(root, name, {
+      tasks: '- [x] done\n',
+      meta: { tier: 'm', actuals: [{ flow: 'zapply', hours }] },
+    });
+  }
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -792,6 +809,28 @@ describe('CLI board command', () => {
     const { stdout } = await spawnCli(['board', '--plain', '--cwd', root], root);
     expect(ANSI_PATTERN.test(stdout)).toBe(false);
     expect(stdout).toContain('4+?h');
+  }, 30_000);
+
+  it('--json reports the rung per priced change', async () => {
+    const root = await setupLadderBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const bySlug = new Map(result.sprints[0]!.changes.map((change) => [change.slug, change]));
+    expect(bySlug.get('priced-a')).toMatchObject({ flowEstimate: 4, rung: 'observed' });
+    expect(bySlug.get('priced-b')).toMatchObject({ flowEstimate: 2, rung: 'config-seed' });
+  }, 30_000);
+
+  it('marks observed hours with a star and a legend in human output', async () => {
+    const root = await setupLadderBoardFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const plain = stripAnsi(stdout);
+
+    const observedRow = plain.split('\n').find((line) => line.includes('priced-a'))!;
+    expect(observedRow).toContain('4*');
+    const seedRow = plain.split('\n').find((line) => line.includes('priced-b'))!;
+    expect(seedRow).toContain('2');
+    expect(seedRow).not.toContain('2*');
+    expect(plain).toContain('* observed — median of recorded runs');
   }, 30_000);
 
   it('shows every change slug in full on a narrow terminal in a priced workspace', async () => {

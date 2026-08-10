@@ -137,6 +137,10 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     const note = 'Detail: spego board --gaps';
     lines.push(plain ? note : styleText('dim', note));
   }
+  if (renderedChanges.some((change) => change.rung === 'observed')) {
+    const note = '* observed — median of recorded runs';
+    lines.push(plain ? note : styleText('dim', note));
+  }
   const syncActions = deriveSyncPlan(board, input).actions.length;
   if (syncActions > 0) {
     const noun = syncActions === 1 ? 'fix' : 'fixes';
@@ -272,7 +276,10 @@ function changeRow(change: MirrorChange, priced: boolean): string[] {
     deliveryStatusLabel(change.status),
     change.group,
   ];
-  if (priced) row.push(change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate));
+  if (priced) {
+    const estimate = change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate);
+    row.push(change.rung === 'observed' ? `${estimate}*` : estimate);
+  }
   row.push(formatSignals(change));
   return row;
 }

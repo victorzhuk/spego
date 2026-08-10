@@ -339,10 +339,11 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     gapsBySlug.set(slug, gapsFromMeta(epic.meta.gaps));
   }
 
+  const runBuckets = bucketRuns(changeStates);
   const priceBySlug = new Map<string, ChangePrice>();
   if (input.flows) {
     for (const slug of sortedSlugs) {
-      const price = priceChange(changeStates.get(slug)?.epic, input.flows);
+      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets);
       if (price) priceBySlug.set(slug, price);
     }
   }
@@ -508,8 +509,16 @@ export function parseActuals(value: unknown): ActualRun[] {
   return runs;
 }
 
-/** The only pricing rung in this slice: the workspace's declared seed tables. */
-const PRICING_RUNG = 'config-seed';
+/**
+ * Minimum recorded runs per (Flow, Tier) pair before observation outranks the
+ * config seed. Fixed in code, like the Size Tier scale: a configurable
+ * threshold would let two projects disagree about what "enough evidence"
+ * means and would make a price depend on config read order.
+ */
+const MIN_OBSERVED_RUNS = 3;
+
+const RUNG_SEED = 'config-seed';
+const RUNG_OBSERVED = 'observed';
 
 interface ChangePrice {
   flowEstimate: number;
@@ -517,26 +526,71 @@ interface ChangePrice {
   rung: string;
 }
 
+/** Median of `values`, rounded to two decimals; undefined for an empty list. */
+function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const value = sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  return Math.round(value * 100) / 100;
+}
+
 /**
- * Price one change from its epic's `tier` and Flow profile — the epic's `flow`
- * when set, otherwise the workspace default. Unpriced (undefined) when the
- * epic has no usable tier or names a Flow absent from the config; the render
- * succeeds either way.
+ * Bucket every recorded run by its (Flow, Tier) pair. Attribution is strict:
+ * a run counts toward the Flow named on the run, at the tier of the epic
+ * carrying it — a change delivered by two Flows contributes one run to each.
  */
-function priceChange(epic: MirrorArtifact | undefined, flows: FlowsConfig): ChangePrice | undefined {
+function bucketRuns(changeStates: Map<string, ChangeState>): Map<string, number[]> {
+  const buckets = new Map<string, number[]>();
+  for (const state of changeStates.values()) {
+    const tier = state.epic?.meta.tier;
+    if (typeof tier !== 'string' || !(SIZE_TIERS as readonly string[]).includes(tier)) continue;
+    for (const run of parseActuals(state.epic?.meta.actuals)) {
+      const key = `${run.flow}\u0000${tier}`;
+      const bucket = buckets.get(key) ?? [];
+      bucket.push(run.hours);
+      buckets.set(key, bucket);
+    }
+  }
+  return buckets;
+}
+
+/**
+ * Price one change down the ladder, independently per (Flow, Tier) pair: the
+ * median of recorded runs once their count reaches MIN_OBSERVED_RUNS,
+ * otherwise the config seed for the change's Flow — the epic's `flow` when
+ * set, otherwise the workspace default. Unpriced (undefined) when the epic
+ * has no usable tier, or the Flow has neither a seed nor enough runs.
+ */
+function priceChange(
+  epic: MirrorArtifact | undefined,
+  flows: FlowsConfig,
+  runBuckets: Map<string, number[]>,
+): ChangePrice | undefined {
   if (!epic) return undefined;
   const tier = epic.meta.tier;
   if (typeof tier !== 'string' || !(SIZE_TIERS as readonly string[]).includes(tier)) return undefined;
   const flow = epic.meta.flow;
-  if (flow !== undefined && (typeof flow !== 'string' || !Object.hasOwn(flows.profiles, flow))) {
-    return undefined;
+  if (flow !== undefined && typeof flow !== 'string') return undefined;
+  const flowName = (flow as string | undefined) ?? flows.default;
+
+  const runs = runBuckets.get(`${flowName}\u0000${tier}`) ?? [];
+  let flowEstimate: number | undefined;
+  let rung: string;
+  if (runs.length >= MIN_OBSERVED_RUNS) {
+    // the length guard above makes the median defined
+    flowEstimate = median(runs)!;
+    rung = RUNG_OBSERVED;
+  } else {
+    const profile = flows.profiles[flowName];
+    if (!profile) return undefined;
+    flowEstimate = profile[tier as SizeTier];
+    rung = RUNG_SEED;
   }
-  const profile = flows.profiles[flow === undefined ? flows.default : (flow as string)];
-  if (!profile) return undefined;
   return {
-    flowEstimate: profile[tier as SizeTier],
+    flowEstimate,
     humanEstimate: flows.human[tier as SizeTier],
-    rung: PRICING_RUNG,
+    rung,
   };
 }
 
