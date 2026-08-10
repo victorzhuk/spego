@@ -113,7 +113,7 @@ The system SHALL suggest as next the first pending, unblocked change in the acti
 - **AND** the output hints to run the groom workflow
 
 ### Requirement: Render focused views
-The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board's change table SHALL carry exactly the columns `id`, `change`, `status`, `group`, and `signals`. The `change` column SHALL never be truncated — when the terminal is too narrow, other columns shrink or truncate first. The `signals` column SHALL summarize a change's blockers, gap flags, and missing artifacts as counts, rendering only the nonzero categories joined by `·` (e.g. `1 blk · 2 gap · 1 mis`) and `—` when all three are zero; full signal text stays in the `--gaps` view, and the default board SHALL append a footer hint pointing at `spego board --gaps` whenever any rendered change has a nonzero signal count. When the mirror's mechanical reconciliation plan is non-empty, the default board SHALL append a footer hint reporting the number of pending mechanical fixes and pointing at `spego sync`. The default board SHALL group each sprint, the `Ungrouped` list, and the trailing `Warnings` table into a left-railed, right-bordered panel with its title embedded in the panel's top rule; a sprint panel's title SHALL render as `<title> · <status> · <slug>`, without a leading `Sprint` label. The default board and `--graph` SHALL render a change's `completed` status as `archived` in the `status` column, and SHALL render the `group` column as the change's conflict-track value (`track` name, `?`, or `—`) identically in human and `--json` output — there is no separate human label for group. Within a panel, a row for a change whose status is satisfied (`done` or `completed`) SHALL be struck through; a row that is merely blocked (not satisfied, with pending blockers) SHALL be dimmed instead, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY. The left-railed, right-bordered panel structure SHALL render under those same conditions regardless — only the bold/underline/strikethrough/dim decorations are gated, not the panel border itself. `--json` output SHALL never carry ANSI codes, SHALL always report `completed` (not `archived`) for status, and SHALL keep carrying the full `blockers`, `gaps`, and `missing` arrays per change — the `signals` counter form is human-output-only. Archived changes SHALL be excluded from the `ungrouped` list by default; the `--archived` flag SHALL restore them. This filtering SHALL NOT remove an archived change from a sprint's own `changes` list — a sprint's delivered history stays intact. The default board's `Warnings` table SHALL aggregate rows describing the same underlying fact into one human-readable row rather than one row per affected change or dependency edge, while `--json`'s `warnings` array and every `MirrorChange.warnings` list SHALL continue to carry one entry per fact, unaggregated.
+The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board's change table SHALL carry exactly the columns `id`, `change`, `status`, `group`, `hours`, and `signals`. The `hours` column SHALL carry the change's Flow Estimate, rendering `?` for an unpriced change (no `tier`, unknown `flow`, or missing profile), and each sprint panel SHALL report its remaining total alongside the panel title; a workspace declaring no `flows` block SHALL omit the column and the totals entirely. An unpriced change SHALL NOT count toward its sprint's total, and a sprint holding pending unpriced changes SHALL render its total with a `+?` suffix so the total never reads as a complete plan when it is not. Hours SHALL render as decimal numbers with trailing zeros trimmed (`0.5`, `1`, `2`); a sprint total SHALL be summed from unrounded values and formatted the same way. The `change` column SHALL never be truncated — when the terminal is too narrow, other columns shrink or truncate first. The `signals` column SHALL summarize a change's blockers, gap flags, and missing artifacts as counts, rendering only the nonzero categories joined by `·` (e.g. `1 blk · 2 gap · 1 mis`) and `—` when all three are zero; full signal text stays in the `--gaps` view, and the default board SHALL append a footer hint pointing at `spego board --gaps` whenever any rendered change has a nonzero signal count. When the mirror's mechanical reconciliation plan is non-empty, the default board SHALL append a footer hint reporting the number of pending mechanical fixes and pointing at `spego sync`. The default board SHALL group each sprint, the `Ungrouped` list, and the trailing `Warnings` table into a left-railed, right-bordered panel with its title embedded in the panel's top rule; a sprint panel's title SHALL render as `<title> · <status> · <slug>`, without a leading `Sprint` label. The default board and `--graph` SHALL render a change's `completed` status as `archived` in the `status` column, and SHALL render the `group` column as the change's conflict-track value (`track` name, `?`, or `—`) identically in human and `--json` output — there is no separate human label for group. Within a panel, a row for a change whose status is satisfied (`done` or `completed`) SHALL be struck through; a row that is merely blocked (not satisfied, with pending blockers) SHALL be dimmed instead, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY. The left-railed, right-bordered panel structure SHALL render under those same conditions regardless — only the bold/underline/strikethrough/dim decorations are gated, not the panel border itself. `--json` output SHALL never carry ANSI codes, SHALL always report `completed` (not `archived`) for status, SHALL carry each change's Flow Estimate, Human Estimate, and rung together with each sprint's total, and SHALL keep carrying the full `blockers`, `gaps`, and `missing` arrays per change — the `signals` counter form is human-output-only. Archived changes SHALL be excluded from the `ungrouped` list by default; the `--archived` flag SHALL restore them. This filtering SHALL NOT remove an archived change from a sprint's own `changes` list — a sprint's delivered history stays intact. The default board's `Warnings` table SHALL aggregate rows describing the same underlying fact into one human-readable row rather than one row per affected change or dependency edge, while `--json`'s `warnings` array and every `MirrorChange.warnings` list SHALL continue to carry one entry per fact, unaggregated.
 
 #### Scenario: Gap focus
 - **WHEN** an agent runs `spego board --gaps --json`
@@ -185,6 +185,16 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 - **THEN** the human `Warnings` table renders one `orphan-epic` row naming the affected epics, not one row per epic
 - **AND** the `--json` payload's `warnings` array still contains one `orphan-epic` object per affected epic
 
+#### Scenario: Hours column and sprint total
+- **WHEN** a priced workspace renders the default board
+- **THEN** each change row's `hours` cell carries its Flow Estimate
+- **AND** each sprint panel reports the total Flow Estimate of its pending changes
+
+#### Scenario: Unpriced workspace omits the column
+- **WHEN** the workspace declares no `flows` block
+- **THEN** the default board renders without the `hours` column and without sprint totals
+- **AND** `--json` carries no estimates
+
 ### Requirement: Synchronize mirror state
 The system SHALL expose a deterministic reconciliation over mirror state: `spego sync` SHALL derive a plan from the same mirror the board computes and apply only the mechanical subset of it — creating an `epic` artifact for every active change that has none (the `ungroomed-change` condition), titled from the change's resolved title, closing every non-closed sprint whose changes are all satisfied (the `closable-sprint` condition), and retiring (soft-deleting) every epic whose backing OpenSpec change has been archived (the `orphan-epic` condition with the archived reason). It SHALL NOT act on judgment-only drift — `orphan-epic` whose change does not resolve to any OpenSpec change at all, dependency edges, gaps, `requires`/`links`, or sprint grouping — which it SHALL instead report as remaining. It SHALL NOT write into `openspec/`, and every write SHALL go through the same optimistic-concurrency artifact-engine path (`create`, `update` with an expected revision, `softDelete`) already used elsewhere, so a concurrent conflicting write is rejected rather than silently overwritten. A `--dry-run` flag SHALL derive and report the plan without writing anything. `spego board --sync` SHALL apply the same mechanical plan and then render the board derived from the reconciled state; without the flag, `spego board` SHALL remain strictly read-only. Applying the same plan twice SHALL be a no-op the second time.
 
@@ -230,4 +240,44 @@ The system SHALL expose a deterministic reconciliation over mirror state: `spego
 #### Scenario: Sync never writes OpenSpec files
 - **WHEN** an agent runs `spego sync` in any workspace
 - **THEN** no file under `openspec/` is created, updated, or deleted
+
+### Requirement: Price changes and sprints
+The system SHALL derive, on render and without storing them, a Flow Estimate and a Human Estimate for every change whose epic carries a `tier` and whose workspace declares a `flows` block. The Flow Estimate SHALL come from the profile of the change's Flow — the epic's `flow` when set, otherwise the workspace default — and the Human Estimate SHALL come from the shared human table. Every priced change SHALL also carry the rung its price came from, so a consumer can tell a declared number from a measured one. Each sprint SHALL carry the total Flow Estimate of its pending changes; changes whose status is `done` or `completed` SHALL NOT count toward that total. A change whose epic declares a Flow absent from `flows.profiles` SHALL be reported unpriced rather than failing the render.
+
+#### Scenario: Change priced from the default flow
+- **WHEN** an epic carries `tier: m` and the workspace declares `flows.default: zapply` with a `zapply` profile pricing `m`
+- **THEN** the change carries a Flow Estimate equal to that profile's `m` value
+- **AND** a Human Estimate equal to the human table's `m` value
+- **AND** a rung identifying the config seed as the source
+
+#### Scenario: Epic overrides the flow
+- **WHEN** an epic carries `tier: m` and `flow: opsx-apply`, and both `zapply` and `opsx-apply` profiles are declared
+- **THEN** the change is priced from the `opsx-apply` profile
+- **AND** its Human Estimate is unchanged, because the human table is shared across Flows
+
+#### Scenario: Unknown flow on an epic
+- **WHEN** an epic declares a `flow` absent from `flows.profiles`
+- **THEN** the change is reported unpriced
+- **AND** the render succeeds
+
+#### Scenario: Epic without a tier
+- **WHEN** an epic carries no `tier`
+- **THEN** the change is reported unpriced and its `hours` cell renders `?`
+- **AND** it does not count toward its sprint's total
+- **AND** the sprint's total renders with a `+?` suffix while any pending change is unpriced
+
+#### Scenario: Hours formatting
+- **WHEN** a profile prices one tier at `0.5` hours and another at `2` hours
+- **THEN** the `hours` cells render `0.5` and `2` with trailing zeros trimmed
+- **AND** the sprint total sums unrounded values and renders formatted the same way
+
+#### Scenario: Sprint total counts pending work only
+- **WHEN** a sprint holds three priced changes and one of them is `completed`
+- **THEN** the sprint's total equals the sum of the two pending changes' Flow Estimates
+- **AND** a sprint whose changes are all satisfied totals zero
+
+#### Scenario: Prices are never stored
+- **WHEN** an agent runs `spego board --json` in a priced workspace
+- **THEN** no epic, sprint-plan, or OpenSpec file is modified
+- **AND** the same inputs produce the same prices on every render
 
