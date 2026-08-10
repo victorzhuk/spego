@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import { SpegoError } from '../errors.js';
 
 import path from 'node:path';
@@ -47,6 +48,32 @@ export function resolveWorkspacePaths(projectRoot: string): WorkspacePaths {
 
 export function artifactTypeDir(paths: WorkspacePaths, type: string): string {
   return path.join(paths.artifactsRoot, type);
+}
+
+/** Environment variable naming the cross-project store root; overrides the platform configuration directory. */
+export const STORE_ROOT_ENV_VAR = 'SPEGO_STORE_ROOT';
+export const STORE_RUNS_FILE_NAME = 'runs.jsonl';
+
+/**
+ * Root of the cross-project run store: the environment override when set,
+ * else the platform configuration directory. The variable names the root, not
+ * the runs file, so the store's layout can change without a flag change.
+ */
+export function resolveStoreRoot(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env[STORE_ROOT_ENV_VAR];
+  if (override !== undefined && override.trim().length > 0) return path.resolve(override);
+  const home = os.homedir();
+  if (process.platform === 'win32') {
+    return path.join(env.APPDATA ?? path.join(home, '.config'), 'spego');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'spego');
+  }
+  return path.join(env.XDG_CONFIG_HOME ?? path.join(home, '.config'), 'spego');
+}
+
+export function storeRunsPath(storeRoot: string): string {
+  return path.join(storeRoot, STORE_RUNS_FILE_NAME);
 }
 
 export function artifactFilePath(paths: WorkspacePaths, type: string, slug: string): string {

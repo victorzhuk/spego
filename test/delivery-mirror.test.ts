@@ -621,6 +621,7 @@ describe('deriveMirror pricing', () => {
       'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
     },
     human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+    crossProject: false,
   };
 
   const pricingCases: Array<{
@@ -803,6 +804,7 @@ describe('deriveMirror profile ladder', () => {
       'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
     },
     human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+    crossProject: false,
   };
 
   function runEpic(slug: string, tier: string, flow: string, runs: number[]): MirrorArtifact {
@@ -964,6 +966,7 @@ describe('deriveMirror estimate bias', () => {
       'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
     },
     human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+    crossProject: false,
   };
 
   function runEpic(slug: string, tier: string, flow: string, runs: number[]): MirrorArtifact {
@@ -1094,5 +1097,134 @@ describe('deriveMirror estimate bias', () => {
     expect(byTier.get('l')?.details).toMatchObject({ flow: 'zapply', direction: 'under' });
     expect(byTier.get('m')?.message).toContain('zapply');
     expect(byTier.get('m')?.message).toContain('m');
+  });
+});
+
+describe('deriveMirror cross-project rung', () => {
+  const baseFlows = {
+    default: 'zapply',
+    profiles: {
+      zapply: { xs: 0.5, s: 1, m: 2, l: 4, xl: 8 },
+      'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
+    },
+    human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+    crossProject: true,
+  };
+
+  function runEpic(slug: string, tier: string, flow: string, runs: number[]): MirrorArtifact {
+    return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
+  }
+
+  function storeRuns(flow: string, tier: string, runs: number[]) {
+    return runs.map((hours) => ({ flow, tier, hours }));
+  }
+
+  const ladderCases: Array<{
+    name: string;
+    localRuns: number[];
+    store: Array<{ flow: string; tier: string; hours: number }>;
+    crossProject: boolean;
+    flowEstimate: number;
+    rung: string;
+  }> = [
+    {
+      name: 'cross-project observations outrank the seed',
+      localRuns: [],
+      store: storeRuns('zapply', 'm', [6, 8, 10]),
+      crossProject: true,
+      flowEstimate: 8,
+      rung: 'cross-project',
+    },
+    {
+      name: 'repo observations outrank cross-project ones',
+      localRuns: [3, 5, 4],
+      store: storeRuns('zapply', 'm', [10, 12, 14]),
+      crossProject: true,
+      flowEstimate: 4,
+      rung: 'observed',
+    },
+    {
+      name: 'a store below the sample threshold falls back to the seed',
+      localRuns: [],
+      store: storeRuns('zapply', 'm', [6, 8]),
+      crossProject: true,
+      flowEstimate: 2,
+      rung: 'config-seed',
+    },
+    {
+      name: 'an empty store keeps the seed',
+      localRuns: [],
+      store: [],
+      crossProject: true,
+      flowEstimate: 2,
+      rung: 'config-seed',
+    },
+    {
+      name: 'a workspace without the opt-in never reaches the middle rung',
+      localRuns: [],
+      store: storeRuns('zapply', 'm', [6, 8, 10]),
+      crossProject: false,
+      flowEstimate: 2,
+      rung: 'config-seed',
+    },
+    {
+      name: 'store runs under another flow do not count',
+      localRuns: [],
+      store: storeRuns('opsx-apply', 'm', [6, 8, 10]),
+      crossProject: true,
+      flowEstimate: 2,
+      rung: 'config-seed',
+    },
+    {
+      name: 'store runs at another tier do not count',
+      localRuns: [],
+      store: storeRuns('zapply', 'l', [6, 8, 10]),
+      crossProject: true,
+      flowEstimate: 2,
+      rung: 'config-seed',
+    },
+  ];
+
+  for (const item of ladderCases) {
+    it(item.name, () => {
+      const changes = [change('a')];
+      const epics = [epic('a', { tier: 'm' })];
+      item.localRuns.forEach((hours, index) => {
+        changes.push(change(`h${index}`));
+        epics.push(runEpic(`h${index}`, 'm', 'zapply', [hours]));
+      });
+      const result = board({
+        changes,
+        epics,
+        flows: { ...baseFlows, crossProject: item.crossProject },
+        storeRuns: item.store,
+      });
+      const row = findChange(result, 'a');
+      expect(row?.flowEstimate).toBe(item.flowEstimate);
+      expect(row?.rung).toBe(item.rung);
+    });
+  }
+
+  it('distinguishes all three rungs on one board and keeps the shared human table', () => {
+    const result = board({
+      changes: [change('a'), change('b'), change('c'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        epic('b', { tier: 's' }),
+        epic('c', { tier: 'l' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [4]),
+      ],
+      flows: baseFlows,
+      storeRuns: storeRuns('zapply', 's', [6, 8, 10]),
+    });
+    // a: local median of [3, 5, 4]; b: store median of [6, 8, 10]; c: seed l = 4
+    expect(findChange(result, 'a')?.rung).toBe('observed');
+    expect(findChange(result, 'b')?.rung).toBe('cross-project');
+    expect(findChange(result, 'b')?.flowEstimate).toBe(8);
+    expect(findChange(result, 'b')?.humanEstimate).toBe(6);
+    expect(findChange(result, 'c')?.rung).toBe('config-seed');
+    expect(findChange(result, 'c')?.flowEstimate).toBe(4);
   });
 });

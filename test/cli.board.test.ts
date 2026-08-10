@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
 import { initWorkspace } from '../src/workspace/init.js';
+import { storeRunsPath } from '../src/workspace/paths.js';
 import { makeTempProject } from './helpers.js';
 import { spawnCli } from './_cli-helpers.js';
 import type { ArtifactRecord } from '../src/artifacts/types.js';
@@ -275,6 +276,31 @@ async function setupBiasBoardFixture(): Promise<string> {
     meta: { tier: 'l', actuals: [{ flow: 'zapply', hours: 1 }] },
   });
   return root;
+}
+
+/** Write a seeded cross-project store under `root/store`, returning its path. */
+async function seedStore(root: string, runs: Array<{ flow: string; tier: string; hours: number }>): Promise<string> {
+  const storeRoot = path.join(root, 'store');
+  await fs.mkdir(storeRoot, { recursive: true });
+  await fs.writeFile(storeRunsPath(storeRoot), runs.map((run) => JSON.stringify(run)).join('\n') + '\n', 'utf8');
+  return storeRoot;
+}
+
+/**
+ * Cross-project fixture: the ladder fixture (priced-a observed at 4 from repo
+ * runs) plus the opt-in flag and a seeded store of opsx-apply/s runs
+ * ([6, 8, 10] → median 8), so one board shows all three rungs — priced-b
+ * cross-project, done-d still on the seed.
+ */
+async function setupCrossProjectBoardFixture(): Promise<{ root: string; storeRoot: string }> {
+  const root = await setupLadderBoardFixture();
+  await fs.appendFile(path.join(root, '.spego', 'config.yaml'), '  crossProject: true\n', 'utf8');
+  const storeRoot = await seedStore(root, [
+    { flow: 'opsx-apply', tier: 's', hours: 6 },
+    { flow: 'opsx-apply', tier: 's', hours: 8 },
+    { flow: 'opsx-apply', tier: 's', hours: 10 },
+  ]);
+  return { root, storeRoot };
 }
 
 describe('CLI board command', () => {
@@ -837,6 +863,33 @@ describe('CLI board command', () => {
     const result = JSON.parse(stdout) as MirrorBoard;
     const bySlug = new Map(result.sprints[0]!.changes.map((change) => [change.slug, change]));
     expect(bySlug.get('priced-a')).toMatchObject({ flowEstimate: 4, rung: 'observed' });
+    expect(bySlug.get('priced-b')).toMatchObject({ flowEstimate: 2, rung: 'config-seed' });
+  }, 30_000);
+
+  it('--json reports all three rungs against a seeded cross-project store', async () => {
+    const { root, storeRoot } = await setupCrossProjectBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root, {
+      env: { SPEGO_STORE_ROOT: storeRoot },
+    });
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const bySlug = new Map(result.sprints[0]!.changes.map((change) => [change.slug, change]));
+    expect(bySlug.get('priced-a')).toMatchObject({ flowEstimate: 4, rung: 'observed' });
+    expect(bySlug.get('priced-b')).toMatchObject({ flowEstimate: 8, rung: 'cross-project' });
+    expect(bySlug.get('done-d')).toMatchObject({ flowEstimate: 4, rung: 'config-seed' });
+  }, 30_000);
+
+  it('ignores the store when the workspace does not opt in', async () => {
+    const root = await setupPricedBoardFixture();
+    const storeRoot = await seedStore(root, [
+      { flow: 'opsx-apply', tier: 's', hours: 6 },
+      { flow: 'opsx-apply', tier: 's', hours: 8 },
+      { flow: 'opsx-apply', tier: 's', hours: 10 },
+    ]);
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root, {
+      env: { SPEGO_STORE_ROOT: storeRoot },
+    });
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const bySlug = new Map(result.sprints[0]!.changes.map((change) => [change.slug, change]));
     expect(bySlug.get('priced-b')).toMatchObject({ flowEstimate: 2, rung: 'config-seed' });
   }, 30_000);
 

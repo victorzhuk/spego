@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
+import { readStoreRuns } from '../src/delivery/store.js';
 import { initWorkspace } from '../src/workspace/init.js';
 import { makeTempProject } from './helpers.js';
 import { spawnCli, expectCliFailure } from './_cli-helpers.js';
@@ -201,5 +202,75 @@ describe('CLI record command', () => {
     );
     expect(changed.length).toBe(1);
     expect(changed[0]).toMatch(/epic[/\\]add-auth/);
+  }, 30_000);
+});
+
+describe('CLI record cross-project store', () => {
+  it('appends the run to the store as well as the epic', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'add-auth', { tier: 'm' });
+    const storeRoot = path.join(root, 'store');
+    await spawnCli(
+      ['record', 'add-auth', '--flow', 'zapply', '--hours', '1.75', '--cwd', root],
+      root,
+      { env: { SPEGO_STORE_ROOT: storeRoot } },
+    );
+    expect(await readStoreRuns(storeRoot)).toEqual([{ flow: 'zapply', tier: 'm', hours: 1.75 }]);
+
+    const meta = await epicMeta(root, 'add-auth');
+    expect(meta.actuals).toEqual([{ flow: 'zapply', hours: 1.75 }]);
+  }, 30_000);
+
+  it('writes the store even when the workspace does not opt into cross-project pricing', async () => {
+    const root = await setupOpenSpecWorkspace();
+    const configPath = path.join(root, '.spego', 'config.yaml');
+    const base = await fs.readFile(configPath, 'utf8');
+    const flows = [
+      'flows:',
+      '  default: zapply',
+      '  profiles:',
+      '    zapply: { xs: 0.5, s: 1, m: 2, l: 4, xl: 8 }',
+      '  human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 }',
+    ].join('\n');
+    await fs.writeFile(configPath, `${base}\n${flows}\n`, 'utf8');
+    await createChangeEpic(root, 'add-auth', { tier: 'm' });
+    const storeRoot = path.join(root, 'store');
+    await spawnCli(
+      ['record', 'add-auth', '--flow', 'zapply', '--hours', '3', '--cwd', root],
+      root,
+      { env: { SPEGO_STORE_ROOT: storeRoot } },
+    );
+    expect(await readStoreRuns(storeRoot)).toEqual([{ flow: 'zapply', tier: 'm', hours: 3 }]);
+  }, 30_000);
+
+  it('reports a store write failure while leaving the epic entry intact', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'add-auth', { tier: 'm' });
+    // a store root nested under a regular file cannot be created
+    const blocker = path.join(root, 'blocker');
+    await fs.writeFile(blocker, 'not a directory', 'utf8');
+    const err = await expectCliFailure(
+      ['--json', 'record', 'add-auth', '--flow', 'zapply', '--hours', '2', '--cwd', root],
+      root,
+      { env: { SPEGO_STORE_ROOT: path.join(blocker, 'store') } },
+    );
+    const envelope = JSON.parse(err.stderr);
+    expect(envelope.error.code).toBe('WRITE_FAILED');
+    expect(envelope.error.message).toContain('epic');
+
+    const meta = await epicMeta(root, 'add-auth');
+    expect(meta.actuals).toEqual([{ flow: 'zapply', hours: 2 }]);
+  }, 30_000);
+
+  it('skips the store when the epic carries no usable tier', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'add-auth');
+    const storeRoot = path.join(root, 'store');
+    await spawnCli(
+      ['record', 'add-auth', '--flow', 'zapply', '--hours', '2', '--cwd', root],
+      root,
+      { env: { SPEGO_STORE_ROOT: storeRoot } },
+    );
+    expect(await readStoreRuns(storeRoot)).toEqual([]);
   }, 30_000);
 });

@@ -8,10 +8,11 @@ import type { ArtifactEngine } from '../artifacts/engine.js';
 import type { IndexedArtifact } from '../index/indexer.js';
 import { SpegoError } from '../errors.js';
 import { readConfig } from '../workspace/config.js';
-import { resolveWorkspacePaths } from '../workspace/paths.js';
+import { resolveStoreRoot, resolveWorkspacePaths } from '../workspace/paths.js';
 import { assertWorkspace, discoverChanges } from './openspec-discover.js';
 import { listEpicsFromDiscovered } from './openspec-adapter.js';
 import { resolveAdapter } from './resolve.js';
+import { readStoreRuns, type StoreRun } from './store.js';
 import {
   deriveMirror,
   type MirrorArtifact,
@@ -31,8 +32,11 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
   const wsPaths = resolveWorkspacePaths(projectRoot);
   const config = await readConfig(wsPaths.configPath);
   const adapter = resolveAdapter(projectRoot, config);
+  // The store is resolved only when the workspace opts in: with the flag off,
+  // pricing is reproducible from the repo and the config directory stays unread.
+  const storeRuns = config.flows?.crossProject ? await readStoreRuns(resolveStoreRoot()) : undefined;
   try {
-    const input = await collectMirrorInput(engine, projectRoot, adapter, config.flows);
+    const input = await collectMirrorInput(engine, projectRoot, adapter, config.flows, storeRuns);
     return { input, board: deriveMirror(input) };
   } catch (err) {
     if (err instanceof SpegoError && err.code === 'DELIVERY_ADAPTER_ERROR') {
@@ -48,6 +52,7 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
         linkedArtifacts: [],
         warnings: [warning],
         flows: config.flows,
+        storeRuns,
       };
       return { input, board: deriveMirror(input) };
     }
@@ -60,6 +65,7 @@ async function collectMirrorInput(
   projectRoot: string,
   adapter: DeliveryAdapter,
   flows: MirrorInput['flows'],
+  storeRuns: StoreRun[] | undefined,
 ): Promise<MirrorInput> {
   if (adapter.name === 'openspec') await assertWorkspace(projectRoot);
   const discovered = await discoverChanges(projectRoot);
@@ -88,7 +94,7 @@ async function collectMirrorInput(
   const epics = engine.list({ type: 'epic' }).map(toMirrorArtifact);
   const sprints = engine.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
   const linkedArtifacts = await resolveLinkedArtifacts(engine, epics);
-  return { changes, epics, sprints, linkedArtifacts, warnings: [], flows };
+  return { changes, epics, sprints, linkedArtifacts, warnings: [], flows, storeRuns };
 }
 
 function sourceChange(slug: string, archived: boolean, epic: DeliveryEpicLink | undefined) {

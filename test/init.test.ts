@@ -206,4 +206,16 @@ describe('workspace config flows block', () => {
     expect(err).toBeInstanceOf(SpegoError);
     expect(err.code).toBe('VALIDATION_FAILED');
   });
+
+  it('parses the cross-project opt-in flag', async () => {
+    const configPath = await configWithFlows(`${validFlows}\n  crossProject: true`);
+    const config = await readConfig(configPath);
+    expect(config.flows?.crossProject).toBe(true);
+  });
+
+  it('defaults the cross-project opt-in to off', async () => {
+    const configPath = await configWithFlows(validFlows);
+    const config = await readConfig(configPath);
+    expect(config.flows?.crossProject).toBe(false);
+  });
 });

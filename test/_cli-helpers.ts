@@ -7,13 +7,30 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { makeTempProject } from './helpers.js';
+import { STORE_ROOT_ENV_VAR } from '../src/workspace/paths.js';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
 const CLI_PATH = path.join(PROJECT_ROOT, 'src', 'cli.ts');
 
 const exec = promisify(execFile);
+
+/**
+ * One temp store root per test process, injected into every spawned CLI run
+ * unless the caller passes its own. No spec — including ones written before
+ * the cross-project store existed — may read or write a developer's real run
+ * history, so the override is unconditional, not opt-in per test.
+ */
+let defaultStoreRoot: string | undefined;
+export function testStoreRoot(): string {
+ if (!defaultStoreRoot) {
+  defaultStoreRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spego-test-store-'));
+ }
+ return defaultStoreRoot;
+}
 
 export interface CliResult {
  stdout: string;
@@ -34,7 +51,13 @@ export function spawnCli(
  const child = exec('npx', ['--silent', 'tsx', CLI_PATH, ...args], {
   cwd,
   timeout: 30_000,
-  env: { ...process.env, NODE_NO_WARNINGS: '1', npm_config_loglevel: 'silent', ...opts.env },
+  env: {
+   ...process.env,
+   NODE_NO_WARNINGS: '1',
+   npm_config_loglevel: 'silent',
+   [STORE_ROOT_ENV_VAR]: testStoreRoot(),
+   ...opts.env,
+  },
  });
  if (opts.input !== undefined && child.child.stdin) {
   child.child.stdin.end(opts.input);
@@ -54,9 +77,10 @@ export async function setupInitialized(): Promise<{
 export async function expectCliFailure(
  args: string[],
  cwd: string,
+ opts: { input?: string; env?: Record<string, string> } = {},
 ): Promise<CliExecError> {
  try {
-  await spawnCli(args, cwd);
+  await spawnCli(args, cwd, opts);
  } catch (e) {
   return e as CliExecError;
  }

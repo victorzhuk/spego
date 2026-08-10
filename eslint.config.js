@@ -32,6 +32,7 @@ export default tseslint.config(
             'test/cli.sync.test.ts',
             'test/cli.record.test.ts',
             'test/sprint-membership.test.ts',
+            'test/store.test.ts',
             'test/generator.test.ts',
             'test/generator.opencode.test.ts',
             'test/helpers.ts',

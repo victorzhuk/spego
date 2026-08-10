@@ -1,8 +1,11 @@
 import path from 'node:path';
 import type { Command } from 'commander';
 import { SpegoError } from '../../errors.js';
+import { SIZE_TIERS } from '../../artifacts/types.js';
 import { discoverChanges } from '../../delivery/openspec-discover.js';
 import { parseActuals } from '../../delivery/mirror.js';
+import { appendStoreRun } from '../../delivery/store.js';
+import { resolveStoreRoot } from '../../workspace/paths.js';
 import { renderSection } from '../render.js';
 import { runEngineCommand } from '../runtime.js';
 
@@ -60,6 +63,22 @@ export function registerRecord(program: Command): void {
           meta: { ...current.frontmatter.meta, actuals },
           expectedRevision,
         });
+
+        // Epic first, store second: the run must land on its change before it
+        // can count cross-project. A run without a usable tier cannot be keyed
+        // by (Flow, Tier) and contributes nothing to the store.
+        const tier = current.frontmatter.meta.tier;
+        if (typeof tier === 'string' && (SIZE_TIERS as readonly string[]).includes(tier)) {
+          try {
+            await appendStoreRun(resolveStoreRoot(), { flow: opts.flow, tier, hours });
+          } catch (err) {
+            throw new SpegoError(
+              'WRITE_FAILED',
+              `Run recorded on the epic, but the cross-project store write failed: ${(err as Error).message}`,
+              { change, flow: opts.flow, hours, cause: (err as Error).message },
+            );
+          }
+        }
 
         const payload = {
           change,

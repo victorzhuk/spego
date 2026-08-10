@@ -28,6 +28,8 @@ export const flowsSchema = z
     profiles: z.record(z.string().min(1), tierHoursSchema),
     /** Human Hours table, shared across Flows. */
     human: tierHoursSchema,
+    /** Opt-in to the cross-project pricing rung; off keeps pricing reproducible from the repo alone. */
+    crossProject: z.boolean().default(false),
   })
   .strict()
   .refine((flows) => Object.hasOwn(flows.profiles, flows.default), {

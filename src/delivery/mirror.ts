@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { SIZE_TIERS, type SizeTier } from '../artifacts/types.js';
 import type { FlowsConfig } from '../workspace/config.js';
+import type { StoreRun } from './store.js';
 import type { DeliveryStatus } from './types.js';
 
 export type WarningCode =
@@ -44,6 +45,8 @@ export interface MirrorInput {
   warnings?: MirrorWarning[];
   /** Resolved pricing tables; absent means the board renders unpriced. */
   flows?: FlowsConfig;
+  /** Cross-project store runs; consulted only when `flows.crossProject` opts in. */
+  storeRuns?: StoreRun[];
 }
 
 export interface MirrorGap {
@@ -344,6 +347,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   }
 
   const runBuckets = bucketRuns(changeStates);
+  const storeBuckets = bucketStoreRuns(input.storeRuns ?? []);
   const biasByPair = input.flows ? deriveBias(runBuckets, input.flows) : new Map<string, number>();
   for (const key of [...biasByPair.keys()].sort()) {
     const bias = biasByPair.get(key)!;
@@ -359,7 +363,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   const priceBySlug = new Map<string, ChangePrice>();
   if (input.flows) {
     for (const slug of sortedSlugs) {
-      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets, biasByPair);
+      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets, storeBuckets, biasByPair);
       if (price) priceBySlug.set(slug, price);
     }
   }
@@ -535,6 +539,7 @@ const MIN_OBSERVED_RUNS = 3;
 
 const RUNG_SEED = 'config-seed';
 const RUNG_OBSERVED = 'observed';
+const RUNG_CROSS_PROJECT = 'cross-project';
 
 /**
  * Bounds for the bias correction and its warning band. The applied correction
@@ -611,16 +616,34 @@ function bucketRuns(changeStates: Map<string, ChangeState>): Map<string, number[
 }
 
 /**
+ * Bucket cross-project store runs by the same (Flow, Tier) key the repo runs
+ * use, so the ladder can weigh both evidence pools per pair.
+ */
+function bucketStoreRuns(storeRuns: StoreRun[]): Map<string, number[]> {
+  const buckets = new Map<string, number[]>();
+  for (const run of storeRuns) {
+    const key = `${run.flow}\u0000${run.tier}`;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(run.hours);
+    buckets.set(key, bucket);
+  }
+  return buckets;
+}
+
+/**
  * Price one change down the ladder, independently per (Flow, Tier) pair: the
- * median of recorded runs once their count reaches MIN_OBSERVED_RUNS,
- * otherwise the config seed for the change's Flow — the epic's `flow` when
- * set, otherwise the workspace default. Unpriced (undefined) when the epic
- * has no usable tier, or the Flow has neither a seed nor enough runs.
+ * median of this workspace's recorded runs once their count reaches
+ * MIN_OBSERVED_RUNS; otherwise, when the workspace opts in, the median of the
+ * cross-project store's runs at the same threshold; otherwise the config seed
+ * for the change's Flow — the epic's `flow` when set, otherwise the workspace
+ * default. Unpriced (undefined) when the epic has no usable tier, or the Flow
+ * has neither a seed nor enough runs.
  */
 function priceChange(
   epic: MirrorArtifact | undefined,
   flows: FlowsConfig,
   runBuckets: Map<string, number[]>,
+  storeBuckets: Map<string, number[]>,
   biasByPair: Map<string, number>,
 ): ChangePrice | undefined {
   if (!epic) return undefined;
@@ -630,13 +653,25 @@ function priceChange(
   if (flow !== undefined && typeof flow !== 'string') return undefined;
   const flowName = (flow as string | undefined) ?? flows.default;
 
-  const runs = runBuckets.get(`${flowName}\u0000${tier}`) ?? [];
+  const pairKey = `${flowName}\u0000${tier}`;
+  const runs = runBuckets.get(pairKey) ?? [];
   let flowEstimate: number;
   let rung: string;
   if (runs.length >= MIN_OBSERVED_RUNS) {
     // the length guard above makes the median defined
     flowEstimate = median(runs)!;
     rung = RUNG_OBSERVED;
+  } else if (flows.crossProject) {
+    const storeRuns = storeBuckets.get(pairKey) ?? [];
+    if (storeRuns.length >= MIN_OBSERVED_RUNS) {
+      flowEstimate = median(storeRuns)!;
+      rung = RUNG_CROSS_PROJECT;
+    } else {
+      const profile = flows.profiles[flowName];
+      if (!profile) return undefined;
+      flowEstimate = profile[tier as SizeTier];
+      rung = RUNG_SEED;
+    }
   } else {
     const profile = flows.profiles[flowName];
     if (!profile) return undefined;
@@ -648,12 +683,12 @@ function priceChange(
     humanEstimate: flows.human[tier as SizeTier],
     rung,
   };
-  const bias = biasByPair.get(`${flowName}\u0000${tier}`);
+  const bias = biasByPair.get(pairKey);
   if (bias !== undefined) {
     price.bias = bias;
-    // bias corrects prices not derived from this workspace's own runs; an
-    // observed price is already the median of those runs and must not be
-    // corrected by its own residual
+    // bias corrects prices not derived from observed runs; an observed price
+    // — this workspace's or the cross-project store's — is already the median
+    // of those runs and must not be corrected by a residual
     if (rung === RUNG_SEED) {
       price.flowEstimate = Math.round(flowEstimate * clampBias(bias) * 100) / 100;
     }
