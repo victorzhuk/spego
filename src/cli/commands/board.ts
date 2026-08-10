@@ -360,6 +360,13 @@ function renderWarningGroup(code: string, members: MirrorWarning[]): [string, st
       const deps = uniqueStrings(members.map((m) => (m.details ?? {}).dep));
       return [code, `Change "${first.change}" depends on ${quoteSlugs(deps)}, each scheduled in a later sprint.`];
     }
+    case 'stale-profile': {
+      const pairs = members.map((m) => {
+        const details = m.details ?? {};
+        return `${details.flow}/${details.tier} (${details.direction} ×${details.bias})`;
+      });
+      return [code, `Profiles drifted from recorded runs: ${pairs.join(', ')} — re-groom the tier judgment or reseed.`];
+    }
     default:
       return [code, `Active changes ${quoteSlugs(changes)} have no epic artifacts.`];
   }

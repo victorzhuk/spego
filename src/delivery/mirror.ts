@@ -10,6 +10,7 @@ export type WarningCode =
   | 'ungroomed-change'
   | 'orphan-epic'
   | 'closable-sprint'
+  | 'stale-profile'
   | 'adapter-warning'
   | 'adapter-unavailable';
 
@@ -67,6 +68,8 @@ export interface MirrorChange {
   humanEstimate?: number;
   /** The pricing rung that produced the estimates; absent when unpriced. */
   rung?: string;
+  /** Median bias ratio for the change's Flow and Tier pair, unclamped; absent when the pair has no recorded runs. */
+  bias?: number;
   /** Recorded runs from the epic's `actuals` (stored measurements, not derived). */
   actuals: ActualRun[];
   /** Total recorded hours across all runs. */
@@ -138,6 +141,7 @@ const WARNING_ORDER: Record<WarningCode, number> = {
   'out-of-order-dep': 6,
   'orphan-epic': 7,
   'ungroomed-change': 8,
+  'stale-profile': 9,
 };
 
 /** True when `status` means no further work remains — task completion or archival. */
@@ -340,10 +344,22 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   }
 
   const runBuckets = bucketRuns(changeStates);
+  const biasByPair = input.flows ? deriveBias(runBuckets, input.flows) : new Map<string, number>();
+  for (const key of [...biasByPair.keys()].sort()) {
+    const bias = biasByPair.get(key)!;
+    if (bias >= BIAS_WARN_LOW && bias <= BIAS_WARN_HIGH) continue;
+    const [flowName, tier] = key.split('\u0000');
+    const direction = bias > 1 ? 'over' : 'under';
+    sortedWarnings.push({
+      code: 'stale-profile',
+      message: `Flow "${flowName}" at tier "${tier}" runs ${direction} its profile (bias ${bias}) — re-groom the tier judgment or reseed the profile.`,
+      details: { flow: flowName, tier, direction, bias },
+    });
+  }
   const priceBySlug = new Map<string, ChangePrice>();
   if (input.flows) {
     for (const slug of sortedSlugs) {
-      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets);
+      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets, biasByPair);
       if (price) priceBySlug.set(slug, price);
     }
   }
@@ -520,10 +536,49 @@ const MIN_OBSERVED_RUNS = 3;
 const RUNG_SEED = 'config-seed';
 const RUNG_OBSERVED = 'observed';
 
+/**
+ * Bounds for the bias correction and its warning band. The applied correction
+ * clamps to [BIAS_CLAMP_MIN, BIAS_CLAMP_MAX] so one pathological run cannot
+ * reprice a tier without limit; the reported bias stays unclamped, and a bias
+ * outside [BIAS_WARN_LOW, BIAS_WARN_HIGH] raises `stale-profile`. Constants in
+ * code, like the sample threshold, so two boards cannot disagree.
+ */
+const BIAS_CLAMP_MIN = 0.5;
+const BIAS_CLAMP_MAX = 2;
+const BIAS_WARN_LOW = 1 / 1.5;
+const BIAS_WARN_HIGH = 1.5;
+
+/**
+ * Bias per (Flow, Tier) pair: the median ratio of recorded runs over the
+ * price those runs' changes were carrying, recomputed on render — the
+ * observed median when the pair resolves from local runs, the config seed
+ * otherwise. A pair with no reference price (no seed, below the observation
+ * threshold) or a zero reference yields no ratio and no bias.
+ */
+function deriveBias(runBuckets: Map<string, number[]>, flows: FlowsConfig): Map<string, number> {
+  const biasByPair = new Map<string, number>();
+  for (const [key, runs] of runBuckets) {
+    if (runs.length === 0) continue;
+    const [flowName, tier] = key.split('\u0000');
+    const reference =
+      runs.length >= MIN_OBSERVED_RUNS
+        ? median(runs)!
+        : flows.profiles[flowName!]?.[tier as SizeTier];
+    if (reference === undefined || reference === 0) continue;
+    biasByPair.set(key, median(runs.map((run) => run / reference))!);
+  }
+  return biasByPair;
+}
+
+function clampBias(bias: number): number {
+  return Math.min(BIAS_CLAMP_MAX, Math.max(BIAS_CLAMP_MIN, bias));
+}
+
 interface ChangePrice {
   flowEstimate: number;
   humanEstimate: number;
   rung: string;
+  bias?: number;
 }
 
 /** Median of `values`, rounded to two decimals; undefined for an empty list. */
@@ -566,6 +621,7 @@ function priceChange(
   epic: MirrorArtifact | undefined,
   flows: FlowsConfig,
   runBuckets: Map<string, number[]>,
+  biasByPair: Map<string, number>,
 ): ChangePrice | undefined {
   if (!epic) return undefined;
   const tier = epic.meta.tier;
@@ -575,7 +631,7 @@ function priceChange(
   const flowName = (flow as string | undefined) ?? flows.default;
 
   const runs = runBuckets.get(`${flowName}\u0000${tier}`) ?? [];
-  let flowEstimate: number | undefined;
+  let flowEstimate: number;
   let rung: string;
   if (runs.length >= MIN_OBSERVED_RUNS) {
     // the length guard above makes the median defined
@@ -587,11 +643,22 @@ function priceChange(
     flowEstimate = profile[tier as SizeTier];
     rung = RUNG_SEED;
   }
-  return {
+  const price: ChangePrice = {
     flowEstimate,
     humanEstimate: flows.human[tier as SizeTier],
     rung,
   };
+  const bias = biasByPair.get(`${flowName}\u0000${tier}`);
+  if (bias !== undefined) {
+    price.bias = bias;
+    // bias corrects prices not derived from this workspace's own runs; an
+    // observed price is already the median of those runs and must not be
+    // corrected by its own residual
+    if (rung === RUNG_SEED) {
+      price.flowEstimate = Math.round(flowEstimate * clampBias(bias) * 100) / 100;
+    }
+  }
+  return price;
 }
 
 function sortArtifacts(artifacts: MirrorArtifact[]): MirrorArtifact[] {

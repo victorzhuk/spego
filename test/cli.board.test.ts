@@ -257,6 +257,26 @@ async function setupLadderBoardFixture(): Promise<string> {
   return root;
 }
 
+
+/**
+ * Bias fixture: priced workspace plus two history changes — h1 tier m with one
+ * zapply run of 5 (seed 2 → bias 2.5, over) and h2 tier l with one zapply run
+ * of 1 (seed 4 → bias 0.25, under) — so priced-a's seeded 2 corrects to 4
+ * (clamped from 5) and two stale-profile pairs warn.
+ */
+async function setupBiasBoardFixture(): Promise<string> {
+  const root = await setupPricedBoardFixture();
+  await createChangeEpic(root, 'hist-m', {
+    tasks: '- [x] done\n',
+    meta: { tier: 'm', actuals: [{ flow: 'zapply', hours: 5 }] },
+  });
+  await createChangeEpic(root, 'hist-l', {
+    tasks: '- [x] done\n',
+    meta: { tier: 'l', actuals: [{ flow: 'zapply', hours: 1 }] },
+  });
+  return root;
+}
+
 describe('CLI board command', () => {
   it('returns deterministic JSON board shape with warnings envelope', async () => {
     const root = await setupBoardFixture();
@@ -831,6 +851,33 @@ describe('CLI board command', () => {
     expect(seedRow).toContain('2');
     expect(seedRow).not.toContain('2*');
     expect(plain).toContain('* observed — median of recorded runs');
+  }, 30_000);
+
+  it('--json carries bias per priced change and one warning entry per drifted pair', async () => {
+    const root = await setupBiasBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const bySlug = new Map(result.sprints[0]!.changes.map((change) => [change.slug, change]));
+
+    expect(bySlug.get('priced-a')).toMatchObject({ bias: 2.5, flowEstimate: 4, rung: 'config-seed' });
+    expect(bySlug.get('priced-b') && 'bias' in bySlug.get('priced-b')!).toBe(false);
+    expect(bySlug.get('priced-b')?.flowEstimate).toBe(2);
+
+    const stale = result.warnings.filter((warning) => warning.code === 'stale-profile');
+    expect(stale.length).toBe(2);
+    const byTier = new Map(stale.map((warning) => [warning.details?.tier, warning]));
+    expect(byTier.get('m')?.details).toMatchObject({ flow: 'zapply', direction: 'over', bias: 2.5 });
+    expect(byTier.get('l')?.details).toMatchObject({ flow: 'zapply', direction: 'under', bias: 0.25 });
+  }, 30_000);
+
+  it('aggregates drifted pairs into one stale-profile row in human output', async () => {
+    const root = await setupBiasBoardFixture();
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const plain = stripAnsi(stdout);
+    const rows = plain.split('\n').filter((line) => line.includes('stale-profile'));
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toContain('zapply/m');
+    expect(rows[0]).toContain('zapply/l');
   }, 30_000);
 
   it('shows every change slug in full on a narrow terminal in a priced workspace', async () => {

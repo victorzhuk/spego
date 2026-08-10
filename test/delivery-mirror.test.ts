@@ -809,7 +809,7 @@ describe('deriveMirror profile ladder', () => {
     return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
   }
 
-  it('prices from the seed when runs are below the threshold', () => {
+  it('resolves the seed rung when runs are below the threshold', () => {
     const result = board({
       changes: [change('a'), change('h1'), change('h2')],
       epics: [
@@ -820,8 +820,11 @@ describe('deriveMirror profile ladder', () => {
       flows,
     });
     const row = findChange(result, 'a');
-    expect(row?.flowEstimate).toBe(2); // seed m, runs 3+5 below threshold of 3
+    // runs 3+5 below the observation threshold of 3 → seed rung; the pair's
+    // bias (2) still corrects the seeded 2 to 4
+    expect(row?.flowEstimate).toBe(4);
     expect(row?.rung).toBe('config-seed');
+    expect(row?.bias).toBe(2);
   });
 
   it('prices from observation at exactly the threshold', () => {
@@ -950,5 +953,146 @@ describe('deriveMirror profile ladder', () => {
       flows,
     });
     expect(findChange(result, 'a')?.humanEstimate).toBe(16);
+  });
+});
+
+describe('deriveMirror estimate bias', () => {
+  const flows = {
+    default: 'zapply',
+    profiles: {
+      zapply: { xs: 0.5, s: 1, m: 2, l: 4, xl: 8 },
+      'opsx-apply': { xs: 1, s: 2, m: 4, l: 8, xl: 16 },
+    },
+    human: { xs: 2, s: 6, m: 16, l: 40, xl: 80 },
+  };
+
+  function runEpic(slug: string, tier: string, flow: string, runs: number[]): MirrorArtifact {
+    return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
+  }
+
+  it('derives bias as the median ratio of runs over their pair price', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+      ],
+      flows,
+    });
+    // 2 runs below the observation threshold → seed 2; ratios 3/2 and 5/2 → bias median 2
+    const row = findChange(result, 'a');
+    expect(row?.bias).toBe(2);
+  });
+
+  it('derives bias below parity when runs come in under their price', () => {
+    const result = board({
+      changes: [change('a'), change('h1')],
+      epics: [epic('a', { tier: 'l' }), runEpic('h1', 'l', 'zapply', [2])],
+      flows,
+    });
+    // 1 run, seed l=4 → ratio 2/4 = 0.5
+    expect(findChange(result, 'a')?.bias).toBe(0.5);
+  });
+
+  it('corrects a seeded price by the pair bias and keeps the rung', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // bias 2, inside the clamp → corrected 2 × 2 = 4, still seed rung
+    expect(row?.flowEstimate).toBe(4);
+    expect(row?.rung).toBe('config-seed');
+  });
+
+  it('does not correct an observed price but still reports the bias', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [4]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // observed median 4; ratios 0.75, 1.25, 1 → bias median 1; price uncorrected
+    expect(row?.flowEstimate).toBe(4);
+    expect(row?.rung).toBe('observed');
+    expect(row?.bias).toBe(1);
+  });
+
+  it('clamps the applied correction at the bound but reports the unclamped bias', () => {
+    const result = board({
+      changes: [change('a'), change('h1')],
+      epics: [epic('a', { tier: 'm' }), runEpic('h1', 'm', 'zapply', [9])],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // 1 run, seed 2 → bias 4.5; applied correction clamps to ×2 → 4
+    expect(row?.bias).toBe(4.5);
+    expect(row?.flowEstimate).toBe(4);
+    expect(row?.rung).toBe('config-seed');
+  });
+
+  it('clamps a downward correction at the lower bound', () => {
+    const result = board({
+      changes: [change('a'), change('h1')],
+      epics: [epic('a', { tier: 'l' }), runEpic('h1', 'l', 'zapply', [1])],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // 1 run, seed 4 → bias 0.25; applied correction clamps to ×0.5 → 2
+    expect(row?.bias).toBe(0.25);
+    expect(row?.flowEstimate).toBe(2);
+  });
+
+  it('reports no bias and no correction for a pair with no runs', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a', { tier: 'm' })],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    expect(row && 'bias' in row).toBe(false);
+    expect(row?.flowEstimate).toBe(2);
+  });
+
+  it('raises no warning when bias sits inside the band', () => {
+    const result = board({
+      changes: [change('a'), change('h1')],
+      epics: [epic('a', { tier: 'm' }), runEpic('h1', 'm', 'zapply', [3])],
+      flows,
+    });
+    // bias 1.5 is the top of the band
+    expect(findChange(result, 'a')?.bias).toBe(1.5);
+    expect(result.warnings.filter((w) => w.code === 'stale-profile')).toEqual([]);
+  });
+
+  it('warns outside the band, naming flow, tier, and direction', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [5]),
+        runEpic('h2', 'l', 'zapply', [1]),
+      ],
+      flows,
+    });
+    const stale = result.warnings.filter((w) => w.code === 'stale-profile');
+    // zapply/m bias 2.5 (over), zapply/l bias 0.25 (under) — one entry per pair
+    expect(stale.length).toBe(2);
+    const byTier = new Map(stale.map((w) => [w.details?.tier, w]));
+    expect(byTier.get('m')?.details).toMatchObject({ flow: 'zapply', direction: 'over' });
+    expect(byTier.get('l')?.details).toMatchObject({ flow: 'zapply', direction: 'under' });
+    expect(byTier.get('m')?.message).toContain('zapply');
+    expect(byTier.get('m')?.message).toContain('m');
   });
 });
