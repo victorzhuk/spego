@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.22.0] - 2026-08-11
 
 ### Added
 - Project-local OpenSpec schema `spec-driven-custom` (forked from `spec-driven` via the experimental `openspec schema fork`, selected in `openspec/config.yaml`) gains an `estimating` artifact required after `proposal` and before `tasks`: the author judges the change's Size Tier (`xs`/`s`/`m`/`l`/`xl`) while scope is fresh and persists it through `spego sync` plus `spego update` onto the change's epic, leaving a generated `estimating.md` as the human-readable trace. The step writes through spego, not into OpenSpec files — the fork carries the prompt, the epic carries the state — so changes arrive priced instead of waiting for the next groom run. Changes authored without the fork are unaffected: grooming judges their tier as before, and if the experimental schema surface changes, recorded tiers stay on their epics.
