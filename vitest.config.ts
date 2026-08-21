@@ -5,6 +5,8 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     environment: 'node',
     pool: 'forks',
+    minWorkers: 1,
+    maxWorkers: '50%',
     testTimeout: 45000,
     server: {
       deps: {

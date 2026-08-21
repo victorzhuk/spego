@@ -21,6 +21,17 @@ The system SHALL derive, on render and without storing them, a Flow Estimate and
 - **THEN** the change is reported unpriced
 - **AND** the render succeeds
 
+#### Scenario: Epic without a tier
+- **WHEN** an epic carries no `tier`
+- **THEN** the change is reported unpriced and its `hours` cell renders `?`
+- **AND** it does not count toward its sprint's total
+- **AND** the sprint's total renders with a `+?` suffix while any pending change is unpriced
+
+#### Scenario: Hours formatting
+- **WHEN** a profile prices one tier at `0.5` hours and another at `2` hours
+- **THEN** the `hours` cells render `0.5` and `2` with trailing zeros trimmed
+- **AND** the sprint total sums unrounded values and renders formatted the same way
+
 #### Scenario: Sprint total counts pending work only
 - **WHEN** a sprint holds three priced changes and one of them is `completed`
 - **THEN** the sprint's total equals the sum of the two pending changes' Flow Estimates
