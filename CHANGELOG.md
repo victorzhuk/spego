@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Documentation split: the README is now an overview — install, command summary, architecture, artifact types, config, the workflow-skill loop, and a documentation index — while the runbook-length material moved to `docs/`: `cli.md` (command reference, output modes, JSON contract), `delivery-board.md` (statuses, conflict tracks, drift warnings, rendering), `estimation.md` (Size Tiers, flow profiles, the pricing ladder, bias, the cross-project store, seeding), `openspec-adapter.md` (the read-only delivery view), `workflows.md` (every workflow skill, groom phases, combined OpenSpec lanes), and `agent-targets.md` (generated Claude and OpenCode files). The published package now ships `docs/*.md` alongside the README, so those links resolve from `node_modules` as well as GitHub.
+
 ## [0.22.0] - 2026-08-11
 
 ### Added
