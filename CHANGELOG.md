@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.23.0] - 2026-08-23
 
 ### Added
 - `no-task-plan` drift warning for an active change with no task items, carrying `reason: missing` (no `tasks.md`) or `reason: empty` (a `tasks.md` holding none). Both cases render as `backlog`, so the warning is what separates a change nobody has planned from one planned but unstarted. It counts toward `spego status` drift and is judgment-only — `spego sync` never repairs it.
