@@ -33,6 +33,21 @@ describe('aggregateWarningRows', () => {
     expect(rows).toEqual([['ungroomed-change', 'Active changes "chg-1", "chg-2" have no epic artifacts.']]);
   });
 
+  it('merges no-task-plan warnings per reason', () => {
+    const rows = aggregateWarningRows([
+      warning('no-task-plan', 'Active change "a" has no tasks.md.', { change: 'a', reason: 'missing' }),
+      warning('no-task-plan', 'Active change "b" has no tasks.md.', { change: 'b', reason: 'missing' }),
+      warning('no-task-plan', 'Active change "c" has a tasks.md with no task items.', {
+        change: 'c',
+        reason: 'empty',
+      }),
+    ]);
+    expect(rows).toEqual([
+      ['no-task-plan', 'Changes "a", "b" have no tasks.md.'],
+      ['no-task-plan', 'Active change "c" has a tasks.md with no task items.'],
+    ]);
+  });
+
   it('never merges orphan-epic warnings with different reasons', () => {
     const rows = aggregateWarningRows([
       warning('orphan-epic', 'Epic "epic-1" does not resolve.', { reason: 'missing', change: 'epic-1' }),

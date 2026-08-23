@@ -11,7 +11,7 @@ import { runCommand } from '../runtime.js';
 
 const DRIFT_CODES = new Set([
   'dangling-dep', 'dep-cycle', 'out-of-order-dep', 'ungroomed-change', 'orphan-epic',
-  'closable-sprint',
+  'closable-sprint', 'no-task-plan',
 ]);
 
 interface DriftSummary {

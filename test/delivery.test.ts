@@ -190,6 +190,38 @@ describe('delivery', () => {
       expect(result.tasks).toHaveLength(0);
     });
 
+    it('parseTasks returns backlog when tasks.md holds only unchecked items', async () => {
+      const { root, relPath } = await setupChange('none-checked', {
+        tasks: '- [ ] a\n- [ ] b\n',
+      });
+      const result = await parseTasks(root, relPath, 'none-checked');
+      expect(result.total).toBe(2);
+      expect(result.done).toBe(0);
+      expect(result.status).toBe('backlog');
+      expect(result.hasTaskPlan).toBe(true);
+    });
+
+    it('parseTasks separates a missing tasks.md from an empty one', async () => {
+      const absent = await setupChange('absent-tasks');
+      const empty = await setupChange('empty-tasks', { tasks: '## 1. Setup\n' });
+
+      const absentResult = await parseTasks(absent.root, absent.relPath, 'absent-tasks');
+      const emptyResult = await parseTasks(empty.root, empty.relPath, 'empty-tasks');
+
+      expect(absentResult).toMatchObject({ status: 'backlog', total: 0, hasTaskPlan: false });
+      expect(emptyResult).toMatchObject({ status: 'backlog', total: 0, hasTaskPlan: true });
+    });
+
+    it('parseTasks counts indented items and * / + bullets', async () => {
+      const { root, relPath } = await setupChange('bullets', {
+        tasks: '- [x] top\n  - [ ] nested\n* [x] star\n+ [ ] plus\n',
+      });
+      const result = await parseTasks(root, relPath, 'bullets');
+      expect(result.total).toBe(4);
+      expect(result.done).toBe(2);
+      expect(result.status).toBe('in-progress');
+    });
+
     it('parseTasks counts done vs total correctly', async () => {
       const { root, relPath } = await setupChange('count-test', {
         tasks: '- [x] a\n- [x] b\n- [ ] c\n- [ ] d\n- [x] e\n',
@@ -321,6 +353,7 @@ describe('delivery', () => {
       });
       await setupOpenSpecChange(root, 'no-tasks', { proposal: '# No Tasks\n' });
       await setupOpenSpecChange(root, 'mixed', { proposal: '# Mixed\n', tasks: '- [x] done\n- [ ] todo\n' });
+      await setupOpenSpecChange(root, 'none-checked', { proposal: '# None Checked\n', tasks: '- [ ] todo\n' });
 
       const adapter = createOpenSpecAdapter(root);
       try {
@@ -329,7 +362,12 @@ describe('delivery', () => {
         const statusById = new Map(epics.map((epic) => [epic.externalId, epic.status]));
         expect(statusById.get('all-checked')).toBe('done');
         expect(statusById.get('no-tasks')).toBe('backlog');
+        expect(statusById.get('none-checked')).toBe('backlog');
         expect(statusById.get('mixed')).toBe('in-progress');
+
+        const planById = new Map(epics.map((epic) => [epic.externalId, epic.hasTaskPlan]));
+        expect(planById.get('no-tasks')).toBe(false);
+        expect(planById.get('none-checked')).toBe(true);
       } finally {
         process.env.PATH = originalPath;
       }

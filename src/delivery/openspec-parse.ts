@@ -28,9 +28,11 @@ export interface TasksResult {
   total: number;
   done: number;
   status: DeliveryStatus;
+  /** Whether a readable `tasks.md` exists, regardless of how many items it holds. */
+  hasTaskPlan: boolean;
 }
 
-const TASK_RE = /^-\s*\[([ xX])\]\s*(.+)$/;
+const TASK_RE = /^\s*[-*+]\s*\[([ xX])\]\s*(.+)$/;
 
 export async function parseTasks(
   projectRoot: string,
@@ -41,10 +43,10 @@ export async function parseTasks(
   let content: string;
   try {
     const s = await stat(tasksPath);
-    if (!s.isFile()) return noTasks();
+    if (!s.isFile()) return noTasks(false);
     content = await readFile(tasksPath, 'utf8');
   } catch {
-    return noTasks();
+    return noTasks(false);
   }
 
   const tasks: DeliveryTaskSummary[] = [];
@@ -67,12 +69,12 @@ export async function parseTasks(
   }
 
   const total = tasks.length;
-  if (total === 0) return noTasks();
-  const status: DeliveryStatus = done === total ? 'done' : 'in-progress';
+  if (total === 0) return noTasks(true);
+  const status: DeliveryStatus = done === total ? 'done' : done === 0 ? 'backlog' : 'in-progress';
 
-  return { tasks, total, done, status };
+  return { tasks, total, done, status, hasTaskPlan: true };
 }
 
-function noTasks(): TasksResult {
-  return { tasks: [], total: 0, done: 0, status: 'backlog' };
+function noTasks(hasTaskPlan: boolean): TasksResult {
+  return { tasks: [], total: 0, done: 0, status: 'backlog', hasTaskPlan };
 }

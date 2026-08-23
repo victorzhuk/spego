@@ -668,6 +668,22 @@ describe('CLI board command', () => {
     );
   }, 30_000);
 
+  it('reports no-task-plan per reason and keeps an unstarted change in backlog', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'unplanned');
+    await createChangeEpic(root, 'empty-plan', { tasks: '## 1. Setup\n' });
+    await createChangeEpic(root, 'planned', { tasks: '- [ ] 1.1 todo\n' });
+
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+
+    expect(result.warnings.filter((warning) => warning.code === 'no-task-plan')).toEqual([
+      expect.objectContaining({ details: { change: 'empty-plan', reason: 'empty' } }),
+      expect.objectContaining({ details: { change: 'unplanned', reason: 'missing' } }),
+    ]);
+    expect(result.ungrouped.find((change) => change.slug === 'planned')?.status).toBe('backlog');
+  }, 30_000);
+
   it('degrades to an empty board when OpenSpec workspace is absent', async () => {
     const root = await setupProject();
 

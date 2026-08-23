@@ -6,6 +6,8 @@ export interface DeliveryEpicLink {
   sourcePath: string;
   taskCount?: number;
   tasksDone?: number;
+  /** Whether the source carries a task list at all; absent when the adapter cannot tell. */
+  hasTaskPlan?: boolean;
   warnings?: string[];
 }
 

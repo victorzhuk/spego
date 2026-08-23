@@ -331,6 +331,49 @@ describe('deriveMirror', () => {
   });
 });
 
+describe('no-task-plan warning', () => {
+  it('flags an active change with no task list at all', () => {
+    const result = board({
+      changes: [{ ...change('unplanned'), hasTaskPlan: false, taskCount: 0 }],
+      epics: [epic('unplanned')],
+    });
+
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: 'no-task-plan',
+        details: { change: 'unplanned', reason: 'missing' },
+      }),
+    ]);
+  });
+
+  it('flags an active change whose task list holds no items', () => {
+    const result = board({
+      changes: [{ ...change('empty-plan'), hasTaskPlan: true, taskCount: 0 }],
+      epics: [epic('empty-plan')],
+    });
+
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: 'no-task-plan',
+        details: { change: 'empty-plan', reason: 'empty' },
+      }),
+    ]);
+  });
+
+  it('stays silent for a planned change, an archived one, and an adapter that cannot tell', () => {
+    const result = board({
+      changes: [
+        { ...change('planned'), hasTaskPlan: true, taskCount: 3 },
+        { ...change('archived-empty', 'completed', true), hasTaskPlan: false, taskCount: 0 },
+        change('unknown-source'),
+      ],
+      epics: [epic('planned'), epic('unknown-source')],
+    });
+
+    expect(result.warnings.filter((item) => item.code === 'no-task-plan')).toEqual([]);
+  });
+});
+
 describe('epic-meta status override', () => {
   it('applies a blocked override to a known change and reports it as an unsatisfied blocker', () => {
     const result = board({

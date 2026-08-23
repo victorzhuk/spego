@@ -380,7 +380,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'orient',
       instruction:
-        'Run `spego board --json` and `spego epics --json`. Collect warnings and details. Note delivery drift warnings `ungroomed-change`, `orphan-epic`, and `closable-sprint`. Treat `adapter-warning` and `adapter-unavailable` as infrastructure errors: report them, do not attempt repair.',
+        'Run `spego board --json` and `spego epics --json`. Collect warnings and details. Note delivery drift warnings `ungroomed-change`, `orphan-epic`, `closable-sprint`, and `no-task-plan`. Treat `adapter-warning` and `adapter-unavailable` as infrastructure errors: report them, do not attempt repair.',
     },
     {
       name: 'sync',

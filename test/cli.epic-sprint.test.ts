@@ -177,7 +177,7 @@ describe('CLI epic mirror and sprint membership', () => {
     expect(result).toMatchObject({ slug: 'product-spec', type: 'prd', revision: 1 });
   });
 
-  it('view overview resolves epic status from the delivery mirror', async () => {
+  it('view overview reports an untouched change as backlog, not in-progress', async () => {
     const root = await setupChange('add-auth');
     await fs.writeFile(
       path.join(root, 'openspec', 'changes', 'add-auth', 'tasks.md'),
@@ -187,7 +187,21 @@ describe('CLI epic mirror and sprint membership', () => {
     await spawnCli(['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root], root);
 
     const { stdout } = await spawnCli(['view', '--cwd', root], root);
-    expect(stdout).toContain('in-progress');
+    expect(stdout).toMatch(/add-auth[^\n]*backlog/);
+    expect(stdout).not.toMatch(/add-auth[^\n]*in-progress/);
+  });
+
+  it('view overview resolves epic status from the delivery mirror', async () => {
+    const root = await setupChange('add-auth');
+    await fs.writeFile(
+      path.join(root, 'openspec', 'changes', 'add-auth', 'tasks.md'),
+      '- [x] 1.1 do the thing\n- [ ] 1.2 do the other thing\n',
+      'utf8',
+    );
+    await spawnCli(['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root], root);
+
+    const { stdout } = await spawnCli(['view', '--cwd', root], root);
+    expect(stdout).toMatch(/add-auth[^\n]*in-progress/);
   });
 
   it('view overview falls back to — when the workspace has no OpenSpec directory', async () => {

@@ -105,6 +105,8 @@ function sourceChange(slug: string, archived: boolean, epic: DeliveryEpicLink | 
     status,
     archived,
     warnings: epic?.warnings,
+    taskCount: epic?.taskCount,
+    hasTaskPlan: epic?.hasTaskPlan,
   };
 }
 

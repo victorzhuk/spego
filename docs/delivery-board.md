@@ -46,7 +46,7 @@ The footer adds a dim `spego board --gaps` hint when any rendered change carries
 
 ## Drift warnings
 
-Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `orphan-epic`, `closable-sprint`, and `stale-profile`. `out-of-order-dep` flags a scheduled change blocked by a dependency scheduled into a later sprint.
+Every rendering attaches drift warnings: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `no-task-plan`, `orphan-epic`, `closable-sprint`, and `stale-profile`. `out-of-order-dep` flags a scheduled change blocked by a dependency scheduled into a later sprint. `no-task-plan` flags an active change with no task items — `reason: missing` for no `tasks.md` at all, `reason: empty` for one that holds none — the two cases that both read as `backlog` on the board.
 
 The mechanical subset is repaired by `spego sync`:
 
@@ -54,7 +54,7 @@ The mechanical subset is repaired by `spego sync`:
 - `closable-sprint` — close the sprint
 - `orphan-epic` whose change is archived — retire the epic
 
-The judgment-only warnings — `orphan-epic` whose change is missing, `dangling-dep`, `dep-cycle`, `out-of-order-dep`, and [`stale-profile`](estimation.md#bias) — belong to the groom workflow. The board only reports; pass `--sync` to apply the mechanical plan and re-render in one step.
+The judgment-only warnings — `orphan-epic` whose change is missing, `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `no-task-plan`, and [`stale-profile`](estimation.md#bias) — belong to the groom workflow. The board only reports; pass `--sync` to apply the mechanical plan and re-render in one step.
 
 ## Related
 

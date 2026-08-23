@@ -19,9 +19,11 @@ The adapter observes OpenSpec state. It does not create, continue, apply, verify
 
 Archived changes under `openspec/changes/archive/` are excluded from the active set. Of the remainder:
 
-- no `tasks.md`, or an empty one → `backlog`
-- `tasks.md` with unchecked items → `in-progress`
+- no `tasks.md`, an empty one, or one whose items are all unchecked → `backlog`
+- some items checked, some not → `in-progress`
 - all items checked → `done`
+
+A task item is a Markdown checkbox line — `-`, `*`, or `+`, at any indent. A change with no items at all also raises a `no-task-plan` warning, so a change nobody has planned stays distinguishable from one that is planned but unstarted.
 
 Archived changes always resolve to `completed`. See [Delivery board](delivery-board.md#status) for how the two finished states differ and how manual overrides interact with them.
 

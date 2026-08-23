@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `no-task-plan` drift warning for an active change with no task items, carrying `reason: missing` (no `tasks.md`) or `reason: empty` (a `tasks.md` holding none). Both cases render as `backlog`, so the warning is what separates a change nobody has planned from one planned but unstarted. It counts toward `spego status` drift and is judgment-only — `spego sync` never repairs it.
+
+### Fixed
+- A change whose tasks are all unchecked now resolves to `backlog` instead of `in-progress`; `in-progress` means at least one task is checked.
+- Task parsing now accepts `*` and `+` checkbox bullets and indented items, which were silently skipped and so undercounted a change's progress.
+
 ## [0.22.1] - 2026-08-21
 
 ### Changed

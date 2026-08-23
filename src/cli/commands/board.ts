@@ -291,10 +291,10 @@ function formatHours(hours: number): string {
 
 /**
  * Collapse the board's per-fact warnings into the rows the human board prints,
- * one row per repair. Grouping is keyed per code: `orphan-epic` by reason (a
- * `missing` epic and an `archived` one never merge — different repairs),
- * `dangling-dep`/`out-of-order-dep` by the dependent change, and
- * `closable-sprint`/`dep-cycle`/`ungroomed-change` by
+ * one row per repair. Grouping is keyed per code: `orphan-epic` and
+ * `no-task-plan` by reason (a `missing` epic and an `archived` one never merge
+ * — different repairs), `dangling-dep`/`out-of-order-dep` by the dependent
+ * change, and `closable-sprint`/`dep-cycle`/`ungroomed-change` by
  * code. `adapter-warning`/`adapter-unavailable` pass through untouched. A
  * single-member group keeps its original message; a multi-member group lists
  * every affected slug. The JSON payload stays per-fact — this only shapes the
@@ -328,6 +328,7 @@ function warningDiscriminator(warning: MirrorWarning): string {
   const details = warning.details ?? {};
   switch (warning.code) {
     case 'orphan-epic':
+    case 'no-task-plan':
       return `reason:${details.reason ?? ''}`;
     case 'dangling-dep':
     case 'out-of-order-dep':
@@ -367,8 +368,14 @@ function renderWarningGroup(code: string, members: MirrorWarning[]): [string, st
       });
       return [code, `Profiles drifted from recorded runs: ${pairs.join(', ')} — re-groom the tier judgment or reseed.`];
     }
-    default:
+    case 'no-task-plan':
+      return first.reason === 'empty'
+        ? [code, `Changes ${quoteSlugs(changes)} have a tasks.md with no task items.`]
+        : [code, `Changes ${quoteSlugs(changes)} have no tasks.md.`];
+    case 'ungroomed-change':
       return [code, `Active changes ${quoteSlugs(changes)} have no epic artifacts.`];
+    default:
+      return [code, members.map((member) => member.message).join(' ')];
   }
 }
 

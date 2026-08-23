@@ -9,6 +9,7 @@ export type WarningCode =
   | 'dep-cycle'
   | 'out-of-order-dep'
   | 'ungroomed-change'
+  | 'no-task-plan'
   | 'orphan-epic'
   | 'closable-sprint'
   | 'stale-profile'
@@ -35,6 +36,9 @@ export interface MirrorSourceChange {
   status: DeliveryStatus;
   archived?: boolean;
   warnings?: string[];
+  taskCount?: number;
+  /** Whether the adapter found a task list; absent when it cannot tell, which never warns. */
+  hasTaskPlan?: boolean;
 }
 
 export interface MirrorInput {
@@ -144,8 +148,19 @@ const WARNING_ORDER: Record<WarningCode, number> = {
   'out-of-order-dep': 6,
   'orphan-epic': 7,
   'ungroomed-change': 8,
-  'stale-profile': 9,
+  'no-task-plan': 9,
+  'stale-profile': 10,
 };
+
+/**
+ * Which task-plan gap a change has, if any: no task list at all, or one that
+ * holds no items. An adapter that reports neither field stays silent.
+ */
+function taskPlanGap(source: MirrorSourceChange): 'missing' | 'empty' | undefined {
+  if (source.hasTaskPlan === false) return 'missing';
+  if (source.hasTaskPlan === true && (source.taskCount ?? 0) === 0) return 'empty';
+  return undefined;
+}
 
 /** True when `status` means no further work remains — task completion or archival. */
 export function isSatisfied(status: DeliveryStatus | undefined): boolean {
@@ -241,6 +256,19 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       code: 'ungroomed-change',
       message: `Active change "${source.slug}" has no epic artifact.`,
       details: { change: source.slug },
+    });
+  }
+  for (const source of sortedChanges) {
+    if (source.archived) continue;
+    const reason = taskPlanGap(source);
+    if (!reason) continue;
+    warnings.push({
+      code: 'no-task-plan',
+      message:
+        reason === 'missing'
+          ? `Active change "${source.slug}" has no tasks.md.`
+          : `Active change "${source.slug}" has a tasks.md with no task items.`,
+      details: { change: source.slug, reason },
     });
   }
   for (const epic of sortedEpics) {

@@ -22,7 +22,7 @@ export function createOpenSpecAdapter(projectRoot: string): DeliveryAdapter {
           changeName: externalId,
         });
       }
-      const { title, taskCount, tasksDone, status } = await resolveEpic(projectRoot, change);
+      const { title, taskCount, tasksDone, status, hasTaskPlan } = await resolveEpic(projectRoot, change);
       return {
         adapterName: 'openspec',
         externalId: change.name,
@@ -31,6 +31,7 @@ export function createOpenSpecAdapter(projectRoot: string): DeliveryAdapter {
         sourcePath: change.relPath,
         taskCount,
         tasksDone,
+        hasTaskPlan,
       };
     },
 
@@ -71,7 +72,7 @@ export async function listEpicsFromDiscovered(
 ): Promise<DeliveryEpicLink[]> {
   return Promise.all(
     changes.map(async (change) => {
-      const { title, status, taskCount, tasksDone } = await resolveEpic(projectRoot, change);
+      const { title, status, taskCount, tasksDone, hasTaskPlan } = await resolveEpic(projectRoot, change);
       return {
         adapterName: 'openspec',
         externalId: change.name,
@@ -80,6 +81,7 @@ export async function listEpicsFromDiscovered(
         sourcePath: change.relPath,
         taskCount,
         tasksDone,
+        hasTaskPlan,
       };
     }),
   );
@@ -93,8 +95,9 @@ async function resolveEpic(
   taskCount: number;
   tasksDone: number;
   status: DeliveryEpicLink['status'];
+  hasTaskPlan: boolean;
 }> {
-  const [title, { total, done, status }] = await Promise.all([
+  const [title, { total, done, status, hasTaskPlan }] = await Promise.all([
     readProposalTitle(projectRoot, change.relPath),
     parseTasks(projectRoot, change.relPath, change.name),
   ]);
@@ -104,5 +107,6 @@ async function resolveEpic(
     taskCount: total,
     tasksDone: done,
     status,
+    hasTaskPlan,
   };
 }
