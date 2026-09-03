@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.23.2] - 2026-09-03
+
+### Fixed
+- `spego record` now works against a retired (archived) change's epic instead of failing with `CHANGE_NOT_FOUND`: a run measured before archival can land after `spego sync` retires the change. The delivery mirror keeps retired epics feeding actuals and cross-project pricing while still excluding them from planning rows.
+
 ## [0.23.1] - 2026-09-03
 
 ### Fixed
