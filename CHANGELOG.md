@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.23.1] - 2026-09-03
 
 ### Fixed
 - The CLI exits 0 quietly when its reader closes stdout early (`spego board --json | head`) instead of crashing with an unhandled `EPIPE` stack trace.
