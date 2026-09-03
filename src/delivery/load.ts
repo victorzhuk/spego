@@ -91,7 +91,10 @@ async function collectMirrorInput(
   }
   changes.sort((a, b) => a.slug.localeCompare(b.slug));
 
-  const epics = engine.list({ type: 'epic' }).map(toMirrorArtifact);
+  // Retired (soft-deleted) epics stay in the input: their recorded actuals
+  // must keep feeding closed-sprint rows and pricing buckets. deriveMirror
+  // keeps them off planning surfaces via deletedAt.
+  const epics = engine.list({ type: 'epic', includeDeleted: true }).map(toMirrorArtifact);
   const sprints = engine.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
   const linkedArtifacts = await resolveLinkedArtifacts(engine, epics);
   return { changes, epics, sprints, linkedArtifacts, warnings: [], flows, storeRuns };
@@ -117,6 +120,7 @@ export function toMirrorArtifact(artifact: IndexedArtifact): MirrorArtifact {
     slug: artifact.slug,
     title: artifact.title,
     meta: artifact.meta,
+    deletedAt: artifact.deletedAt,
   };
 }
 

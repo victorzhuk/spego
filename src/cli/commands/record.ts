@@ -50,19 +50,27 @@ export function registerRecord(program: Command): void {
         if (!discovered.some((item) => item.name === change)) {
           throw new SpegoError('CHANGE_NOT_FOUND', `Unknown change: ${change}`, { change });
         }
-        const indexed = engine.list({ type: 'epic' }).find((item) => item.slug === change);
+        // Retired epics stay recordable: a run measured before retirement may
+        // land after sync archives the change, and its history must not vanish.
+        const indexed = engine
+          .list({ type: 'epic', includeDeleted: true })
+          .find((item) => item.slug === change);
         if (!indexed) {
           throw new SpegoError('CHANGE_NOT_FOUND', `Change "${change}" has no epic artifact`, { change });
         }
 
-        const current = await engine.readById(indexed.id);
+        const current = await engine.readForIndexed(indexed);
         const actuals = [...parseActuals(current.frontmatter.meta.actuals), { flow: opts.flow, hours }];
         const expectedRevision =
           opts.expectedRevision !== undefined ? Number(opts.expectedRevision) : current.frontmatter.revision;
-        const updated = await engine.update(indexed.id, {
-          meta: { ...current.frontmatter.meta, actuals },
-          expectedRevision,
-        });
+        const updated = await engine.update(
+          indexed.id,
+          {
+            meta: { ...current.frontmatter.meta, actuals },
+            expectedRevision,
+          },
+          { includeDeleted: true },
+        );
 
         // Epic first, store second: the run must land on its change before it
         // can count cross-project. A run without a usable tier cannot be keyed

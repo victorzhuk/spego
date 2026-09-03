@@ -28,6 +28,8 @@ export interface MirrorArtifact {
   slug: string;
   title: string;
   meta: Record<string, unknown>;
+  /** Soft-delete timestamp; a retired epic feeds actuals but never planning rows. */
+  deletedAt?: string | null;
 }
 
 export interface MirrorSourceChange {
@@ -169,7 +171,8 @@ export function isSatisfied(status: DeliveryStatus | undefined): boolean {
 
 export function deriveMirror(input: MirrorInput): MirrorBoard {
   const sortedChanges = [...input.changes].sort((a, b) => a.slug.localeCompare(b.slug));
-  const sortedEpics = sortArtifacts(input.epics);
+  const sortedEpics = sortArtifacts(input.epics.filter((epic) => !epic.deletedAt));
+  const retiredEpics = sortArtifacts(input.epics.filter((epic) => Boolean(epic.deletedAt)));
   const sortedSprintArtifacts = sortArtifacts(input.sprints);
   const linkedById = new Map((input.linkedArtifacts ?? []).map((artifact) => [artifact.id, artifact]));
   const inputChangeBySlug = new Map(sortedChanges.map((item) => [item.slug, item]));
@@ -202,6 +205,15 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       archived: false,
       epic,
     });
+  }
+  // A retired epic is the measurement record of an archived change: it keeps
+  // feeding actuals and run buckets, but it must not resurrect planning rows,
+  // suppress ungroomed-change, or re-trigger orphan-epic/retire-epic.
+  for (const epic of retiredEpics) {
+    const current = changeStates.get(epic.slug);
+    if (!current || current.epic || !current.archived) continue;
+    current.title = epic.title;
+    current.epic = epic;
   }
 
   const sprints = sortedSprintArtifacts.map((artifact) => toSprintPlan(artifact));

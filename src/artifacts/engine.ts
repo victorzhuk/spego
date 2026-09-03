@@ -224,10 +224,10 @@ export class ArtifactEngine {
 
  // ---------------------------------------------------------------- update
 
- async update(id: string, input: unknown): Promise<ArtifactRecord> {
+ async update(id: string, input: unknown, opts: { includeDeleted?: boolean } = {}): Promise<ArtifactRecord> {
   const data = parseUpdateInput(input);
   const indexed = getArtifactById(this.db, id);
-  if (!indexed || indexed.deletedAt) {
+  if (!indexed || (indexed.deletedAt && !opts.includeDeleted)) {
    throw new SpegoError('ARTIFACT_NOT_FOUND', `Artifact not found: ${id}`, { id });
   }
 
