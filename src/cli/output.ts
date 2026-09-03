@@ -5,6 +5,20 @@
  * handling so individual command actions never branch on `--json` more than once.
  */
 
+/**
+ * A reader that stops early (`spego board --json | head`) closes the pipe; the
+ * next stdout write raises EPIPE, which is the reader's decision, not a failure.
+ * Exit 0 quietly instead of dying with an unhandled 'error' event and a stack trace.
+ */
+export function exitQuietlyOnClosedStdout(): void {
+  process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EPIPE') {
+      process.exit(0);
+    }
+    throw err;
+  });
+}
+
 export function emitJson(payload: unknown): void {
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
 }

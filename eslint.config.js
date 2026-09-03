@@ -14,6 +14,7 @@ export default tseslint.config(
             'test/artifact-schemas.test.ts',
             'test/cli.test.ts',
             'test/cli-help-exit.test.ts',
+            'test/cli-epipe.test.ts',
             'test/cli.render.test.ts',
             'test/cli.skills-command.test.ts',
             'test/cli.status.test.ts',

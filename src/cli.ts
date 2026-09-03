@@ -12,6 +12,7 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pkg from '../package.json' with { type: 'json' };
 import { fail, failValidation } from './cli/errors.js';
+import { exitQuietlyOnClosedStdout } from './cli/output.js';
 import { registerMeta } from './cli/commands/meta.js';
 import { registerWorkspace } from './cli/commands/workspace.js';
 import { registerArtifact } from './cli/commands/artifact.js';
@@ -84,6 +85,7 @@ function isEntryPoint(): boolean {
 }
 
 if (isEntryPoint()) {
+  exitQuietlyOnClosedStdout();
   const program = buildProgram();
   const args = process.argv;
   if (args.length <= 2) {
