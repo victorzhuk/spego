@@ -81,7 +81,7 @@ describe('CLI epic mirror and sprint membership', () => {
     expect(stderr).toContain('not verified');
   });
 
-  it('rejects updating an epic when the linked OpenSpec change becomes archived', async () => {
+  it('still updates an epic after the linked OpenSpec change is archived', async () => {
     const root = await setupChange('add-auth');
     const created = await spawnCli(
       ['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root],
@@ -94,19 +94,29 @@ describe('CLI epic mirror and sprint membership', () => {
       'utf8',
     );
 
-    const err = await expectCliFailure(
-      ['--json', 'update', '--id', epic.id, '--title', 'Add Auth Updated', '--cwd', root],
+    const { stdout } = await spawnCli(
+      [
+        '--json',
+        'update',
+        '--id',
+        epic.id,
+        '--meta',
+        JSON.stringify({ actuals: [{ flow: 'zapply', hours: 6.25 }] }),
+        '--expected-revision',
+        '1',
+        '--cwd',
+        root,
+      ],
       root,
     );
 
-    const error = parseError(err.stderr);
-    expect(error.error.code).toBe('VALIDATION_FAILED');
-    expect(error.error.message).toContain('not found or archived');
-    expect(error.error.message).toContain(epic.slug);
-    expect(error.error.details).toMatchObject({ slug: epic.slug });
+    const updated = JSON.parse(stdout) as { revision: number; frontmatter: { slug: string; meta: { actuals: unknown } } };
+    expect(updated.revision).toBe(2);
+    expect(updated.frontmatter.slug).toBe(epic.slug);
+    expect(updated.frontmatter.meta.actuals).toEqual([{ flow: 'zapply', hours: 6.25 }]);
   });
 
-  it('warns and updates an epic when OpenSpec workspace is absent', async () => {
+  it('updates an epic without re-verifying its change link when OpenSpec workspace is absent', async () => {
     const root = await setupWithoutOpenSpec();
     const created = await spawnCli(
       ['--json', 'create', '--type', 'epic', '--title', 'add-auth', '--cwd', root],
@@ -121,8 +131,7 @@ describe('CLI epic mirror and sprint membership', () => {
 
     const result = JSON.parse(stdout);
     expect(result.frontmatter).toMatchObject({ slug: epic.slug, type: 'epic', revision: 2 });
-    expect(stderr).toContain(epic.slug);
-    expect(stderr).toContain('not verified');
+    expect(stderr).not.toContain('not verified');
   });
 
   it('rejects duplicate active sprint-plan change membership', async () => {

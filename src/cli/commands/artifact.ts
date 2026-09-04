@@ -179,11 +179,9 @@ export function registerArtifact(program: Command): void {
      },
     },
     async (engine) => {
-     const current = await engine.readById(opts.id);
-     if (current.frontmatter.type === 'epic') {
-      const adapter = await resolveEpicAdapter(engine);
-      await assertEpicSlugActive(adapter, current.frontmatter.slug);
-     }
+     // The change link is validated when the epic is created and when sync moves it; an update
+     // cannot change the slug, so re-checking here only blocked corrections (an actual, a
+     // tier, a note) on an epic whose change has since been archived.
      const patch: Record<string, unknown> = {};
      if (opts.title !== undefined) patch.title = opts.title;
      if (body !== undefined) patch.body = body;

@@ -5,6 +5,9 @@
 ### Added
 - `sprint-plan` artifacts accept `requires` and `links`, naming supporting artifacts the sprint as a whole needs. The board resolves them by the same rule it uses for an epic and reports the unresolved remainder as the sprint's `missing`, both in `--json` and as a `N mis` suffix on the sprint panel title.
 
+### Changed
+- `spego update` no longer refuses an epic whose OpenSpec change has been archived. An update cannot change the slug, so the change link is validated on `create` and `sync` only; correcting an actual, a tier, or a note on a retired epic now works instead of failing with `VALIDATION_FAILED`.
+
 ## [0.23.2] - 2026-09-03
 
 ### Fixed
