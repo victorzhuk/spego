@@ -4,6 +4,8 @@
 
 The board combines active and archived OpenSpec changes with `epic` and `sprint-plan` artifacts into a sprint board: sprints in date order (undated last), each sprint's changes in dependency order, then per-change status, blockers, gaps, and missing artifacts (`requires` minus resolvable `links`).
 
+A `sprint-plan` carries its own `requires` and `links`, resolved by the same rule: what the sprint as a whole needs — a design, a QA plan, a decision that spans its changes — rather than what any single change needs. The unresolved remainder is the sprint's `missing`.
+
 A change is blocked when a dependency is not `done` or `completed` and is not scheduled in the same or an earlier sprint. Archived changes are discovered from `openspec/changes/archive/<date>-<slug>/`, with the date prefix stripped to derive the slug, and always resolve to `completed` — so a dependency that resolved through the archive no longer trips `dangling-dep`.
 
 ## Status
@@ -34,7 +36,7 @@ The default output is the human board.
 
 ## Rendering
 
-Each sprint — and the `Ungrouped` list and the trailing `Warnings` table — renders as a bordered panel: a left rail closed on the right with `│`, corners `╮`/`╯`, and its title embedded in the top rail as `<title> · <status> · <slug>`, bolded.
+Each sprint — and the `Ungrouped` list and the trailing `Warnings` table — renders as a bordered panel: a left rail closed on the right with `│`, corners `╮`/`╯`, and its title embedded in the top rail as `<title> · <status> · <slug>`, bolded. A sprint whose own `requires` are unresolved adds `· N mis`, the same signal its change rows carry, at sprint scope.
 
 Every panel on a board renders at the same width: whichever is wider between the shared table grid and the longest panel title, capped at the terminal width. A title too long for that width truncates with `…` rather than widening its panel past its siblings.
 

@@ -163,12 +163,19 @@ function buildChangeSections(board: MirrorBoard): BoardSection[] {
   return sections;
 }
 
-/** `<title> · <status> · <slug>`, plus the remaining Flow Estimate when the sprint is priced; `+?` flags pending unpriced changes. */
+/**
+ * `<title> · <status> · <slug>`, plus the remaining Flow Estimate when the sprint is priced
+ * (`+?` flags pending unpriced changes) and `N mis` when the sprint's own `requires` are
+ * unresolved — the same signal the change rows carry, at sprint scope.
+ */
 function sprintTitle(sprint: MirrorSprint): string {
-  const base = `${sprint.title} · ${sprint.status} · ${sprint.slug}`;
-  if (sprint.flowTotal === undefined) return base;
-  const unpriced = (sprint.unpricedPending ?? 0) > 0 ? '+?' : '';
-  return `${base} · ${formatHours(sprint.flowTotal)}${unpriced}h`;
+  let title = `${sprint.title} · ${sprint.status} · ${sprint.slug}`;
+  if (sprint.flowTotal !== undefined) {
+    const unpriced = (sprint.unpricedPending ?? 0) > 0 ? '+?' : '';
+    title += ` · ${formatHours(sprint.flowTotal)}${unpriced}h`;
+  }
+  if (sprint.missing.length > 0) title += ` · ${sprint.missing.length} mis`;
+  return title;
 }
 
 /** Total rendered width of a table built from `widths`: columns plus the two-space separators between them. */

@@ -29,6 +29,8 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
       status: z.enum(['planned', 'active', 'closed']).optional(),
       tags: z.array(z.string()).optional(),
       changes: z.array(z.string().min(1)).optional(),
+      links: z.array(z.string()).optional(),
+      requires: z.array(z.string().min(1)).optional(),
     })
     .refine((meta) => !meta.changes || new Set(meta.changes).size === meta.changes.length, {
       path: ['changes'],
@@ -127,7 +129,7 @@ export const ARTIFACT_META_DOCS: Record<BuiltinArtifactType, string> = {
   okr: 'period, level (company|team|individual), tags[]',
   retro: 'sprint, date, tags[]',
   'sprint-plan':
-    'sprint, startDate, endDate, status (planned|active|closed), tags[], changes[] (change slugs; must be unique within the sprint)',
+    'sprint, startDate, endDate, status (planned|active|closed), tags[], changes[] (change slugs; must be unique within the sprint), links[] (linked artifact ids), requires[] (labels for supporting artifacts the sprint as a whole needs)',
   epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tier (size tier: xs|s|m|l|xl; prices the change from the workspace flows tables), flow (Flow profile overriding the workspace default when pricing), actuals[] ({flow, hours}; recorded runs, append-only via spego record), tags[]',
   brainstorm: 'status (open|closed), tags[]',
   usecases: 'status (draft|reviewed|approved), tags[]',

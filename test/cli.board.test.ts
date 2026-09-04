@@ -326,6 +326,27 @@ describe('CLI board command', () => {
     expect(result.next).toMatchObject({ change: 'add-ui', sprint: 'sprint-1' });
   }, 30_000);
 
+  it('flags a sprint-plan whose own required artifacts are unlinked', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'sprint-scoped', { tasks: '- [ ] build\n' });
+    const design = await createArtifact(root, 'design', 'Sprint 9 design', { category: 'system' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 9', {
+      status: 'active',
+      changes: ['sprint-scoped'],
+      requires: ['design', 'qa'],
+      links: [design.frontmatter.id],
+    });
+
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    expect(result.sprints[0]!.missing).toEqual(['qa']);
+
+    const { stdout: human } = await spawnCli(['board', '--cwd', root], root, {
+      env: { COLUMNS: '160' },
+    });
+    expect(stripAnsi(human)).toContain('1 mis');
+  }, 30_000);
+
   it('groups changes by conflict track: same track shared, distinct tracks separate', async () => {
     const root = await setupWaveFixture();
     const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);

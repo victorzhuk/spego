@@ -94,6 +94,8 @@ export interface MirrorSprint {
   changes: MirrorChange[];
   /** True when the sprint has at least one change and every change is done/completed. */
   complete: boolean;
+  /** Artifact types the sprint's own `requires` names that its `links` do not resolve; sorted. */
+  missing: string[];
   /** Total Flow Estimate of pending changes; absent when the workspace declares no flows block. */
   flowTotal?: number;
   /** Pending changes with no price; a nonzero count marks the total as incomplete. */
@@ -364,6 +366,18 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     warningCodesByChange.set(change, codes);
   }
 
+  /** `requires` minus the types its `links` resolve to — the same rule for an epic and for a sprint-plan. */
+  const missingForOwner = (owner: MirrorArtifact): string[] => {
+    const coveredTypes = new Set<string>();
+    for (const id of uniqueStrings(owner.meta.links)) {
+      const linked = linkedById.get(id);
+      if (linked) coveredTypes.add(linked.type);
+    }
+    return uniqueStrings(owner.meta.requires)
+      .filter((type) => !coveredTypes.has(type))
+      .sort();
+  };
+
   const missingBySlug = new Map<string, string[]>();
   const gapsBySlug = new Map<string, MirrorGap[]>();
   for (const [slug, state] of [...changeStates].sort((a, b) => a[0].localeCompare(b[0]))) {
@@ -373,16 +387,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       gapsBySlug.set(slug, []);
       continue;
     }
-    const links = uniqueStrings(epic.meta.links);
-    const coveredTypes = new Set<string>();
-    for (const id of links) {
-      const linked = linkedById.get(id);
-      if (linked) coveredTypes.add(linked.type);
-    }
-    missingBySlug.set(
-      slug,
-      uniqueStrings(epic.meta.requires).filter((type) => !coveredTypes.has(type)).sort(),
-    );
+    missingBySlug.set(slug, missingForOwner(epic));
     gapsBySlug.set(slug, gapsFromMeta(epic.meta.gaps));
   }
 
@@ -444,6 +449,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       endDate: sprint.endDate,
       changes,
       complete: changes.length > 0 && changes.every((item) => isSatisfied(item.status)),
+      missing: missingForOwner(sprint.artifact),
     };
     if (input.flows) {
       let total = 0;

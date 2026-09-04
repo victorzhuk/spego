@@ -38,7 +38,7 @@ Full reference: [docs/cli.md](docs/cli.md).
 Built-in: `prd`, `epic`, `okr`, `retro`, `sprint-plan`, `brainstorm`, `usecases`, `design`, `api`, `architecture`, `decision`, `risk`, `qa`, `ceremony`.
 
 - `epic` mirrors an OpenSpec change. Its optional meta supports `deps`, `links`, `requires`, `gaps`, `status`, `track`, `tier`, `flow`, and `actuals`.
-- `sprint-plan` may include ordered `changes`; a change belongs to at most one non-closed sprint-plan.
+- `sprint-plan` may include ordered `changes`; a change belongs to at most one non-closed sprint-plan. Its optional `requires` and `links` name supporting artifacts the sprint as a whole needs, resolved like an epic's.
 
 Custom types register through workspace config (`extraArtifactTypes`).
 

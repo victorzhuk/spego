@@ -96,7 +96,7 @@ async function collectMirrorInput(
   // keeps them off planning surfaces via deletedAt.
   const epics = engine.list({ type: 'epic', includeDeleted: true }).map(toMirrorArtifact);
   const sprints = engine.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
-  const linkedArtifacts = await resolveLinkedArtifacts(engine, epics);
+  const linkedArtifacts = await resolveLinkedArtifacts(engine, [...epics, ...sprints]);
   return { changes, epics, sprints, linkedArtifacts, warnings: [], flows, storeRuns };
 }
 
@@ -124,13 +124,14 @@ export function toMirrorArtifact(artifact: IndexedArtifact): MirrorArtifact {
   };
 }
 
+/** Epics and sprint-plans both carry `links`; a sprint's supporting artifacts resolve the same way. */
 async function resolveLinkedArtifacts(
   engine: ArtifactEngine,
-  epics: MirrorArtifact[],
+  owners: MirrorArtifact[],
 ): Promise<MirrorArtifact[]> {
   const ids = new Set<string>();
-  for (const epic of epics) {
-    const links = epic.meta.links;
+  for (const owner of owners) {
+    const links = owner.meta.links;
     if (!Array.isArray(links)) continue;
     for (const link of links) {
       if (typeof link === 'string') ids.add(link);

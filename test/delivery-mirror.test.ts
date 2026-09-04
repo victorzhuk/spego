@@ -267,6 +267,33 @@ describe('deriveMirror', () => {
     expect(findChange(result, 'broken')?.missing).toEqual(['api', 'prd']);
   });
 
+  it("derives a sprint-plan's own missing artifact types the same way as an epic's", () => {
+    const result = board({
+      changes: [change('a'), change('b')],
+      epics: [epic('a'), epic('b')],
+      sprints: [
+        sprint('covered', ['a'], { requires: ['design'], links: ['design-id'] }),
+        sprint('short', ['b'], { requires: ['qa', 'design'], links: ['design-id', 'gone-id'] }),
+      ],
+      linkedArtifacts: [
+        { id: 'design-id', type: 'design', slug: 'design-id', title: 'design-id', meta: {} },
+      ],
+    });
+
+    expect(result.sprints.find((s) => s.slug === 'covered')?.missing).toEqual([]);
+    expect(result.sprints.find((s) => s.slug === 'short')?.missing).toEqual(['qa']);
+  });
+
+  it('reports no missing artifacts for a sprint-plan that requires none', () => {
+    const result = board({
+      changes: [change('a')],
+      epics: [epic('a')],
+      sprints: [sprint('plain', ['a'])],
+    });
+
+    expect(result.sprints[0]?.missing).toEqual([]);
+  });
+
   it('chooses the first pending unblocked change from active sprint order', () => {
     const result = board({
       changes: [
