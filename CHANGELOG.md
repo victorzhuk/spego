@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-04
+
 ### Added
 - `sprint-plan` artifacts accept `requires` and `links`, naming supporting artifacts the sprint as a whole needs. The board resolves them by the same rule it uses for an epic and reports the unresolved remainder as the sprint's `missing`, both in `--json` and as a `N mis` suffix on the sprint panel title.
 
