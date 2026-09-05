@@ -1,7 +1,7 @@
 # grooming-workflow Specification
 
 ## Purpose
-TBD - created by archiving change add-groom-workflow. Update Purpose after archive.
+Define the `spego-groom` workflow that owns the judgment layer of the delivery mirror — dependencies, required artifacts, gaps, conflict tracks, Size Tiers and sprint grouping — as the sole writer of judged mirror state, persisting only through `spego create` and `spego update`.
 
 ## Requirements
 

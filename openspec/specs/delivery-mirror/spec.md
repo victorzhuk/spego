@@ -1,7 +1,7 @@
 # delivery-mirror Specification
 
 ## Purpose
-TBD - created by archiving change add-mirror-command. Update Purpose after archive.
+Derive the delivery mirror on demand — sprints, epics, blockers, gaps, drift warnings, the next change and priced hours — from `epic` and `sprint-plan` artifacts plus the read-only OpenSpec adapter, and reconcile the mechanical part of that state with `spego sync` and `spego record` without ever storing the derived picture.
 
 ## Requirements
 

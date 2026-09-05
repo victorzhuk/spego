@@ -1,7 +1,8 @@
 # workspace-containment Specification
 
 ## Purpose
-TBD - created by archiving change harden-workspace-symlink-containment. Update Purpose after archive.
+Keep every read and write of the `.spego/` workspace inside its resolved, symlink-free root, so a linked path can neither leak an artifact outside the workspace nor smuggle content into it, and a failed atomic write leaves nothing behind.
+
 ## Requirements
 ### Requirement: Workspace root is resolved and symlink-free
 The system SHALL resolve the workspace root via realpath when opening a workspace and SHALL reject a `.spego` directory, or any directory component under it, that is a symbolic link, returning a structured validation error naming the offending path.
