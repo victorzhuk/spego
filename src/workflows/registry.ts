@@ -395,7 +395,7 @@ const GROOM: WorkflowMeta = {
     {
       name: 'plan',
       instruction:
-        'Propose sprint grouping as releasable, testable units. Create or update `sprint-plan` artifacts via `spego --json create --type sprint-plan` or `spego --json update --id <sprint-plan id> --expected-revision <current revision>` after user confirmation. Finished sprints are closed mechanically by `spego sync`, not here.',
+        'Schedule one sprint by default: the first releasable, testable unit. Every other pending change stays in the backlog as an epic without a `sprint-plan`. Form the next sprint at the groom after the scheduled sprint closes; offer more than one sprint in the same session only on the user\'s explicit request. Create or update `sprint-plan` artifacts via `spego --json create --type sprint-plan` or `spego --json update --id <sprint-plan id> --expected-revision <current revision>` after user confirmation. Finished sprints are closed mechanically by `spego sync`, not here.',
     },
     {
       name: 'summarize',
