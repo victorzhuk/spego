@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- The groom `plan` phase schedules one sprint by default — the first releasable, testable unit — and leaves every other pending change in the backlog as an epic without a `sprint-plan`. The next sprint is formed at the groom after that sprint closes; more than one sprint in the same session only on the user's explicit request.
+
 ## [0.24.0] - 2026-09-04
 
 ### Added

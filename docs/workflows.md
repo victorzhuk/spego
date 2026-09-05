@@ -72,7 +72,7 @@ Delivery-mirror workflow reconciling active OpenSpec changes with `epic` and `sp
 1. `orient` — read `spego board --json` and `spego epics --json`, then classify drift warnings.
 2. `sync` — run `spego sync` to mechanically create missing epics, close finished sprints, and retire epics of archived changes, then propose disposition for orphans resolving to no OpenSpec change.
 3. `analyze` — update deps, requires, supporting links, gap notes, conflict tracks, and Size Tiers on epics.
-4. `plan` — propose releasable, testable sprint groupings and create or update `sprint-plan` artifacts after confirmation.
+4. `plan` — schedule one sprint by default, the first releasable, testable unit, and create or update its `sprint-plan` after confirmation; every other pending change stays in the backlog as an epic without a `sprint-plan`. The next sprint is formed at the groom after that sprint closes; more than one sprint in the same session only on the user's explicit request.
 5. `summarize` — report epics, dispositions, sprint plans, and the next-change suggestion.
 
 Sole writers: groom and `spego sync` persist mirror state only through `spego create` / `spego update` with `--expected-revision`. Neither writes `openspec/` or mutates OpenSpec lifecycle state. Orphan disposition — only for epics resolving to no OpenSpec change — requires explicit confirmation; the default is keep. Epics of archived changes are retired, and finished sprints closed, deterministically by `spego sync` (preview with `--dry-run`), not by hand in groom.
