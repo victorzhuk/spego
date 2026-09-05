@@ -160,5 +160,11 @@ describe('Workflow registry', () => {
     const safety = wf.safety.join('\n');
     expect(safety).toContain('openspec/');
     expect(safety).toContain('--expected-revision');
+    const plan = wf.phases.find((p) => p.name === 'plan')!.instruction;
+    expect(plan).toContain('one sprint by default');
+    expect(plan).toContain('the first releasable, testable unit');
+    expect(plan).toContain('stays in the backlog as an epic without a `sprint-plan`');
+    expect(plan).toContain("only on the user's explicit request");
+    expect(plan).toContain('after the scheduled sprint closes');
   });
 });
