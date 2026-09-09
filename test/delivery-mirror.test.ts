@@ -881,6 +881,76 @@ describe('deriveMirror profile ladder', () => {
     return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
   }
 
+  // The planned rung: a change with a plan is priced from its chunk count at the measured cost per
+  // chunk, because a groom's tier judgment is made before tasks.md exists. Measured over 69 runs on
+  // one board the tier correlated 0.32 with actual hours against 0.68 for the task count behind it.
+  function chunkEpic(slug: string, tier: string, flow: string, chunks: number, runs: number[]): MirrorArtifact {
+    return epic(slug, { tier, chunks, actuals: runs.map((hours) => ({ flow, hours })) });
+  }
+
+  it('prices a planned change from its chunk count, over its tier', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm', chunks: 10 }),
+        chunkEpic('h1', 'l', 'zapply', 4, [2]),      // 0.5 h/chunk
+        chunkEpic('h2', 's', 'zapply', 10, [6]),     // 0.6 h/chunk
+        chunkEpic('h3', 'm', 'zapply', 5, [2]),      // 0.4 h/chunk
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // median per-chunk of [0.5, 0.6, 0.4] = 0.5, times this plan's 10 chunks
+    expect(row?.flowEstimate).toBe(5);
+    expect(row?.rung).toBe('planned');
+    expect(row?.chunks).toBe(10);
+    // the tier ladder would have priced it at the m seed or the m observed median — not 5
+    expect(row?.humanEstimate).toBe(16);
+  });
+
+  it('falls back to the tier ladder when the plan has no chunk evidence yet', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2')],
+      epics: [
+        epic('a', { tier: 'm', chunks: 10 }),
+        chunkEpic('h1', 'm', 'zapply', 4, [2]),
+        chunkEpic('h2', 'm', 'zapply', 4, [2]),      // two runs, below MIN_OBSERVED_RUNS
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    expect(row?.rung).not.toBe('planned');
+    expect(row && 'chunks' in row).toBe(false);
+  });
+
+  it('does not price from chunks recorded under another flow', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm', chunks: 10, flow: 'zapply' }),
+        chunkEpic('h1', 'm', 'zsprint', 4, [2]),
+        chunkEpic('h2', 'm', 'zsprint', 4, [2]),
+        chunkEpic('h3', 'm', 'zsprint', 4, [2]),
+      ],
+      flows,
+    });
+    expect(findChange(result, 'a')?.rung).not.toBe('planned');
+  });
+
+  it('ignores a chunk count that is not a positive number', () => {
+    const result = board({
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm', chunks: 0 }),
+        chunkEpic('h1', 'm', 'zapply', 4, [2]),
+        chunkEpic('h2', 'm', 'zapply', 4, [2]),
+        chunkEpic('h3', 'm', 'zapply', 4, [2]),
+      ],
+      flows,
+    });
+    expect(findChange(result, 'a')?.rung).not.toBe('planned');
+  });
+
   it('resolves the seed rung when runs are below the threshold', () => {
     const result = board({
       changes: [change('a'), change('h1'), change('h2')],

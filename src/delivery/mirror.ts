@@ -79,6 +79,8 @@ export interface MirrorChange {
   rung?: string;
   /** Median bias ratio for the change's Flow and Tier pair, unclamped; absent when the pair has no recorded runs. */
   bias?: number;
+  /** The plan's chunk count when the price came from it (`rung: 'planned'`); absent otherwise. */
+  chunks?: number;
   /** Recorded runs from the epic's `actuals` (stored measurements, not derived). */
   actuals: ActualRun[];
   /** Total recorded hours across all runs. */
@@ -394,6 +396,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   const runBuckets = bucketRuns(changeStates);
   const storeBuckets = bucketStoreRuns(input.storeRuns ?? []);
   const biasByPair = input.flows ? deriveBias(runBuckets, input.flows) : new Map<string, number>();
+  const perChunkBuckets = bucketPerChunk(changeStates);
   for (const key of [...biasByPair.keys()].sort()) {
     const bias = biasByPair.get(key)!;
     if (bias >= BIAS_WARN_LOW && bias <= BIAS_WARN_HIGH) continue;
@@ -408,7 +411,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   const priceBySlug = new Map<string, ChangePrice>();
   if (input.flows) {
     for (const slug of sortedSlugs) {
-      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets, storeBuckets, biasByPair);
+      const price = priceChange(changeStates.get(slug)?.epic, input.flows, runBuckets, storeBuckets, biasByPair, perChunkBuckets);
       if (price) priceBySlug.set(slug, price);
     }
   }
@@ -586,6 +589,17 @@ const MIN_OBSERVED_RUNS = 3;
 const RUNG_SEED = 'config-seed';
 const RUNG_OBSERVED = 'observed';
 const RUNG_CROSS_PROJECT = 'cross-project';
+/**
+ * The top rung: a change whose plan exists is priced from that plan's chunk
+ * count, not from its Size Tier. Measured over 69 recorded runs on one board,
+ * the tier correlated 0.32 with the hours a change actually took while its
+ * open task count — which the chunk count is derived from, two tasks per chunk
+ * — correlated 0.68; the tier's whole price range (1.15–4.47 h) sat below half
+ * the observed range (0.56–16.6 h), so no calibration of a tier price could
+ * have expressed a 16-hour change. The tier ladder stays below this rung for
+ * every change that has not been planned yet.
+ */
+const RUNG_PLANNED = 'planned';
 
 /**
  * Bounds for the bias correction and its warning band. The applied correction
@@ -630,6 +644,8 @@ interface ChangePrice {
   humanEstimate: number;
   rung: string;
   bias?: number;
+  /** The plan's chunk count, when the price was derived from it. */
+  chunks?: number;
 }
 
 /** Median of `values`, rounded to two decimals; undefined for an empty list. */
@@ -656,6 +672,25 @@ function bucketRuns(changeStates: Map<string, ChangeState>): Map<string, number[
       const bucket = buckets.get(key) ?? [];
       bucket.push(run.hours);
       buckets.set(key, bucket);
+    }
+  }
+  return buckets;
+}
+
+/**
+ * Hours per chunk, bucketed by Flow alone: the chunk count already carries the
+ * change's size, so splitting these by tier would only thin the evidence. Only
+ * runs whose epic recorded the chunk count its plan produced contribute.
+ */
+function bucketPerChunk(changeStates: Map<string, ChangeState>): Map<string, number[]> {
+  const buckets = new Map<string, number[]>();
+  for (const state of changeStates.values()) {
+    const chunks = state.epic?.meta.chunks;
+    if (typeof chunks !== 'number' || !Number.isFinite(chunks) || chunks <= 0) continue;
+    for (const run of parseActuals(state.epic?.meta.actuals)) {
+      const bucket = buckets.get(run.flow) ?? [];
+      bucket.push(run.hours / chunks);
+      buckets.set(run.flow, bucket);
     }
   }
   return buckets;
@@ -691,6 +726,7 @@ function priceChange(
   runBuckets: Map<string, number[]>,
   storeBuckets: Map<string, number[]>,
   biasByPair: Map<string, number>,
+  perChunkBuckets: Map<string, number[]> = new Map(),
 ): ChangePrice | undefined {
   if (!epic) return undefined;
   const tier = epic.meta.tier;
@@ -698,6 +734,22 @@ function priceChange(
   const flow = epic.meta.flow;
   if (flow !== undefined && typeof flow !== 'string') return undefined;
   const flowName = (flow as string | undefined) ?? flows.default;
+
+  // Top rung: this change has a plan, and the workspace has enough runs to know
+  // what one chunk costs. No bias correction — the per-chunk median IS the
+  // observed evidence, the same reason an observed tier price is not corrected.
+  const chunks = epic.meta.chunks;
+  if (typeof chunks === 'number' && Number.isFinite(chunks) && chunks > 0) {
+    const perChunk = perChunkBuckets.get(flowName) ?? [];
+    if (perChunk.length >= MIN_OBSERVED_RUNS) {
+      return {
+        flowEstimate: Math.round(median(perChunk)! * chunks * 100) / 100,
+        humanEstimate: flows.human[tier as SizeTier],
+        rung: RUNG_PLANNED,
+        chunks,
+      };
+    }
+  }
 
   const pairKey = `${flowName}\u0000${tier}`;
   const runs = runBuckets.get(pairKey) ?? [];

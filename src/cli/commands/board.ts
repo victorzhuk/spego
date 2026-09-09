@@ -141,6 +141,10 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     const note = '* observed — median of recorded runs';
     lines.push(plain ? note : styleText('dim', note));
   }
+  if (renderedChanges.some((change) => change.rung === 'planned')) {
+    const note = '† planned — the plan\'s chunk count at the measured cost per chunk';
+    lines.push(plain ? note : styleText('dim', note));
+  }
   const syncActions = deriveSyncPlan(board, input).actions.length;
   if (syncActions > 0) {
     const noun = syncActions === 1 ? 'fix' : 'fixes';
@@ -285,7 +289,8 @@ function changeRow(change: MirrorChange, priced: boolean): string[] {
   ];
   if (priced) {
     const estimate = change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate);
-    row.push(change.rung === 'observed' ? `${estimate}*` : estimate);
+    const mark = change.rung === 'planned' ? '†' : change.rung === 'observed' ? '*' : '';
+    row.push(`${estimate}${mark}`);
   }
   row.push(formatSignals(change));
   return row;

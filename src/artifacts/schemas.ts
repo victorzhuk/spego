@@ -52,6 +52,11 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
       .optional(),
     track: z.string().min(1).optional(),
     tier: z.enum(SIZE_TIERS).optional(),
+    // The chunk count of the change's approved plan, written by the planning flow. It outranks the
+    // tier when pricing: the tier is a groom's judgment made before tasks.md exists, the chunk count
+    // is what the run will actually execute.
+    chunks: z.number().int().positive().optional(),
+    tasks: z.number().int().nonnegative().optional(),
     flow: z.string().min(1).optional(),
     actuals: z
       .array(
@@ -130,7 +135,7 @@ export const ARTIFACT_META_DOCS: Record<BuiltinArtifactType, string> = {
   retro: 'sprint, date, tags[]',
   'sprint-plan':
     'sprint, startDate, endDate, status (planned|active|closed), tags[], changes[] (change slugs; must be unique within the sprint), links[] (linked artifact ids), requires[] (labels for supporting artifacts the sprint as a whole needs)',
-  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tier (size tier: xs|s|m|l|xl; prices the change from the workspace flows tables), flow (Flow profile overriding the workspace default when pricing), actuals[] ({flow, hours}; recorded runs, append-only via spego record), tags[]',
+  epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tier (size tier: xs|s|m|l|xl; prices the change from the workspace flows tables), chunks (chunk count of the approved plan; outranks tier when pricing), tasks (open task count when the plan was written), flow (Flow profile overriding the workspace default when pricing), actuals[] ({flow, hours}; recorded runs, append-only via spego record), tags[]',
   brainstorm: 'status (open|closed), tags[]',
   usecases: 'status (draft|reviewed|approved), tags[]',
   design: 'status (draft|in-review|approved), category (ux|ui|workflow|system), tags[]',
