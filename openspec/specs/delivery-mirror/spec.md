@@ -51,7 +51,7 @@ The system SHALL derive the Mirror on demand from read-only inputs — OpenSpec 
 - **THEN** D resolves to status `completed` and is not reported as a `dangling-dep` or a blocker of X
 
 ### Requirement: Report drift warnings
-The system SHALL attach drift warnings to every mirror rendering, covering: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `orphan-epic`, `closable-sprint`, and `stale-profile`. Dependency cycles SHALL be reported, treated as blocking their members, and SHALL NOT cause non-termination. An archived change scheduled into a sprint SHALL NOT produce a warning of its own: mid-sprint archival is normal progress, already visible as a struck-through row, and end-of-sprint cleanup is owned by `closable-sprint`. A `stale-profile` warning SHALL fire when a Flow and Size Tier pair's bias leaves a fixed band around parity, naming the Flow, the tier, and the direction of the miss, and pointing at re-grooming rather than at an automatic repair.
+The system SHALL attach drift warnings to every mirror rendering, covering: `dangling-dep`, `dep-cycle`, `out-of-order-dep`, `ungroomed-change`, `orphan-epic`, `closable-sprint`, and `stale-profile`. Dependency cycles SHALL be reported, treated as blocking their members, and SHALL NOT cause non-termination. An archived change scheduled into a sprint SHALL NOT produce a warning of its own: mid-sprint archival is normal progress, already visible as a struck-through row, and end-of-sprint cleanup is owned by `closable-sprint`. A `stale-profile` warning SHALL fire when a Flow and Size Tier pair's bias leaves a fixed band around parity, naming the Flow, the tier, and the direction of the miss, and pointing at re-grooming rather than at an automatic repair. The warning SHALL require the pair to hold at least the same minimum count of recorded runs the ladder requires to price from observation: below that count the pair's bias is reported and its price corrected, but no judgment is demanded, since one or two runs cannot separate a stale seed from a mis-tiered change.
 
 #### Scenario: Orphan epic after archive
 - **WHEN** an epic's change has been archived in OpenSpec
@@ -79,9 +79,16 @@ The system SHALL attach drift warnings to every mirror rendering, covering: `dan
 - **AND** the change's row renders struck through as a satisfied change
 
 #### Scenario: Profile drifted from reality
-- **WHEN** a Flow and Size Tier pair's bias leaves the band around parity
+- **WHEN** a Flow and Size Tier pair holds at least the minimum count of recorded runs
+- **AND** the pair's bias leaves the band around parity
 - **THEN** the mirror reports `stale-profile` naming the Flow, the tier, and the direction
 - **AND** a pair whose bias sits inside the band raises no warning
+
+#### Scenario: Thin evidence demands no judgment
+- **WHEN** a Flow and Size Tier pair's recorded runs are below the minimum count
+- **AND** the pair's bias sits far outside the band
+- **THEN** the mirror reports no `stale-profile` for that pair
+- **AND** the pair's bias is still reported and its seeded price still corrected
 
 #### Scenario: Stale profile aggregates in human output
 - **WHEN** several Flow and Tier pairs have drifted
@@ -368,10 +375,10 @@ The system SHALL provide a `spego record` command that records one measured run 
 - **AND** no file under `openspec/` is written
 
 ### Requirement: Correct estimates by observed bias
-The system SHALL derive, per Flow and Size Tier, the bias between recorded runs and the prices those runs' changes were carrying, aggregated as a median ratio and recomputed on render rather than stored. Bias SHALL correct prices that are not derived from this workspace's own recorded runs, and SHALL NOT correct a price already taken from them, since correcting an observation by its own residual double-counts the same evidence. The applied correction SHALL be clamped to a fixed bound so that a single pathological run cannot reprice a tier without limit, while the reported bias SHALL remain unclamped. Derived output SHALL carry the bias for each priced change's Flow and Tier pair.
+The system SHALL derive, per Flow and Size Tier, the bias between recorded runs and the config seed declared for that pair, aggregated as a median ratio and recomputed on render rather than stored. The reference SHALL be the declared seed whatever rung the pair prices from, so that bias measures drift from a fixed, editable number rather than from a price that moves with the runs being measured. A pair whose Flow declares no seed SHALL report no bias. Bias SHALL correct prices that are not derived from this workspace's own recorded runs, and SHALL NOT correct a price already taken from them, since correcting an observation by its own residual double-counts the same evidence. The applied correction SHALL be clamped to a fixed bound so that a single pathological run cannot reprice a tier without limit, while the reported bias SHALL remain unclamped. Derived output SHALL carry the bias for each priced change's Flow and Tier pair.
 
 #### Scenario: Seeded price corrected by bias
-- **WHEN** recorded runs for Flow `zapply` at tier `m` came in consistently above the price those changes carried
+- **WHEN** recorded runs for Flow `zapply` at tier `m` came in consistently above that pair's config seed
 - **AND** the pair is priced from the config seed
 - **THEN** the seeded price is raised by the pair's bias
 - **AND** the change carries the bias in derived output
@@ -379,7 +386,7 @@ The system SHALL derive, per Flow and Size Tier, the bias between recorded runs 
 #### Scenario: Local observation is not corrected
 - **WHEN** a Flow and Tier pair has enough of this workspace's recorded runs to be priced from them
 - **THEN** its price is the median of those runs, uncorrected
-- **AND** the reported bias for the pair is still derived and carried
+- **AND** the reported bias for the pair is the ratio of that median to the pair's config seed
 
 #### Scenario: Evidence from elsewhere is corrected
 - **WHEN** a pair is priced from any source other than this workspace's recorded runs
@@ -387,7 +394,7 @@ The system SHALL derive, per Flow and Size Tier, the bias between recorded runs 
 - **AND** the rung it resolved from is unchanged by the correction
 
 #### Scenario: Correction is clamped
-- **WHEN** one recorded run is far enough from its price to push the pair's bias beyond the bound
+- **WHEN** one recorded run is far enough from its pair's seed to push the bias beyond the bound
 - **THEN** the applied correction stops at the bound
 - **AND** the reported bias carries the unclamped value
 
