@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-09-10
+
+### Added
+- The board prices a change from its approved plan's chunk count when the epic carries one (`meta.chunks`), a rung above `observed` and ahead of the Size Tier: the price is that count times the median hours per chunk across the flow's recorded runs, and the board row is marked `†`. It takes no bias correction — the median is already the evidence — and falls back to the tier ladder below the existing three-run threshold. Measured over 69 recorded runs on one board, the tier correlated 0.32 with the hours a change actually took against 0.68 for the open task count behind it, and the tier's whole price range (1.15–4.47 h) sat below half the observed range (0.56–16.6 h). `meta.chunks` and `meta.tasks` join the epic schema.
+
 ## [0.25.0] - 2026-09-05
 
 ### Changed
