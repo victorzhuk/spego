@@ -58,9 +58,9 @@ Runs arrive through `spego record <change> --flow <name> --hours <n>`, which app
 
 ## Bias
 
-The mirror derives a bias per Flow and Size Tier pair: the median ratio of recorded runs over the price those runs' changes carried. Seeded prices are corrected by it, clamped to `[0.5, 2]` so one pathological run cannot swing a profile. An observed price is never corrected by its own residual. `--json` carries the unclamped `bias`.
+The mirror derives a bias per Flow and Size Tier pair: the median ratio of recorded runs over the seed declared for that pair. The seed is the reference at every rung, so bias always reads the same way — how far the runs have drifted from the profile the workspace declared. Seeded prices are corrected by it, clamped to `[0.5, 2]` so one pathological run cannot swing a profile. An observed price is never corrected, since it is already the median of the runs in the ratio. `--json` carries the unclamped `bias`.
 
-A pair whose bias falls outside `[1/1.5, 1.5]` raises the `stale-profile` warning, naming the Flow, the tier, and the direction. The repair is judgment — a wrong seed, or inconsistent tier calls — so the warning points at re-grooming, not at an automatic fix. Several drifted pairs aggregate into one human Warnings row while `--json` keeps one entry per pair.
+A pair whose bias falls outside `[1/1.5, 1.5]` raises the `stale-profile` warning, naming the Flow, the tier, and the direction — but only once the pair holds the same three runs the ladder needs to price from observation. Below that count the drift is reported and corrected, and nothing is asked of the maintainer: one or two runs cannot tell a wrong seed from a mis-tiered change. Above it the repair is judgment, so the warning points at re-grooming rather than at an automatic fix. Several drifted pairs aggregate into one human Warnings row while `--json` keeps one entry per pair.
 
 ## Cross-project history
 

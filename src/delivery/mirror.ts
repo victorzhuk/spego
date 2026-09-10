@@ -400,6 +400,10 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   for (const key of [...biasByPair.keys()].sort()) {
     const bias = biasByPair.get(key)!;
     if (bias >= BIAS_WARN_LOW && bias <= BIAS_WARN_HIGH) continue;
+    // Only a pair the ladder would price from is asked to justify its seed: below
+    // that count the clamped correction already carries the drift, and one or two
+    // runs cannot separate a stale seed from a mis-tiered change.
+    if ((runBuckets.get(key) ?? []).length < MIN_OBSERVED_RUNS) continue;
     const [flowName, tier] = key.split('\u0000');
     const direction = bias > 1 ? 'over' : 'under';
     sortedWarnings.push({
@@ -605,8 +609,9 @@ const RUNG_PLANNED = 'planned';
  * Bounds for the bias correction and its warning band. The applied correction
  * clamps to [BIAS_CLAMP_MIN, BIAS_CLAMP_MAX] so one pathological run cannot
  * reprice a tier without limit; the reported bias stays unclamped, and a bias
- * outside [BIAS_WARN_LOW, BIAS_WARN_HIGH] raises `stale-profile`. Constants in
- * code, like the sample threshold, so two boards cannot disagree.
+ * outside [BIAS_WARN_LOW, BIAS_WARN_HIGH] raises `stale-profile` once the pair
+ * holds MIN_OBSERVED_RUNS. Constants in code, like the sample threshold, so two
+ * boards cannot disagree.
  */
 const BIAS_CLAMP_MIN = 0.5;
 const BIAS_CLAMP_MAX = 2;
@@ -614,21 +619,19 @@ const BIAS_WARN_LOW = 1 / 1.5;
 const BIAS_WARN_HIGH = 1.5;
 
 /**
- * Bias per (Flow, Tier) pair: the median ratio of recorded runs over the
- * price those runs' changes were carrying, recomputed on render — the
- * observed median when the pair resolves from local runs, the config seed
- * otherwise. A pair with no reference price (no seed, below the observation
- * threshold) or a zero reference yields no ratio and no bias.
+ * Bias per (Flow, Tier) pair: the median ratio of recorded runs over the seed
+ * declared for that pair, recomputed on render. The reference is the seed at
+ * every rung — measuring an observed pair against its own median would divide
+ * a set of runs by itself and report parity for every pair that has enough
+ * evidence to prove its seed wrong. A pair whose Flow declares no seed, or
+ * seeds it at zero, yields no ratio and no bias.
  */
 function deriveBias(runBuckets: Map<string, number[]>, flows: FlowsConfig): Map<string, number> {
   const biasByPair = new Map<string, number>();
   for (const [key, runs] of runBuckets) {
     if (runs.length === 0) continue;
     const [flowName, tier] = key.split('\u0000');
-    const reference =
-      runs.length >= MIN_OBSERVED_RUNS
-        ? median(runs)!
-        : flows.profiles[flowName!]?.[tier as SizeTier];
+    const reference = flows.profiles[flowName!]?.[tier as SizeTier];
     if (reference === undefined || reference === 0) continue;
     biasByPair.set(key, median(runs.map((run) => run / reference))!);
   }

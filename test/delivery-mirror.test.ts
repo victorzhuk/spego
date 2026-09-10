@@ -1113,7 +1113,7 @@ describe('deriveMirror estimate bias', () => {
     return epic(slug, { tier, actuals: runs.map((hours) => ({ flow, hours })) });
   }
 
-  it('derives bias as the median ratio of runs over their pair price', () => {
+  it('derives bias as the median ratio of runs over their pair seed', () => {
     const result = board({
       changes: [change('a'), change('h1'), change('h2')],
       epics: [
@@ -1123,7 +1123,7 @@ describe('deriveMirror estimate bias', () => {
       ],
       flows,
     });
-    // 2 runs below the observation threshold → seed 2; ratios 3/2 and 5/2 → bias median 2
+    // seed m=2; ratios 3/2 and 5/2 → bias median 2
     const row = findChange(result, 'a');
     expect(row?.bias).toBe(2);
   });
@@ -1134,7 +1134,7 @@ describe('deriveMirror estimate bias', () => {
       epics: [epic('a', { tier: 'l' }), runEpic('h1', 'l', 'zapply', [2])],
       flows,
     });
-    // 1 run, seed l=4 → ratio 2/4 = 0.5
+    // seed l=4 → ratio 2/4 = 0.5
     expect(findChange(result, 'a')?.bias).toBe(0.5);
   });
 
@@ -1166,10 +1166,10 @@ describe('deriveMirror estimate bias', () => {
       flows,
     });
     const row = findChange(result, 'a');
-    // observed median 4; ratios 0.75, 1.25, 1 → bias median 1; price uncorrected
+    // observed median 4 against seed 2 → bias 2, reported but not applied
     expect(row?.flowEstimate).toBe(4);
     expect(row?.rung).toBe('observed');
-    expect(row?.bias).toBe(1);
+    expect(row?.bias).toBe(2);
   });
 
   it('clamps the applied correction at the bound but reports the unclamped bias', () => {
@@ -1208,24 +1208,56 @@ describe('deriveMirror estimate bias', () => {
     expect(row?.flowEstimate).toBe(2);
   });
 
-  it('raises no warning when bias sits inside the band', () => {
+  it('raises no warning when an evidenced pair sits inside the band', () => {
     const result = board({
-      changes: [change('a'), change('h1')],
-      epics: [epic('a', { tier: 'm' }), runEpic('h1', 'm', 'zapply', [3])],
+      changes: [change('a'), change('h1'), change('h2'), change('h3')],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [3]),
+        runEpic('h2', 'm', 'zapply', [3]),
+        runEpic('h3', 'm', 'zapply', [3]),
+      ],
       flows,
     });
-    // bias 1.5 is the top of the band
+    // observed median 3 over seed 2 → bias 1.5, the top of the band
     expect(findChange(result, 'a')?.bias).toBe(1.5);
     expect(result.warnings.filter((w) => w.code === 'stale-profile')).toEqual([]);
   });
 
-  it('warns outside the band, naming flow, tier, and direction', () => {
+  it('raises no warning for a pair below the observation threshold', () => {
     const result = board({
       changes: [change('a'), change('h1'), change('h2')],
       epics: [
         epic('a', { tier: 'm' }),
         runEpic('h1', 'm', 'zapply', [5]),
-        runEpic('h2', 'l', 'zapply', [1]),
+        runEpic('h2', 'm', 'zapply', [5]),
+      ],
+      flows,
+    });
+    const row = findChange(result, 'a');
+    // two runs cannot separate a stale seed from a mis-tiered change: bias 2.5
+    // is still reported and still corrects the seeded price, clamped at ×2
+    expect(row?.bias).toBe(2.5);
+    expect(row?.flowEstimate).toBe(4);
+    expect(row?.rung).toBe('config-seed');
+    expect(result.warnings.filter((w) => w.code === 'stale-profile')).toEqual([]);
+  });
+
+  it('warns outside the band, naming flow, tier, and direction', () => {
+    const result = board({
+      changes: [
+        change('a'),
+        change('h1'), change('h2'), change('h3'),
+        change('h4'), change('h5'), change('h6'),
+      ],
+      epics: [
+        epic('a', { tier: 'm' }),
+        runEpic('h1', 'm', 'zapply', [5]),
+        runEpic('h2', 'm', 'zapply', [5]),
+        runEpic('h3', 'm', 'zapply', [5]),
+        runEpic('h4', 'l', 'zapply', [1]),
+        runEpic('h5', 'l', 'zapply', [1]),
+        runEpic('h6', 'l', 'zapply', [1]),
       ],
       flows,
     });

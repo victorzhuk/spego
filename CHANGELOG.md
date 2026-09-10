@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `stale-profile` now fires where it can be acted on. Bias is measured against the pair's declared config seed at every rung, instead of against the price the pair was already carrying — which, for a pair with enough runs to price from observation, was the median of those same runs, so the ratio was parity by construction and a well-evidenced drifted seed could never warn. The warning in turn waits for the same three-run threshold the ladder uses: a pair with one or two runs reports its bias and takes the clamped correction, but no longer demands a re-groom it has no evidence for. No estimate changes — the correction still applies only below the threshold, where the reference was already the seed.
+
 ## [0.26.0] - 2026-09-10
 
 ### Added

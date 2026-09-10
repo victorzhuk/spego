@@ -261,9 +261,9 @@ async function setupLadderBoardFixture(): Promise<string> {
 
 /**
  * Bias fixture: priced workspace plus two history changes — h1 tier m with one
- * zapply run of 5 (seed 2 → bias 2.5, over) and h2 tier l with one zapply run
- * of 1 (seed 4 → bias 0.25, under) — so priced-a's seeded 2 corrects to 4
- * (clamped from 5) and two stale-profile pairs warn.
+ * zapply run of 5 (seed 2 → bias 2.5) and h2 tier l with one zapply run of 1
+ * (seed 4 → bias 0.25) — so priced-a's seeded 2 corrects to 4 (clamped from 5)
+ * while both pairs stay below the observation threshold and warn about nothing.
  */
 async function setupBiasBoardFixture(): Promise<string> {
   const root = await setupPricedBoardFixture();
@@ -275,6 +275,25 @@ async function setupBiasBoardFixture(): Promise<string> {
     tasks: '- [x] done\n',
     meta: { tier: 'l', actuals: [{ flow: 'zapply', hours: 1 }] },
   });
+  return root;
+}
+
+
+/**
+ * Drifted fixture: the same two pairs carried to the observation threshold —
+ * three zapply runs of 5 at tier m (seed 2 → bias 2.5, over) and three of 1 at
+ * tier l (seed 4 → bias 0.25, under) — so both pairs raise stale-profile.
+ */
+async function setupDriftedBoardFixture(): Promise<string> {
+  const root = await setupPricedBoardFixture();
+  for (const [tier, hours] of [['m', 5], ['l', 1]] as Array<[string, number]>) {
+    for (const index of [1, 2, 3]) {
+      await createChangeEpic(root, `hist-${tier}-${index}`, {
+        tasks: '- [x] done\n',
+        meta: { tier, actuals: [{ flow: 'zapply', hours }] },
+      });
+    }
+  }
   return root;
 }
 
@@ -943,7 +962,7 @@ describe('CLI board command', () => {
     expect(plain).toContain('* observed — median of recorded runs');
   }, 30_000);
 
-  it('--json carries bias per priced change and one warning entry per drifted pair', async () => {
+  it('--json carries bias per priced change and stays silent below the threshold', async () => {
     const root = await setupBiasBoardFixture();
     const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const result = JSON.parse(stdout) as MirrorBoard;
@@ -953,6 +972,14 @@ describe('CLI board command', () => {
     expect(bySlug.get('priced-b') && 'bias' in bySlug.get('priced-b')!).toBe(false);
     expect(bySlug.get('priced-b')?.flowEstimate).toBe(2);
 
+    expect(result.warnings.filter((warning) => warning.code === 'stale-profile')).toEqual([]);
+  }, 30_000);
+
+  it('--json carries one stale-profile entry per drifted evidenced pair', async () => {
+    const root = await setupDriftedBoardFixture();
+    const { stdout } = await spawnCli(['--json', 'board', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+
     const stale = result.warnings.filter((warning) => warning.code === 'stale-profile');
     expect(stale.length).toBe(2);
     const byTier = new Map(stale.map((warning) => [warning.details?.tier, warning]));
@@ -961,7 +988,7 @@ describe('CLI board command', () => {
   }, 30_000);
 
   it('aggregates drifted pairs into one stale-profile row in human output', async () => {
-    const root = await setupBiasBoardFixture();
+    const root = await setupDriftedBoardFixture();
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
     const plain = stripAnsi(stdout);
     const rows = plain.split('\n').filter((line) => line.includes('stale-profile'));
