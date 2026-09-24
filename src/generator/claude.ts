@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import YAML from 'yaml';
 import { COMMAND_REGISTRY } from '../command-meta/registry.js';
 import type { CommandMeta } from '../command-meta/registry.js';
 import { WORKFLOW_REGISTRY } from '../workflows/registry.js';
@@ -12,6 +13,10 @@ import { isLegacySpegoGenerated, isSpegoGenerated } from './markers.js';
 
 function toKebab(name: string): string {
   return name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
+
+function renderFrontmatter(fields: Record<string, unknown>): string[] {
+  return ['---', YAML.stringify(fields, { lineWidth: 0 }).trimEnd(), '---'];
 }
 
 /**
@@ -46,10 +51,10 @@ function renderSkillTemplate(cmd: CommandMeta): string {
   const metaShape = renderMetaShapeSection(cmd);
   const typesLine = renderArtifactTypesLine(cmd);
   return [
-    '---',
-    `name: spego-${cmd.name}`,
-    `description: ${cmd.description}. Use when the user asks to ${lowerDesc} or mentions "spego ${cmd.name}".`,
-    '---',
+    ...renderFrontmatter({
+      name: `spego-${cmd.name}`,
+      description: `${cmd.description}. Use when the user asks to ${lowerDesc} or mentions "spego ${cmd.name}".`,
+    }),
     '',
     `Use \`spego ${cmd.name} --json\` to ${lowerDesc}. Always pass \`--json\` so the output is parseable.`,
     '',
@@ -81,16 +86,11 @@ function renderSkillTemplate(cmd: CommandMeta): string {
 
 function renderCommandTemplate(cmd: CommandMeta): string {
   const fields = Object.values(cmd.inputSchema);
-  const argsYaml = fields
-    .map((f) => `  ${toKebab(f.name)}: { type: ${f.type}, required: ${f.required}, description: "${f.description}" }`)
-    .join('\n');
+  const args = Object.fromEntries(
+    fields.map((f) => [toKebab(f.name), { type: f.type, required: f.required, description: f.description }]),
+  );
   return [
-    '---',
-    `name: spego:${cmd.name}`,
-    `description: ${cmd.description}`,
-    'arguments:',
-    argsYaml || '  {}',
-    '---',
+    ...renderFrontmatter({ name: `spego:${cmd.name}`, description: cmd.description, arguments: args }),
     '',
     '$ARGUMENTS',
     '',
@@ -118,10 +118,7 @@ function renderWorkflowSkillTemplate(meta: WorkflowMeta): string {
     .join('\n');
   const safety = meta.safety.map((s) => `- ${s}`).join('\n');
   return [
-    '---',
-    `name: spego-${meta.name}`,
-    `description: ${meta.description}`,
-    '---',
+    ...renderFrontmatter({ name: `spego-${meta.name}`, description: meta.description }),
     '',
     '## Personas',
     '',

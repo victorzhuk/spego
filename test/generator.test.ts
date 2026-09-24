@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import YAML from 'yaml';
 import { makeTempProject } from './helpers.js';
 import { ClaudeGenerator } from '../src/generator/claude.js';
 import { writeGeneratedFile } from '../src/generator/write.js';
@@ -37,6 +38,28 @@ describe('Claude skill generation', () => {
       expect(content).toContain('## Options');
       expect(content).toContain('## Output');
       expect(content).toContain('## Safety');
+    }
+  });
+
+  it('emits parseable frontmatter that keeps the full description', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+
+    await new ClaudeGenerator().generate(root);
+
+    const parseFrontmatter = async (file: string) => {
+      const content = await fs.readFile(file, 'utf8');
+      return YAML.parse(content.slice(4, content.indexOf('\n---', 4)));
+    };
+    for (const cmd of COMMAND_REGISTRY) {
+      const skill = await parseFrontmatter(path.join(root, '.claude', 'skills', `spego-${cmd.name}`, 'SKILL.md'));
+      expect(skill.description).toContain(`${cmd.description}. Use when`);
+      const command = await parseFrontmatter(path.join(root, '.claude', 'commands', 'spego', `${cmd.name}.md`));
+      expect(command.description).toBe(cmd.description);
+    }
+    for (const wf of WORKFLOW_REGISTRY) {
+      const skill = await parseFrontmatter(path.join(root, '.claude', 'skills', `spego-${wf.name}`, 'SKILL.md'));
+      expect(skill.description).toBe(wf.description);
     }
   });
 

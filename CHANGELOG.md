@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Generated Claude skill and command files now emit valid YAML frontmatter. A description containing `: ` (as `spego-sync`'s does) or a quote used to break the parse, and Claude Code then loaded the skill with every frontmatter field dropped — name from the directory, description from the first body line. Frontmatter is now serialized through the YAML library, which quotes only the values that need it.
+
 ## [0.26.1] - 2026-09-10
 
 ### Fixed
