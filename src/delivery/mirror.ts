@@ -359,14 +359,6 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   }
 
   const sortedWarnings = sortWarnings(warnings);
-  const warningCodesByChange = new Map<string, WarningCode[]>();
-  for (const warning of sortedWarnings) {
-    const change = typeof warning.details?.change === 'string' ? warning.details.change : undefined;
-    if (!change) continue;
-    const codes = warningCodesByChange.get(change) ?? [];
-    codes.push(warning.code);
-    warningCodesByChange.set(change, codes);
-  }
 
   /** `requires` minus the types its `links` resolve to — the same rule for an epic and for a sprint-plan. */
   const missingForOwner = (owner: MirrorArtifact): string[] => {
@@ -437,7 +429,9 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       group: groupBySlug.get(slug) ?? '?',
       gaps: gapsBySlug.get(slug) ?? [],
       missing: missingBySlug.get(slug) ?? [],
-      warnings: warningCodesByChange.get(slug) ?? [],
+      // Filled in by the final per-change warning pass below, after the
+      // sprint rows exist (closable-sprint needs them). Kept empty here.
+      warnings: [],
       archived: state?.archived ?? false,
       actuals,
       actualsTotal: Math.round(actuals.reduce((sum, run) => sum + run.hours, 0) * 100) / 100,
