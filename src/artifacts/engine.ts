@@ -186,6 +186,24 @@ export class ArtifactEngine {
   } catch {
    // type dir may not exist yet — fine.
   }
+  // An epic's slug IS its OpenSpec change name — the mirror's identity rule.
+  // Uniquifying (foo → foo-2) would detach the epic from its change and leave
+  // sync creating a fresh orphan on every run, so a taken slug — including a
+  // retired epic's — fails instead of colliding.
+  if (data.type === 'epic' && existing.has(desired)) {
+   const holder = getArtifactByTypeSlug(this.db, 'epic', desired);
+   const state = !holder ? 'unindexed' : holder.deletedAt ? 'retired' : 'active';
+   throw new SpegoError(
+    'VALIDATION_FAILED',
+    `Epic slug "${desired}" is already taken (${state} epic); an epic slug must equal its OpenSpec change name and is never uniquified. Resolve the existing epic first.`,
+    {
+     type: data.type,
+     slug: desired,
+     existingId: holder?.id ?? null,
+     existingState: state,
+    },
+   );
+  }
   return uniqueSlug(desired, existing);
  }
 

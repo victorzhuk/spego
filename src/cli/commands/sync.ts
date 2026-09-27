@@ -55,6 +55,10 @@ export async function applySyncPlan(
   plan: SyncPlan,
   adapter: DeliveryAdapter | null,
 ): Promise<AppliedResult[]> {
+  // Plan-time revisions from the index, not the file: the expected-revision
+  // check must reject any divergence that appeared between deriving the plan
+  // and applying it — including a hand-edited file that left the index stale —
+  // instead of silently absorbing it.
   const revisionById = new Map<string, number>();
   for (const row of engine.list({ type: 'sprint-plan' })) {
     revisionById.set(row.id, row.revision);

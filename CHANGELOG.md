@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- An epic slug is never uniquified any more. The slug is the OpenSpec change name, so a second epic for a taken slug used to land as `foo-2`, detached from its change, and `spego sync` recreated that orphan on every run. `spego create` for an epic whose slug is already held — by an active or retired epic, or by a stray file — now fails with `VALIDATION_FAILED`, and `spego sync` leaves a change whose slug a retired epic holds in `remaining` (reason `retired-epic`) instead of planning `create-epic`.
+
 ## [0.26.2] - 2026-09-24
 
 ### Fixed

@@ -54,7 +54,9 @@ export interface SyncPlan {
  * Warning order is preserved as `deriveMirror` returns it (sorted by
  * `WARNING_ORDER`): `ungroomed-change` → `create-epic`, `closable-sprint` →
  * `close-sprint`, `orphan-epic` with an archived change → `retire-epic`, every
- * other code (and a missing-reason orphan) → `remaining`.
+ * other code (and a missing-reason orphan) → `remaining`. An ungroomed change
+ * whose slug a retired epic still holds also goes to `remaining`: epic slugs
+ * are never uniquified, so creating one would fail.
  */
 export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan {
   const titleBySlug = new Map<string, string>();
@@ -70,7 +72,11 @@ export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan
   const sprintIdBySlug = new Map<string, string>();
   for (const artifact of input.sprints) sprintIdBySlug.set(artifact.slug, artifact.id);
   const epicIdBySlug = new Map<string, string>();
-  for (const epic of input.epics) epicIdBySlug.set(epic.slug, epic.id);
+  const retiredEpicIdBySlug = new Map<string, string>();
+  for (const epic of input.epics) {
+    epicIdBySlug.set(epic.slug, epic.id);
+    if (epic.deletedAt) retiredEpicIdBySlug.set(epic.slug, epic.id);
+  }
 
   const actions: SyncAction[] = [];
   const remaining: MirrorWarning[] = [];
@@ -78,6 +84,14 @@ export function deriveSyncPlan(board: MirrorBoard, input: MirrorInput): SyncPlan
   for (const warning of board.warnings) {
     if (warning.code === 'ungroomed-change') {
       const slug = String(warning.details?.change ?? '');
+      const retiredId = retiredEpicIdBySlug.get(slug);
+      if (retiredId) {
+        remaining.push({
+          ...warning,
+          details: { ...warning.details, reason: 'retired-epic', epicId: retiredId },
+        });
+        continue;
+      }
       const title = titleBySlug.get(slug) || slug;
       actions.push({ kind: 'create-epic', slug, title });
     } else if (warning.code === 'closable-sprint') {

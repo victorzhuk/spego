@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
 import { initWorkspace } from '../src/workspace/init.js';
 import { SpegoError } from '../src/errors.js';
@@ -122,6 +123,39 @@ describe('artifact CRUD', () => {
     const b = await engine.create({ type: 'design', title: 'Onboarding Flow', body: '' });
     expect(a.frontmatter.slug).toBe('onboarding-flow');
     expect(b.frontmatter.slug).toBe('onboarding-flow-2');
+  });
+
+  it('never uniquifies an epic slug taken by an active epic', async () => {
+    await engine.create({ type: 'epic', title: 'Add auth', slug: 'add-auth', body: '' });
+    // An epic slug IS its change name; a silent -2 suffix would orphan the
+    // epic from its change and leave sync recreating one on every run.
+    await expect(
+      engine.create({ type: 'epic', title: 'Add auth', slug: 'add-auth', body: '' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('never uniquifies an epic slug taken by a retired epic', async () => {
+    const epic = await engine.create({ type: 'epic', title: 'Add auth', slug: 'add-auth', body: '' });
+    await engine.softDelete(epic.frontmatter.id);
+    await expect(
+      engine.create({ type: 'epic', title: 'Add auth', slug: 'add-auth', body: '' }),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: expect.objectContaining({ existingState: 'retired' }),
+    });
+  });
+
+  it('never uniquifies an epic slug taken by an unindexed file', async () => {
+    const dir = path.join(root, '.spego', 'artifacts', 'epic');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'add-auth.md'), 'stray');
+    await expect(
+      engine.create({ type: 'epic', title: 'Add auth', slug: 'add-auth', body: '' }),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: expect.stringContaining('unindexed epic'),
+      details: expect.objectContaining({ existingState: 'unindexed', existingId: null }),
+    });
   });
 
   it('reads artifact by file path', async () => {

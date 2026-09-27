@@ -62,6 +62,18 @@ describe('deriveSyncPlan', () => {
     expect(actions).toEqual([{ kind: 'create-epic', slug: 'add-bar', title: 'add-bar' }]);
   });
 
+  it('leaves an ungroomed change held by a retired epic for grooming instead of planning create-epic', () => {
+    const retired = { ...epic('add-foo'), deletedAt: '2026-01-01T00:00:00Z' };
+    const { actions, remaining } = plan({ changes: [change('add-foo')], epics: [retired] });
+    expect(actions).toEqual([]);
+    expect(remaining).toEqual([
+      expect.objectContaining({
+        code: 'ungroomed-change',
+        details: expect.objectContaining({ change: 'add-foo', reason: 'retired-epic', epicId: 'epic-add-foo' }),
+      }),
+    ]);
+  });
+
   it('plans close-sprint for a finished non-closed sprint, carrying the artifact id', () => {
     const { actions, remaining } = plan({
       changes: [change('done-thing', 'done')],
