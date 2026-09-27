@@ -57,6 +57,9 @@ export async function runEngineCommand<T>(
   const { payload, human } = await fn(engine, json);
   output(json, payload, human);
  } catch (err) {
+  // `fail` exits the process without unwinding, so the finally below never
+  // runs on this path — close before failing.
+  engine.close();
   fail(err, json);
  } finally {
   engine.close();
