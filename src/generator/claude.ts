@@ -162,7 +162,13 @@ async function cleanupLegacyFlatSkills(skillsDir: string): Promise<GeneratedFile
   for (const entry of entries) {
     if (!entry.startsWith('spego-') || !entry.endsWith('.md')) continue;
     const filePath = path.join(skillsDir, entry);
-    const content = await fs.readFile(filePath, 'utf8');
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, 'utf8');
+    } catch {
+      // Unreadable or vanished mid-scan — leave it alone.
+      continue;
+    }
     if (isLegacySpegoGenerated(content)) {
       await fs.unlink(filePath);
       cleaned.push({ path: filePath, action: 'removed' });
