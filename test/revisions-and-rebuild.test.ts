@@ -122,4 +122,26 @@ describe('revisions and index rebuild', () => {
     expect(report.invalidFiles.some((f) => f.error.includes('INVALID_ARTIFACT_TYPE'))).toBe(true);
     expect(report.indexedArtifacts).toBe(1);
   });
+
+  it('flags a file stored in a foreign type directory instead of indexing a phantom', async () => {
+    await engine.create({ type: 'prd', title: 'Valid', body: 'ok' });
+
+    // Valid frontmatter and file name, but filed under the wrong type dir:
+    // indexing it would anchor the row at artifacts/prd/misfiled.md, which
+    // does not exist — listed but unreadable.
+    const epicDir = path.join(root, '.spego', 'artifacts', 'epic');
+    await fs.mkdir(epicDir, { recursive: true });
+    await fs.writeFile(
+      path.join(epicDir, 'misfiled.md'),
+      '---\nid: "abc"\ntype: "prd"\ntitle: "M"\nslug: "misfiled"\nrevision: 1\ncreatedAt: "2026-01-01T00:00:00Z"\nupdatedAt: "2026-01-01T00:00:00Z"\nmeta: {}\n---\n\nbody\n',
+    );
+
+    const report = await engine.rebuildIndex();
+    expect(report.indexedArtifacts).toBe(1);
+    expect(
+      report.invalidFiles.some(
+        (f) => f.path.endsWith(`epic${path.sep}misfiled.md`) && f.error.includes('frontmatter type is "prd"'),
+      ),
+    ).toBe(true);
+  });
 });

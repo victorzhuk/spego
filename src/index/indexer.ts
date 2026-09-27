@@ -242,6 +242,17 @@ export async function rebuildIndex(
       { path: file, expectedSlug: frontmatter.slug, fileName: entry },
      );
     }
+    // Layout invariant: artifacts live at `<type>/<slug>.md`. Indexing a file
+    // from a foreign type dir would anchor its row at a canonical path that
+    // does not exist — listed but unreadable.
+    const dirName = path.basename(typeDir);
+    if (dirName !== frontmatter.type) {
+     throw new SpegoError(
+      'VALIDATION_FAILED',
+      `File sits in "${dirName}" but frontmatter type is "${frontmatter.type}"`,
+      { path: file, dir: dirName, type: frontmatter.type },
+     );
+    }
     // Use the canonical computed path so reads from any cwd resolve.
     const canonical = artifactFilePath(paths, frontmatter.type, frontmatter.slug);
     upsertArtifact(db, frontmatter, canonical);
