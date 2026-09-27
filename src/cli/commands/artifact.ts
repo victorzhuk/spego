@@ -131,6 +131,11 @@ export function registerArtifact(program: Command): void {
      program,
      cwd: opts.cwd,
      validate: () => {
+      if (opts.revision !== undefined && !opts.id) {
+       throw new SpegoError('VALIDATION_FAILED', '--revision requires --id', {
+        option: '--revision',
+       });
+      }
       revision = opts.revision === undefined ? undefined : parseRevision(opts.revision);
      },
     },

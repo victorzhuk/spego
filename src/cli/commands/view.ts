@@ -67,6 +67,11 @@ export function registerView(program: Command): void {
      cwd: opts.cwd,
      validate: () => {
       if (opts.revision === undefined) return;
+      if (!opts.id) {
+       throw new SpegoError('VALIDATION_FAILED', '--revision requires --id', {
+        option: '--revision',
+       });
+      }
       const result = z.coerce.number().int().positive().safeParse(opts.revision);
       if (result.success) {
        revision = result.data;

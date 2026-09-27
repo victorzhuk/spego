@@ -61,6 +61,34 @@ describe('CLI read selectors', () => {
     expect(typeof parsed.error.details).toBe('object');
     expect(err.code).toBe(2);
   });
+
+  it('rejects read --revision without --id instead of silently ignoring it', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    await createArtifact(root, 'prd', 'Rev Guard', 'v1');
+    const err = await expectCliFailure(
+      ['--json', 'read', '--type', 'prd', '--slug', 'rev-guard', '--revision', '1', '--cwd', root],
+      root,
+    );
+    const parsed = JSON.parse(err.stderr);
+    expect(parsed.error.code).toBe('VALIDATION_FAILED');
+    expect(parsed.error.message).toContain('--revision requires --id');
+    expect(err.code).toBe(2);
+  });
+
+  it('rejects view --revision without --id instead of silently ignoring it', async () => {
+    const { root, cleanup } = await setupInitialized();
+    cleanups.push(cleanup);
+    await createArtifact(root, 'prd', 'View Rev Guard', 'v1');
+    const err = await expectCliFailure(
+      ['--json', 'view', '--revision', '1', '--cwd', root],
+      root,
+    );
+    const parsed = JSON.parse(err.stderr);
+    expect(parsed.error.code).toBe('VALIDATION_FAILED');
+    expect(parsed.error.message).toContain('--revision requires --id');
+    expect(err.code).toBe(2);
+  });
 });
 
 describe('CLI update payload shape and concurrency', () => {
