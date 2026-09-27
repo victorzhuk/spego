@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-09-27
+
 ### Fixed
 - `spego index rebuild` reports a file whose frontmatter `type` differs from its type directory as invalid, instead of indexing a row at a path that does not exist — listed but unreadable.
 - `spego read --revision` and `spego view --revision` without `--id` now fail with `VALIDATION_FAILED` instead of ignoring the revision and returning the current version.
