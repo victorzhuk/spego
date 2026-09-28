@@ -84,6 +84,8 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
   design: z.object({
     status: z.enum(['draft', 'in-review', 'approved']).optional(),
     category: z.enum(['ux', 'ui', 'workflow', 'system']).optional(),
+    approvedBy: z.string().optional(),
+    batch: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
 
@@ -96,11 +98,13 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
   architecture: z.object({
     status: z.enum(['proposed', 'accepted', 'superseded']).optional(),
     scope: z.enum(['system', 'service', 'module']).optional(),
+    scopeDigest: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
 
   decision: z.object({
     status: z.enum(['proposed', 'accepted', 'deprecated', 'superseded']).optional(),
+    scopeDigest: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
 
@@ -113,6 +117,7 @@ export const ARTIFACT_META_SCHEMAS: Record<string, z.ZodTypeAny> = {
 
   qa: z.object({
     status: z.enum(['planned', 'in-progress', 'completed']).optional(),
+    scopeDigest: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
 
@@ -138,12 +143,12 @@ export const ARTIFACT_META_DOCS: Record<BuiltinArtifactType, string> = {
   epic: 'deps[] (change slugs this depends on), links[] (linked artifact ids), requires[] (labels for required supporting artifacts), status (backlog|in-progress|done|completed|blocked|paused|unknown), gaps[] ({flag, note?}), track (conflict lane; same track = do not run in parallel), tier (size tier: xs|s|m|l|xl; prices the change from the workspace flows tables), chunks (chunk count of the approved plan; outranks tier when pricing), tasks (open task count when the plan was written), flow (Flow profile overriding the workspace default when pricing), actuals[] ({flow, hours}; recorded runs, append-only via spego record), tags[]',
   brainstorm: 'status (open|closed), tags[]',
   usecases: 'status (draft|reviewed|approved), tags[]',
-  design: 'status (draft|in-review|approved), category (ux|ui|workflow|system), tags[]',
+  design: 'status (draft|in-review|approved), category (ux|ui|workflow|system), approvedBy, batch, tags[]',
   api: 'status (proposed|accepted|deprecated), version, tags[]',
-  architecture: 'status (proposed|accepted|superseded), scope (system|service|module), tags[]',
-  decision: 'status (proposed|accepted|deprecated|superseded), tags[]',
+  architecture: 'status (proposed|accepted|superseded), scope (system|service|module), scopeDigest, tags[]',
+  decision: 'status (proposed|accepted|deprecated|superseded), scopeDigest, tags[]',
   risk: 'severity (low|medium|high|critical), likelihood (low|medium|high), status (open|mitigated|closed), tags[]',
-  qa: 'status (planned|in-progress|completed), tags[]',
+  qa: 'status (planned|in-progress|completed), scopeDigest, tags[]',
   ceremony: 'kind (standup|review|retro|planning|other), date, tags[]',
 };
 
