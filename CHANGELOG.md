@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-07
+
+### Changed
+- The `📋 Delivery board` heading sits one blank line above and below instead of two, so the title stays close to the status legend and tables.
+
 ## [0.27.0] - 2026-10-07
 
 ### Fixed
