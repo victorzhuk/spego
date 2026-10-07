@@ -32,6 +32,7 @@ async function writeOpenSpecChange(
   changeName: string,
   opts: { tasks?: string; archived?: boolean } = {},
 ): Promise<void> {
+  if (path.basename(changeName) !== changeName) throw new Error(`unsafe fixture name: ${changeName}`);
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
   const archived = opts.archived ? 'archived: true\n' : '';

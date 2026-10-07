@@ -18,6 +18,7 @@ async function setupWithOpenSpec(): Promise<string> {
 
 async function setupWithChange(changeName: string, tasksMd?: string): Promise<string> {
   const root = await setupWithOpenSpec();
+  if (path.basename(changeName) !== changeName) throw new Error(`unsafe fixture name: ${changeName}`);
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
   await fs.writeFile(

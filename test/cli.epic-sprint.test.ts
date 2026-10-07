@@ -20,6 +20,7 @@ async function setupOpenSpecWorkspace(): Promise<string> {
 
 async function setupChange(changeName: string, opts: { archived?: boolean } = {}): Promise<string> {
   const root = await setupOpenSpecWorkspace();
+  if (path.basename(changeName) !== changeName) throw new Error(`unsafe fixture name: ${changeName}`);
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
   const meta = opts.archived ? 'schema: spec-driven\narchived: true\n' : 'schema: spec-driven\n';

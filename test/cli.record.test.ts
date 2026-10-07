@@ -24,6 +24,7 @@ async function setupOpenSpecWorkspace(): Promise<string> {
 }
 
 async function writeOpenSpecChange(root: string, changeName: string): Promise<void> {
+  if (path.basename(changeName) !== changeName) throw new Error(`unsafe fixture name: ${changeName}`);
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
   await fs.writeFile(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf8');

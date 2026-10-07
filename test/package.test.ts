@@ -136,7 +136,7 @@ describe('built CLI runs', () => {
   it('--version outputs version matching package.json', () => {
     let output: string;
     try {
-      output = execSync(`node ${path.join(ROOT, 'dist', 'cli.js')} --version`, {
+      output = execFileSync(process.execPath, [path.join(ROOT, 'dist', 'cli.js'), '--version'], {
         encoding: 'utf8',
       }).trim();
     } catch (err: unknown) {
@@ -158,7 +158,7 @@ describe('built CLI runs', () => {
   });
 
   it('commands --json outputs valid JSON with array of commands', () => {
-    const output = execSync(`node ${path.join(ROOT, 'dist', 'cli.js')} --json commands`, {
+    const output = execFileSync(process.execPath, [path.join(ROOT, 'dist', 'cli.js'), '--json', 'commands'], {
       encoding: 'utf8',
     });
     const result = JSON.parse(output);

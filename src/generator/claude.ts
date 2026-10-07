@@ -161,7 +161,10 @@ async function cleanupLegacyFlatSkills(skillsDir: string): Promise<GeneratedFile
   }
   for (const entry of entries) {
     if (!entry.startsWith('spego-') || !entry.endsWith('.md')) continue;
-    const filePath = path.join(skillsDir, entry);
+    // Contain the unlink to skillsDir even if an entry ever carries separators.
+    const skillsRoot = path.resolve(skillsDir);
+    const filePath = path.resolve(skillsRoot, entry);
+    if (filePath !== skillsRoot && !filePath.startsWith(skillsRoot + path.sep)) continue;
     let content: string;
     try {
       content = await fs.readFile(filePath, 'utf8');

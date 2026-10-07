@@ -441,6 +441,7 @@ describe('delivery', () => {
   ) {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
+    if (path.basename(name) !== name) throw new Error(`unsafe fixture name: ${name}`);
 
     const openspecDir = path.join(root, 'openspec');
     const changesDir = path.join(openspecDir, 'changes');
