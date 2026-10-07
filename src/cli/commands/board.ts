@@ -162,7 +162,7 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, ner
     lines.push(plain ? note : styleText('dim', note));
   }
   lines.push(nextLine(board));
-  // The blank-line dedupe must not eat the heading block's own two-line margins.
+  // The blank-line dedupe must not eat the heading block's own blank-line margins.
   const body = lines.slice(headingLineCount).filter((line, index, all) => !(line === '' && all[index - 1] === ''));
   // Swap the archived placeholder in only after layout, styling, and join are done.
   return [...lines.slice(0, headingLineCount), ...body].join('\n').split(PORTABLE_COMPLETED_TOKEN).join(PORTABLE_TRASH);
@@ -173,17 +173,17 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, ner
  * (`panelWidth + 4`). The emoji occupies two terminal cells, so the visible
  * heading width is `2 + 1 + label.length`; padding clamps at zero on narrow
  * terminals. Normal output styles the heading bold+underline; `--plain` gets a
- * literal, aligned underline rule instead. Either way the block carries two
- * empty lines before and after it.
+ * literal, aligned underline rule instead. Either way the block carries one
+ * empty line before and after it.
  */
 function boardHeading(fullWidth: number, plain: boolean): string[] {
   const label = 'Delivery board';
   const visible = 2 + 1 + label.length;
   const pad = ' '.repeat(Math.max(0, Math.floor((fullWidth - visible) / 2)));
   if (plain) {
-    return ['', '', pad + `📋 ${label}`, pad + '─'.repeat(visible), '', ''];
+    return ['', pad + `📋 ${label}`, pad + '─'.repeat(visible), ''];
   }
-  return ['', '', pad + styleText(['bold', 'underline'], `📋 ${label}`), '', ''];
+  return ['', pad + styleText(['bold', 'underline'], `📋 ${label}`), ''];
 }
 
 /** Real portable archived trash glyph: VS16-selected, 3 UTF-16 units but one terminal cell. */

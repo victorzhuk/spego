@@ -43,6 +43,7 @@ async function writeOpenSpecChange(
   changeName: string,
   opts: { tasks?: string; archived?: boolean } = {},
 ): Promise<void> {
+  if (path.basename(changeName) !== changeName) throw new Error(`unsafe fixture name: ${changeName}`);
   const changeDir = path.join(root, 'openspec', 'changes', changeName);
   await fs.mkdir(changeDir, { recursive: true });
   const archived = opts.archived ? 'archived: true\n' : '';
@@ -1003,7 +1004,7 @@ describe('CLI board command', () => {
     }
   }, 30_000);
 
-  it('centers the heading over the panel width with two blank lines on each side', async () => {
+  it('centers the heading over the panel width with one blank line on each side', async () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
     await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['x'] });
@@ -1011,11 +1012,9 @@ describe('CLI board command', () => {
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '100' } });
     const lines = stdout.split('\n').map(stripAnsi);
     const headingIndex = lines.findIndex((line) => line.includes('Delivery board'));
-    expect(headingIndex).toBe(2);
+    expect(headingIndex).toBe(1);
     expect(lines[0]).toBe('');
-    expect(lines[1]).toBe('');
-    expect(lines[3]).toBe('');
-    expect(lines[4]).toBe('');
+    expect(lines[2]).toBe('');
     const panelIndex = lines.findIndex((line) => line.startsWith('╭─'));
     const fullWidth = lines[panelIndex]!.length;
     // The emoji counts as two cells: visible heading is 2 + 1 + label length.
