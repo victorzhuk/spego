@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-07
+
+### Fixed
+- Sprint metadata schemas now preserve fields they previously dropped: `design` keeps `approvedBy` and `batch`, and `architecture`, `decision`, and `qa` keep `scopeDigest`, instead of stripping them from an artifact's frontmatter.
+
+### Added
+- `spego board` prints a centered, underlined `📋 Delivery board` heading with two blank lines above and below, followed by a legend naming the status behind every symbol it uses.
+- `--nerd-font` on `spego board` opts in to Nerd Font icons for every status. Nothing detects an installed font, so the portable symbols stay the default; `--plain` wins over it and prints the text statuses.
+
+### Changed
+- The board's `group` column is replaced by `tasks` in both the sprint tables and the `Ungrouped` list: `done/total`, `0/0` for a change with a known-empty plan, `—` when the plan is missing or unreadable. Conflict tracks keep their meaning and stay in `--json` as `group`; the JSON schema is unchanged.
+- Statuses render as portable symbols on the board: `○` backlog, `▶` in-progress, `✓` done, the text-style trash can archived, `×` blocked, `■` paused, `?` unknown. `--graph`, `--gaps`, and every other command are unchanged.
+
 ## [0.26.3] - 2026-09-27
 
 ### Fixed
