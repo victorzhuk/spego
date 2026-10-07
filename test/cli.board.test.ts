@@ -378,7 +378,7 @@ describe('CLI board command', () => {
     expect(bySlug.get('wave-c')?.blockers).toEqual(['wave-a']);
   }, 30_000);
 
-  it('renders the new id/change/status/group/signals columns and drops the old blocker/gaps/missing/title columns', async () => {
+  it('renders the new id/change/status/tasks/signals columns and drops the old blocker/gaps/missing/title columns', async () => {
     const root = await setupWaveFixture();
     const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
@@ -388,7 +388,8 @@ describe('CLI board command', () => {
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
     const header = stdout.split('\n').find((line) => line.includes('signals'))!;
     expect(header).toContain('change');
-    expect(header).toContain('group');
+    expect(header).toContain('tasks');
+    expect(header).not.toContain('group');
     expect(header).not.toContain('blockers');
     expect(header).not.toContain('title');
 
@@ -541,17 +542,13 @@ describe('CLI board command', () => {
     expect(stdout).not.toContain('includes archived changes');
   }, 30_000);
 
-  it('renders the raw track value in human output identical to --json', async () => {
+  it('renders the raw track value in --json identical to the board grouping', async () => {
     const root = await setupWaveFixture();
     const { stdout: jsonOut } = await spawnCli(['--json', 'board', '--cwd', root], root);
     const jsonBoard = JSON.parse(jsonOut) as MirrorBoard;
     expect(new Set(jsonBoard.ungrouped.map((change) => change.group))).toEqual(new Set(['storage', 'ui']));
-
-    const { stdout } = await spawnCli(['board', '--cwd', root], root);
-    expect(stdout).not.toContain('g001');
-    expect(stdout).not.toContain('g002');
-    const waveCLine = stdout.split('\n').find((line) => line.includes('wave-c'))!;
-    expect(waveCLine).toContain('ui');
+    expect(jsonOut).not.toContain('g001');
+    expect(jsonOut).not.toContain('g002');
   }, 30_000);
 
   it('aligns the signals column at the same offset across sprint panels with differently sized cells', async () => {
@@ -683,7 +680,7 @@ describe('CLI board command', () => {
     expect(human.stdout).not.toContain('Sprint 1 · active · sprint-1');
     expect(human.stdout).toContain('1 closed sprint hidden (--closed to show).');
 
-    const humanClosed = await spawnCli(['board', '--closed', '--cwd', root], root);
+    const humanClosed = await spawnCli(['board', '--plain', '--closed', '--cwd', root], root);
     expect(humanClosed.stdout).toContain('Sprint 1 · active · sprint-1');
     const changeLine = humanClosed.stdout.split('\n').find((line) => line.includes('archived-scheduled'))!;
     expect(changeLine).toContain('archived');
@@ -878,7 +875,7 @@ describe('CLI board command', () => {
     const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
     const plain = stripAnsi(stdout);
 
-    expect(plain).toMatch(/id\s+change\s+status\s+group\s+hours\s+signals/);
+    expect(plain).toMatch(/id\s+change\s+status\s+tasks\s+hours\s+signals/);
     expect(plain).toContain('4+?h');
     const untieredRow = plain.split('\n').find((line) => line.includes('untiered-c'))!;
     expect(untieredRow).toContain('?');
@@ -1004,5 +1001,165 @@ describe('CLI board command', () => {
     for (const slug of ['priced-a', 'priced-b', 'untiered-c', 'done-d']) {
       expect(plain).toContain(slug);
     }
+  }, 30_000);
+
+  it('centers the heading over the panel width with two blank lines on each side', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['x'] });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '100' } });
+    const lines = stdout.split('\n').map(stripAnsi);
+    const headingIndex = lines.findIndex((line) => line.includes('Delivery board'));
+    expect(headingIndex).toBe(2);
+    expect(lines[0]).toBe('');
+    expect(lines[1]).toBe('');
+    expect(lines[3]).toBe('');
+    expect(lines[4]).toBe('');
+    const panelIndex = lines.findIndex((line) => line.startsWith('╭─'));
+    const fullWidth = lines[panelIndex]!.length;
+    // The emoji counts as two cells: visible heading is 2 + 1 + label length.
+    const headingWidth = 2 + 1 + 'Delivery board'.length;
+    const leftPad = lines[headingIndex]!.length - lines[headingIndex]!.trimStart().length;
+    expect(leftPad).toBe(Math.floor((fullWidth - headingWidth) / 2));
+    expect(leftPad).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('gives the heading a literal aligned underline under --plain', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'x', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['x'] });
+
+    const { stdout } = await spawnCli(['board', '--plain', '--cwd', root], root, { env: { COLUMNS: '100' } });
+    expect(ANSI_PATTERN.test(stdout)).toBe(false);
+    const lines = stdout.split('\n');
+    const headingIndex = lines.findIndex((line) => line.includes('Delivery board'));
+    const heading = lines[headingIndex]!;
+    const rule = lines[headingIndex + 1]!;
+    expect(rule).toMatch(/^ *─+$/);
+    expect(rule.trim().length).toBe(2 + 1 + 'Delivery board'.length);
+    expect(heading.indexOf('📋')).toBe(rule.indexOf('─'));
+  }, 30_000);
+
+  it('renders portable status icons with a legend, and textual labels under --plain', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'todo-one', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['todo-one'] });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root);
+    const row = stdout.split('\n').find((line) => line.includes('todo-one'))!;
+    expect(row).toContain('○');
+    expect(stdout).toContain('○ backlog');
+
+    const plain = await spawnCli(['board', '--plain', '--cwd', root], root);
+    expect(plain.stdout).toContain('backlog');
+    expect(plain.stdout).not.toContain('○');
+    expect(plain.stdout).not.toContain('○ backlog');
+  }, 30_000);
+
+  it('--nerd-font swaps every status to Nerd Fonts glyphs, and --plain wins over it', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'todo-one', { tasks: '- [ ] todo\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['todo-one'] });
+
+    const { stdout } = await spawnCli(['board', '--nerd-font', '--cwd', root], root);
+    const row = stdout.split('\n').find((line) => line.includes('todo-one'))!;
+    expect(row).toContain('\u{F10C}');
+    expect(row).not.toContain('○');
+
+    const both = await spawnCli(['board', '--plain', '--nerd-font', '--cwd', root], root);
+    expect(both.stdout).not.toContain('\u{F10C}');
+    expect(both.stdout).toContain('backlog');
+  }, 30_000);
+
+  it('derives the tasks column from the change\'s source task plan', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'partial', { tasks: '- [x] one\n- [ ] two\n' });
+    await createChangeEpic(root, 'whole', { tasks: '- [x] one\n- [x] two\n' });
+    await createChangeEpic(root, 'voided', { tasks: '' });
+    await writeOpenSpecChange(root, 'unplanned');
+    await createArtifact(root, 'epic', 'orphan', { slug: 'orphan' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['partial', 'whole', 'voided', 'unplanned'] });
+
+    const { stdout } = await spawnCli(['board', '--plain', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const lines = stdout.split('\n');
+    const header = lines.find((line) => line.includes('tasks'))!;
+    const taskAt = header.indexOf('tasks');
+    const nextAt = ['hours', 'signals']
+      .map((name) => header.indexOf(name, taskAt))
+      .filter((index) => index !== -1)
+      .sort((a, b) => a - b)[0] ?? header.length;
+    const column = (slug: string) => lines.find((line) => line.includes(slug))!.slice(taskAt, nextAt).trim();
+
+    expect(column('partial')).toBe('1/2');
+    expect(column('whole')).toBe('2/2');
+    expect(column('voided')).toBe('0/0');
+    expect(column('unplanned')).toBe('—');
+    expect(column('orphan')).toBe('—');
+  }, 30_000);
+
+  it('renders archived and paused rows rail-aligned with one-cell glyphs and legend entries', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'archived-a', { tasks: '- [x] done\n', archived: true });
+    await createChangeEpic(root, 'paused-e', { tasks: '- [ ] t\n', meta: { status: 'paused' } });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['archived-a', 'paused-e'] });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { FORCE_COLOR: '1', COLUMNS: '160' } });
+    expect(stdout).not.toContain('\u0000');
+    const archivedLine = stdout.split('\n').find((line) => line.includes('archived-a'))!;
+    const pausedLine = stdout.split('\n').find((line) => line.includes('paused-e'))!;
+    expect(archivedLine).toContain('🗑\u{FE0E}');
+    expect(pausedLine).toContain('■');
+    expect(stdout).toContain('🗑\u{FE0E} archived');
+    expect(stdout).toContain('■ paused');
+
+    // The trash glyph spans 3 UTF-16 units but one terminal cell, so geometry
+    // must be measured after collapsing it to a single character.
+    const visible = (line: string) => stripAnsi(line).replaceAll('🗑\u{FE0E}', 'T');
+    const archived = visible(archivedLine);
+    const paused = visible(pausedLine);
+    const header = visible(stdout.split('\n').find((line) => line.includes('tasks'))!);
+    expect(paused.indexOf('0/1')).toBe(header.indexOf('tasks'));
+    expect(archived.lastIndexOf('—')).toBe(paused.lastIndexOf('—'));
+    expect(archived.length).toBe(paused.length);
+
+    const rail = visible(stdout.split('\n').find((line) => stripAnsi(line).startsWith('╭─'))!);
+    for (const line of stdout.split('\n')) {
+      const stripped = visible(line);
+      if (stripped.endsWith('│')) expect(stripped.length).toBe(rail.length);
+    }
+    const legend = stdout.split('\n').find((line) => line.includes(' archived '))!;
+    expect(visible(legend).length).toBeLessThanOrEqual(rail.length);
+  }, 30_000);
+
+  it('uses Nerd archived/paused glyphs under --nerd-font, and --plain wins over it', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await writeOpenSpecChange(root, 'archived-a', { tasks: '- [x] done\n', archived: true });
+    await createChangeEpic(root, 'paused-e', { tasks: '- [ ] t\n', meta: { status: 'paused' } });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', { status: 'active', changes: ['archived-a', 'paused-e'] });
+
+    const { stdout } = await spawnCli(['board', '--nerd-font', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    const archivedLine = stdout.split('\n').find((line) => line.includes('archived-a'))!;
+    const pausedLine = stdout.split('\n').find((line) => line.includes('paused-e'))!;
+    expect(archivedLine).toContain('\u{F1F8}');
+    expect(pausedLine).toContain('\u{F04D}');
+    expect(stdout).not.toContain('\u0000');
+
+    const both = await spawnCli(['board', '--plain', '--nerd-font', '--cwd', root], root);
+    expect(both.stdout).not.toContain('\u{F1F8}');
+    expect(both.stdout).not.toContain('\u{F04D}');
+    expect(both.stdout).not.toContain('🗑\u{FE0E}');
+  }, 30_000);
+
+  it('lists unknown in the legend for an epic without a recognized status', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createArtifact(root, 'epic', 'mystery', { slug: 'mystery' });
+
+    const { stdout } = await spawnCli(['board', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    expect(stdout.split('\n').find((line) => line.includes('mystery'))!).toContain('?');
+    expect(stdout).toContain('? unknown');
+
+    const nerd = await spawnCli(['board', '--nerd-font', '--cwd', root], root, { env: { COLUMNS: '160' } });
+    expect(nerd.stdout).toContain('\u{F059} unknown');
   }, 30_000);
 });

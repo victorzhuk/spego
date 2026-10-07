@@ -203,6 +203,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       graph: { name: 'graph', type: 'boolean', required: false, description: 'Show dependency graph' },
       gaps: { name: 'gaps', type: 'boolean', required: false, description: 'Show gaps, missing artifacts, and blockers' },
       plain: { name: 'plain', type: 'boolean', required: false, description: 'Disable ANSI color in human output' },
+      nerdFont: { name: 'nerdFont', type: 'boolean', required: false, description: 'Render status icons with Nerd Fonts glyphs; --plain wins over it' },
       archived: { name: 'archived', type: 'boolean', required: false, description: 'Include archived changes in the ungrouped list' },
       closed: { name: 'closed', type: 'boolean', required: false, description: 'Show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)' },
       sync: { name: 'sync', type: 'boolean', required: false, description: 'Apply the mechanical reconciliation plan before rendering' },

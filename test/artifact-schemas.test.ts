@@ -335,6 +335,34 @@ describe('artifact schema registration via engine', () => {
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
   });
+
+  it('preserves sprint metadata fields through create and update round-trips', async () => {
+    const design = await engine.create({
+      type: 'design',
+      title: 'Metadata Round Trip Design',
+      body: 'x',
+      meta: { status: 'draft', category: 'system', approvedBy: 'approver-a', batch: 'batch-a' },
+    });
+    const designRead = await engine.readById(design.frontmatter.id);
+    expect(designRead.frontmatter.meta).toMatchObject({
+      approvedBy: 'approver-a',
+      batch: 'batch-a',
+    });
+
+    for (const type of ['architecture', 'decision', 'qa'] as const) {
+      const created = await engine.create({
+        type,
+        title: `Metadata Round Trip ${type}`,
+        body: 'x',
+        meta: { scopeDigest: `digest-${type}` },
+      });
+      const updated = await engine.update(created.frontmatter.id, {
+        meta: { scopeDigest: `digest-${type}-2` },
+      });
+      const updatedRead = await engine.readById(updated.frontmatter.id);
+      expect(updatedRead.frontmatter.meta).toMatchObject({ scopeDigest: `digest-${type}-2` });
+    }
+  });
 });
 
 describe('ARTIFACT_META_DOCS stays in sync with the real schemas', () => {

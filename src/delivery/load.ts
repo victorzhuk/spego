@@ -109,6 +109,7 @@ function sourceChange(slug: string, archived: boolean, epic: DeliveryEpicLink | 
     archived,
     warnings: epic?.warnings,
     taskCount: epic?.taskCount,
+    tasksDone: epic?.tasksDone,
     hasTaskPlan: epic?.hasTaskPlan,
   };
 }

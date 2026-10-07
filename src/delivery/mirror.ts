@@ -39,6 +39,7 @@ export interface MirrorSourceChange {
   archived?: boolean;
   warnings?: string[];
   taskCount?: number;
+  tasksDone?: number;
   /** Whether the adapter found a task list; absent when it cannot tell, which never warns. */
   hasTaskPlan?: boolean;
 }

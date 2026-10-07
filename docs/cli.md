@@ -29,7 +29,7 @@ Every command accepts `--cwd <dir>` to set the project root, and the global `--j
 
 Every command speaks two modes.
 
-**Human (default)** — scannable terminal output. Each command renders a section: a single emoji header (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑 📋 🏃 🕸️ 🧩`), a blank line, then content. Summaries render as bordered boxes (`╭─ … ─╮`), lists as aligned tables. Errors print as `⚠️  [CODE] message` on stderr.
+**Human (default)** — scannable terminal output. Each command renders a section: a single emoji header (`📦 📄 🛠️ 🧭 📚 ✅ ✨ 🗑 📋 🏃 🕸️ 🧩`), a blank line, then content. `spego board` is the exception: it opens with a centered, underlined `📋 Delivery board` title followed by two blank lines above and below instead of the single blank line, and a status legend naming every symbol used. Its rows may render status icons instead of words when `--nerd-font` is passed. Summaries render as bordered boxes (`╭─ … ─╮`), lists as aligned tables. Errors print as `⚠️  [CODE] message` on stderr.
 
 **JSON (opt-in)** — pass `--json` for deterministic, decoration-free JSON on stdout. Errors come back on stderr as `{ "error": { "code", "message", "details" } }`, where `details` is always an object.
 

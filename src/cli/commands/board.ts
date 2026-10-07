@@ -8,6 +8,7 @@ import {
   type MirrorBoard,
   type MirrorChange,
   type MirrorInput,
+  type MirrorSourceChange,
   type MirrorSprint,
   type MirrorWarning,
 } from '../../delivery/mirror.js';
@@ -22,13 +23,14 @@ interface BoardOptions {
   graph?: boolean;
   gaps?: boolean;
   plain?: boolean;
+  nerdFont?: boolean;
   archived?: boolean;
   closed?: boolean;
   sync?: boolean;
 }
 
-const BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'signals'];
-const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'group', 'hours', 'signals'];
+const BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'signals'];
+const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'hours', 'signals'];
 const DEFAULT_TERMINAL_WIDTH = 120;
 const PANEL_CHROME_WIDTH = 4; // "│ " prefix + " │" suffix
 
@@ -39,6 +41,7 @@ export function registerBoard(program: Command): void {
     .option('--graph', 'show dependency graph', false)
     .option('--gaps', 'show gaps, missing artifacts, and blockers', false)
     .option('--plain', 'disable ANSI color in human output', false)
+    .option('--nerd-font', 'render status icons with Nerd Fonts glyphs', false)
     .option('--archived', 'include archived changes in the ungrouped list', false)
     .option('--closed', 'show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)', false)
     .option('--sync', 'apply the mechanical reconciliation plan before rendering', false)
@@ -63,7 +66,7 @@ export function registerBoard(program: Command): void {
           human: () => {
             if (opts.graph) return renderGraph(payload, state.input);
             if (opts.gaps) return renderGaps(payload);
-            return renderBoard(payload, state.input, opts.plain === true, opts.closed === true, terminalWidth());
+            return renderBoard(payload, state.input, opts.plain === true, opts.nerdFont === true, opts.closed === true, terminalWidth());
           },
         };
       });
@@ -85,16 +88,18 @@ interface BoardSection {
   finished: boolean;
 }
 
-function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, showClosed: boolean, budget: number): string {
-  const lines = [renderHeader('📋', 'Delivery board'), ''];
+function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, nerdFont: boolean, showClosed: boolean, budget: number): string {
   const priced = input.flows !== undefined;
   const columns = priced ? PRICED_BOARD_COLUMNS : BOARD_COLUMNS;
   const allSections = buildChangeSections(board);
   const sections = showClosed ? allSections : allSections.filter((section) => !section.finished);
   const hiddenCount = allSections.length - sections.length;
+  const sourcesBySlug = new Map(input.changes.map((source) => [source.slug, source]));
+  const icons = plain ? undefined : statusIcons(nerdFont);
 
   const totalWidth = Math.max(0, budget - PANEL_CHROME_WIDTH);
-  const rowsByColumn = sections.flatMap((section) => section.changes.map((change) => changeRow(change, priced)));
+  const row = (change: MirrorChange) => changeRow(change, priced, sourcesBySlug.get(change.slug), icons);
+  const rowsByColumn = sections.flatMap((section) => section.changes.map(row));
   const widths = columnWidths(columns, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
   const warningRows = aggregateWarningRows(board.warnings);
   const warningWidths = columnWidths(['code', 'message'], warningRows, { maxWidth: totalWidth, totalWidth });
@@ -110,11 +115,17 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     Math.min(Math.max(0, ...titleWidths), totalWidth),
   );
 
+  const renderedChanges = sections.flatMap((section) => section.changes);
+  const heading = boardHeading(panelWidth + PANEL_CHROME_WIDTH, plain);
+  const lines = [...heading];
+  const headingLineCount = lines.length;
+  if (icons && renderedChanges.length > 0) lines.push(...statusLegend(renderedChanges, icons, panelWidth + PANEL_CHROME_WIDTH));
+
   if (sections.length === 0 && hiddenCount === 0) {
     lines.push('No groomed delivery board.');
   } else {
     for (const section of sections) {
-      const table = renderTable(columns, section.changes.map((change) => changeRow(change, priced)), { widths });
+      const table = renderTable(columns, section.changes.map(row), { widths });
       lines.push(renderPanelSection(section.title, table, panelWidth, plain, section.finished, (l) => styleChangeRows(l, section.changes)));
       lines.push('');
     }
@@ -132,7 +143,6 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     lines.push(plain ? note : styleText('dim', note));
     lines.push('');
   }
-  const renderedChanges = sections.flatMap((section) => section.changes);
   if (renderedChanges.some((change) => change.blockers.length + change.gaps.length + change.missing.length > 0)) {
     const note = 'Detail: spego board --gaps';
     lines.push(plain ? note : styleText('dim', note));
@@ -152,7 +162,97 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, sho
     lines.push(plain ? note : styleText('dim', note));
   }
   lines.push(nextLine(board));
-  return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
+  // The blank-line dedupe must not eat the heading block's own two-line margins.
+  const body = lines.slice(headingLineCount).filter((line, index, all) => !(line === '' && all[index - 1] === ''));
+  // Swap the archived placeholder in only after layout, styling, and join are done.
+  return [...lines.slice(0, headingLineCount), ...body].join('\n').split(PORTABLE_COMPLETED_TOKEN).join(PORTABLE_TRASH);
+}
+
+/**
+ * The `📋 Delivery board` heading, centered over the full rendered panel width
+ * (`panelWidth + 4`). The emoji occupies two terminal cells, so the visible
+ * heading width is `2 + 1 + label.length`; padding clamps at zero on narrow
+ * terminals. Normal output styles the heading bold+underline; `--plain` gets a
+ * literal, aligned underline rule instead. Either way the block carries two
+ * empty lines before and after it.
+ */
+function boardHeading(fullWidth: number, plain: boolean): string[] {
+  const label = 'Delivery board';
+  const visible = 2 + 1 + label.length;
+  const pad = ' '.repeat(Math.max(0, Math.floor((fullWidth - visible) / 2)));
+  if (plain) {
+    return ['', '', pad + `📋 ${label}`, pad + '─'.repeat(visible), '', ''];
+  }
+  return ['', '', pad + styleText(['bold', 'underline'], `📋 ${label}`), '', ''];
+}
+
+/** Real portable archived trash glyph: VS16-selected, 3 UTF-16 units but one terminal cell. */
+const PORTABLE_TRASH = '🗑\u{FE0E}';
+// Layout math counts UTF-16 units, so the archived slot renders a one-code-unit
+// NUL placeholder during layout; renderBoard swaps in PORTABLE_TRASH after
+// joining, so the glyph never skews column widths or the NUL reaches stdout.
+const PORTABLE_COMPLETED_TOKEN = '\u0000';
+
+const PORTABLE_STATUS_ICONS: Record<string, string> = {
+  backlog: '○',
+  'in-progress': '▶',
+  done: '✓',
+  completed: PORTABLE_COMPLETED_TOKEN,
+  blocked: '×',
+  paused: '■',
+};
+
+const NERD_STATUS_ICONS: Record<string, string> = {
+  backlog: '\u{F10C}',
+  'in-progress': '\u{F04B}',
+  done: '\u{F00C}',
+  completed: '\u{F1F8}',
+  blocked: '\u{F05E}',
+  paused: '\u{F04D}',
+};
+
+function statusIcons(nerdFont: boolean): Record<string, string> {
+  return { ...(nerdFont ? NERD_STATUS_ICONS : PORTABLE_STATUS_ICONS), unknown: nerdFont ? '\u{F059}' : '?' };
+}
+
+const STATUS_LEGEND_LABELS: Record<string, string> = {
+  backlog: 'backlog',
+  'in-progress': 'in-progress',
+  done: 'done',
+  completed: 'archived',
+  blocked: 'blocked',
+  paused: 'paused',
+  unknown: 'unknown',
+};
+
+const STATUS_LEGEND_ORDER = ['backlog', 'in-progress', 'done', 'completed', 'blocked', 'paused', 'unknown'];
+
+/** One compact legend for the statuses actually rendered, word-wrapped at the board width. */
+function statusLegend(changes: MirrorChange[], icons: Record<string, string>, width: number): string[] {
+  const statuses = new Set<string>(changes.map((change) => (icons[change.status] === undefined ? 'unknown' : change.status)));
+  const entries = STATUS_LEGEND_ORDER.filter((status) => statuses.has(status))
+    .map((status) => `${icons[status]} ${STATUS_LEGEND_LABELS[status]}`);
+  const joined = entries.join('  ');
+  if (joined.length <= width) return [joined];
+  const lines: string[] = [];
+  let current = '';
+  for (const entry of entries) {
+    if (current && current.length + 2 + entry.length > width) {
+      lines.push(current);
+      current = entry;
+    } else {
+      current = current ? `${current}  ${entry}` : entry;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/** `done/total` when both counts exist and the adapter saw a task plan; `—` when missing or unavailable; `0/0` for a known-empty plan. */
+function formatTasks(source: MirrorSourceChange | undefined): string {
+  if (source === undefined || source.hasTaskPlan === false) return '—';
+  if (source.taskCount === undefined || source.tasksDone === undefined) return '—';
+  return `${source.tasksDone}/${source.taskCount}`;
 }
 
 function buildChangeSections(board: MirrorBoard): BoardSection[] {
@@ -280,12 +380,15 @@ function renderGaps(board: MirrorBoard): string {
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
-function changeRow(change: MirrorChange, priced: boolean): string[] {
+function changeRow(change: MirrorChange, priced: boolean, source: MirrorSourceChange | undefined, icons: Record<string, string> | undefined): string[] {
+  const status = icons
+    ? icons[change.status] ?? icons.unknown ?? '?'
+    : deliveryStatusLabel(change.status);
   const row = [
     change.id,
     change.slug,
-    deliveryStatusLabel(change.status),
-    change.group,
+    status,
+    formatTasks(source),
   ];
   if (priced) {
     const estimate = change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate);

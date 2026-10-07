@@ -132,7 +132,7 @@ The system SHALL suggest as next the first pending, unblocked change in the acti
 - **AND** the output hints to run the groom workflow
 
 ### Requirement: Render focused views
-The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The default board's change table SHALL carry exactly the columns `id`, `change`, `status`, `group`, `hours`, and `signals`. The `hours` column SHALL carry the change's Flow Estimate, rendering `?` for an unpriced change (no `tier`, unknown `flow`, or missing profile), and each sprint panel SHALL report its remaining total alongside the panel title; a workspace declaring no `flows` block SHALL omit the column and the totals entirely. An unpriced change SHALL NOT count toward its sprint's total, and a sprint holding pending unpriced changes SHALL render its total with a `+?` suffix so the total never reads as a complete plan when it is not. Hours SHALL render as decimal numbers with trailing zeros trimmed (`0.5`, `1`, `2`); a sprint total SHALL be summed from unrounded values and formatted the same way. The `change` column SHALL never be truncated — when the terminal is too narrow, other columns shrink or truncate first. The `signals` column SHALL summarize a change's blockers, gap flags, and missing artifacts as counts, rendering only the nonzero categories joined by `·` (e.g. `1 blk · 2 gap · 1 mis`) and `—` when all three are zero; full signal text stays in the `--gaps` view, and the default board SHALL append a footer hint pointing at `spego board --gaps` whenever any rendered change has a nonzero signal count. When the mirror's mechanical reconciliation plan is non-empty, the default board SHALL append a footer hint reporting the number of pending mechanical fixes and pointing at `spego sync`. The default board SHALL group each sprint, the `Ungrouped` list, and the trailing `Warnings` table into a left-railed, right-bordered panel with its title embedded in the panel's top rule; a sprint panel's title SHALL render as `<title> · <status> · <slug>`, without a leading `Sprint` label. The default board and `--graph` SHALL render a change's `completed` status as `archived` in the `status` column, and SHALL render the `group` column as the change's conflict-track value (`track` name, `?`, or `—`) identically in human and `--json` output — there is no separate human label for group. Within a panel, a row for a change whose status is satisfied (`done` or `completed`) SHALL be struck through; a row that is merely blocked (not satisfied, with pending blockers) SHALL be dimmed instead, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY. The left-railed, right-bordered panel structure SHALL render under those same conditions regardless — only the bold/underline/strikethrough/dim decorations are gated, not the panel border itself. `--json` output SHALL never carry ANSI codes, SHALL always report `completed` (not `archived`) for status, SHALL carry each change's Flow Estimate, Human Estimate, and rung together with each sprint's total, and SHALL keep carrying the full `blockers`, `gaps`, and `missing` arrays per change — the `signals` counter form is human-output-only. Archived changes SHALL be excluded from the `ungrouped` list by default; the `--archived` flag SHALL restore them. This filtering SHALL NOT remove an archived change from a sprint's own `changes` list — a sprint's delivered history stays intact. The default board's `Warnings` table SHALL aggregate rows describing the same underlying fact into one human-readable row rather than one row per affected change or dependency edge, while `--json`'s `warnings` array and every `MirrorChange.warnings` list SHALL continue to carry one entry per fact, unaggregated.
+The system SHALL render a default human board and provide `--graph` (dependency edges) and `--gaps` (gap flags and missing artifacts) focus views, honoring the global `--json` flag with a deterministic shape in all modes. Every human view SHALL carry the `id` column. The `hours` column SHALL carry the change's Flow Estimate, rendering `?` for an unpriced change (no `tier`, unknown `flow`, or missing profile), and each sprint panel SHALL report its remaining total alongside the panel title; a workspace declaring no `flows` block SHALL omit the column and the totals entirely. An unpriced change SHALL NOT count toward its sprint's total, and a sprint holding pending unpriced changes SHALL render its total with a `+?` suffix so the total never reads as a complete plan when it is not. Hours SHALL render as decimal numbers with trailing zeros trimmed (`0.5`, `1`, `2`); a sprint total SHALL be summed from unrounded values and formatted the same way. The `change` column SHALL never be truncated — when the terminal is too narrow, other columns shrink or truncate first. The `signals` column SHALL summarize a change's blockers, gap flags, and missing artifacts as counts, rendering only the nonzero categories joined by `·` (e.g. `1 blk · 2 gap · 1 mis`) and `—` when all three are zero; full signal text stays in the `--gaps` view, and the default board SHALL append a footer hint pointing at `spego board --gaps` whenever any rendered change has a nonzero signal count. When the mirror's mechanical reconciliation plan is non-empty, the default board SHALL append a footer hint reporting the number of pending mechanical fixes and pointing at `spego sync`. The default board SHALL group each sprint, the `Ungrouped` list, and the trailing `Warnings` table into a left-railed, right-bordered panel with its title embedded in the panel's top rule; a sprint panel's title SHALL render as `<title> · <status> · <slug>`, without a leading `Sprint` label. The default board and `--graph` SHALL render a change's `completed` status as `archived` in the `status` column. Within a panel, a row for a change whose status is satisfied (`done` or `completed`) SHALL be struck through; a row that is merely blocked (not satisfied, with pending blockers) SHALL be dimmed instead, except when `--plain` is passed, the `NO_COLOR` env var is set, or stdout is not a TTY. The left-railed, right-bordered panel structure SHALL render under those same conditions regardless — only the bold/underline/strikethrough/dim decorations are gated, not the panel border itself. `--json` output SHALL never carry ANSI codes, SHALL always report `completed` (not `archived`) for status, SHALL carry each change's Flow Estimate, Human Estimate, and rung together with each sprint's total, and SHALL keep carrying the full `blockers`, `gaps`, and `missing` arrays per change — the `signals` counter form is human-output-only. Archived changes SHALL be excluded from the `ungrouped` list by default; the `--archived` flag SHALL restore them. This filtering SHALL NOT remove an archived change from a sprint's own `changes` list — a sprint's delivered history stays intact. The default board's `Warnings` table SHALL aggregate rows describing the same underlying fact into one human-readable row rather than one row per affected change or dependency edge, while `--json`'s `warnings` array and every `MirrorChange.warnings` list SHALL continue to carry one entry per fact, unaggregated.
 
 #### Scenario: Gap focus
 - **WHEN** an agent runs `spego board --gaps --json`
@@ -163,12 +163,6 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 - **THEN** the board footer reports `2 mechanical fixes — run spego sync`
 - **AND** a board whose mechanical plan is empty renders no such hint
 
-#### Scenario: Human output shows a group letter, JSON keeps the wave index
-- **WHEN** a pending change's epic carries `track: api-contract`
-- **THEN** the human board's `group` column reads `api-contract` — the track name verbatim, not a wave letter
-- **AND** the `--json` payload reports `group: "api-contract"` for the same change
-- **AND** no wave code (`g001`) or letter label (`A`) appears in either mode
-
 #### Scenario: Archived changes hidden from ungrouped by default
 - **WHEN** an agent runs `spego board` in a workspace with an archived change that is not scheduled into any sprint
 - **THEN** that change is absent from the `Ungrouped` list
@@ -189,9 +183,9 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 - **THEN** its row is struck through
 - **AND** its row is not additionally dimmed
 
-#### Scenario: Human output shows the archived label, JSON keeps completed
+#### Scenario: Text output shows the archived label, JSON keeps completed
 - **WHEN** a change is archived, so its status resolves to `completed`
-- **THEN** the human board and `--graph` views print `archived` in the `status` column
+- **THEN** `spego board --plain` and `--graph` print `archived` in the `status` column
 - **AND** the `--json` payload for the same board still reports `status: "completed"`
 
 #### Scenario: Panel rail survives plain output
@@ -213,6 +207,68 @@ The system SHALL render a default human board and provide `--graph` (dependency 
 - **WHEN** the workspace declares no `flows` block
 - **THEN** the default board renders without the `hours` column and without sprint totals
 - **AND** `--json` carries no estimates
+
+### Requirement: Render the task progress column
+The default board's change table SHALL carry exactly the columns `id`, `change`, `status`, `tasks`, `hours`, and `signals`, with `tasks` between `status` and `hours`. The `tasks` column SHALL carry progress as `done/total` — `0/5` when nothing is checked, `5/5` when all are, `0/0` for a known-empty plan, `—` when the plan is missing or unreadable. It SHALL replace `group` in the sprint tables and the `Ungrouped` list. `--json` SHALL still report the conflict track as `group`, unchanged.
+
+#### Scenario: Tasks column shows progress, JSON keeps the track
+- **WHEN** a pending change's epic carries `track: api-contract` and its task plan holds two checked items out of ten
+- **THEN** the human board's `tasks` column reads `2/10`
+- **AND** no `group` column appears in the sprint table or in the `Ungrouped` list
+- **AND** no wave code (`g001`) or letter label (`A`) appears in human output
+- **AND** the `--json` payload reports `group: "api-contract"` for the same change, with the schema unchanged
+
+#### Scenario: Known-empty and unavailable task plans
+- **WHEN** one change's task plan exists but holds no items
+- **AND** another change has no readable task plan
+- **THEN** the `tasks` cells read `0/0` and `—`
+- **AND** the unavailable count never reads as zero progress
+
+### Requirement: Render the board heading
+The default board SHALL open with a `📋 Delivery board` heading centered over the shared panel width, underlined in colored output, followed by two blank lines above and below it. Under `--plain`, where no underline attribute can be drawn, the heading SHALL be followed instead by a literal rule of `─` characters of the same width, aligned with the heading, and no ANSI escape codes. The `--graph`, `--gaps`, and `--json` views SHALL carry no heading.
+
+#### Scenario: Board heading is centered and underlined
+- **WHEN** an agent runs `spego board` in colored output
+- **THEN** the `📋 Delivery board` heading renders centered over the shared panel width and underlined
+- **AND** two blank lines render above the heading and two below it
+
+### Requirement: Render status icons
+Every human status SHALL render as one portable symbol: `backlog` `○`, `in-progress` `▶`, `done` `✓`, `completed` the text-style trash glyph `🗑` (U+1F5D1 U+FE0E), `blocked` `×`, `paused` `■`, `unknown` `?`. `--nerd-font` SHALL opt in to Nerd Font icons for the same seven statuses, keeping the trash icon for archived and the stop square for paused. The system SHALL NOT detect an installed font. `--plain` SHALL win over `--nerd-font`. The `--graph`, `--gaps`, and `--json` views carry no icons.
+
+#### Scenario: Status icons cover the seven statuses
+- **WHEN** the human board renders a change in every one of the seven statuses
+- **THEN** `backlog` renders `○`, `in-progress` renders `▶`, `done` renders `✓`, `completed` renders the text-style trash glyph `🗑` (U+1F5D1 U+FE0E), `blocked` renders `×`, `paused` renders `■`, and `unknown` renders `?`
+
+#### Scenario: Archived changes render the trash glyph in the human board
+- **WHEN** a change is archived, so its status resolves to `completed`
+- **THEN** the default human board renders the text-style trash glyph `🗑` (U+1F5D1 U+FE0E) as the archived marker
+- **AND** `--plain` renders the word `archived` in place of the icon, since it prints text statuses
+
+#### Scenario: Nerd font icons are opt-in and never detected
+- **WHEN** an agent runs `spego board --nerd-font`
+- **THEN** all seven statuses render as Nerd Font icons, with the trash icon still marking archived and the stop square still marking paused
+- **AND** the board without `--nerd-font` renders the portable symbols
+- **AND** nothing detects an installed font, so a terminal without a Nerd Font never receives those glyphs
+
+#### Scenario: Plain output wins over nerd font
+- **WHEN** an agent runs `spego board --plain --nerd-font`
+- **THEN** the statuses render as text, not as icons
+- **AND** no Nerd Font or portable icon glyph appears
+- **AND** no icon legend is printed
+- **AND** no ANSI escape codes appear
+
+### Requirement: Render the status legend
+A legend naming only the statuses the board actually renders SHALL follow the heading, always in the order `backlog`, `in-progress`, `done`, archived, `blocked`, `paused`, `unknown`, counting a change whose status has no symbol as `unknown`. Its entries SHALL share one line when the rendered width allows it and SHALL wrap onto more lines at the full rendered board width when it does not. Under `--nerd-font` the symbols change while the words do not. `--plain` SHALL print no legend.
+
+#### Scenario: Legend names only the rendered statuses
+- **WHEN** the board renders changes in a subset of the seven statuses
+- **THEN** the legend names only those statuses, always in the order `backlog`, `in-progress`, `done`, archived, `blocked`, `paused`, `unknown`
+- **AND** a change whose status has no symbol is counted as `unknown` in the legend
+
+#### Scenario: Legend wraps at the board width
+- **WHEN** the rendered legend entries do not fit on one line at the full rendered board width
+- **THEN** the legend wraps onto more lines
+- **AND** the legend shares one line when the width allows it
 
 ### Requirement: Synchronize mirror state
 The system SHALL expose a deterministic reconciliation over mirror state: `spego sync` SHALL derive a plan from the same mirror the board computes and apply only the mechanical subset of it — creating an `epic` artifact for every active change that has none (the `ungroomed-change` condition), titled from the change's resolved title, closing every non-closed sprint whose changes are all satisfied (the `closable-sprint` condition), and retiring (soft-deleting) every epic whose backing OpenSpec change has been archived (the `orphan-epic` condition with the archived reason). It SHALL NOT act on judgment-only drift — `orphan-epic` whose change does not resolve to any OpenSpec change at all, dependency edges, gaps, `requires`/`links`, or sprint grouping — which it SHALL instead report as remaining. It SHALL NOT write into `openspec/`, and every write SHALL go through the same optimistic-concurrency artifact-engine path (`create`, `update` with an expected revision, `softDelete`) already used elsewhere, so a concurrent conflicting write is rejected rather than silently overwritten. A `--dry-run` flag SHALL derive and report the plan without writing anything. `spego board --sync` SHALL apply the same mechanical plan and then render the board derived from the reconciled state; without the flag, `spego board` SHALL remain strictly read-only. Applying the same plan twice SHALL be a no-op the second time.
