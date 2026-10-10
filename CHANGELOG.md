@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-10
+
+### Added
+- `spego board` carries a `plan` column naming each change's task-plan state: `planned` (the plan holds items), `planning` (a `tasks.md` exists but none yet), `—` (no readable plan). Colored output renders `●` planned and `◐` planning — filling up from `—` — with the symbols named in the status legend; `--nerd-font` swaps in Nerd Font glyphs for the same meaning; `--plain` prints the words. A `done` or `completed` row always reads `—` — its plan is moot.
+
+### Changed
+- `spego board --json` reports the same state per change as `planState` (`planned`, `planning`, `none`), omitted when the adapter cannot tell, so an unknown count never reads as `none`.
+
 ## [0.27.1] - 2026-10-07
 
 ### Changed
