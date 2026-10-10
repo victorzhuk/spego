@@ -196,7 +196,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'board',
-    description: 'Show the delivery board with per-change signals; --sync reconciles before render',
+    description: 'Show the delivery board with per-change plan state and signals; --sync reconciles before render',
     slashName: '/spego:board',
     category: 'planning',
     inputSchema: {

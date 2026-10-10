@@ -82,6 +82,8 @@ export interface MirrorChange {
   bias?: number;
   /** The plan's chunk count when the price came from it (`rung: 'planned'`); absent otherwise. */
   chunks?: number;
+  /** Task-plan state: a plan with items, one with none yet, or none at all. Omitted when the adapter cannot tell. */
+  planState?: 'planned' | 'planning' | 'none';
   /** Recorded runs from the epic's `actuals` (stored measurements, not derived). */
   actuals: ActualRun[];
   /** Total recorded hours across all runs. */
@@ -166,6 +168,18 @@ const WARNING_ORDER: Record<WarningCode, number> = {
 function taskPlanGap(source: MirrorSourceChange): 'missing' | 'empty' | undefined {
   if (source.hasTaskPlan === false) return 'missing';
   if (source.hasTaskPlan === true && (source.taskCount ?? 0) === 0) return 'empty';
+  return undefined;
+}
+
+/**
+ * The task-plan state behind the board's `plan` column: a plan with items,
+ * one with none yet, or none at all. Undefined when the adapter cannot tell
+ * — an unknown count must never read as `none`.
+ */
+function planState(source: MirrorSourceChange | undefined): 'planned' | 'planning' | 'none' | undefined {
+  if (source === undefined) return undefined;
+  if (source.hasTaskPlan === false) return 'none';
+  if (source.hasTaskPlan === true) return (source.taskCount ?? 0) > 0 ? 'planned' : 'planning';
   return undefined;
 }
 
@@ -421,7 +435,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
   const toMirrorChange = (slug: string): MirrorChange => {
     const state = changeStates.get(slug);
     const actuals = actualsBySlug.get(slug) ?? [];
-    return {
+    const change: MirrorChange = {
       id: idBySlug.get(slug) ?? slug,
       slug,
       title: state?.title ?? slug,
@@ -438,6 +452,9 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       actualsTotal: Math.round(actuals.reduce((sum, run) => sum + run.hours, 0) * 100) / 100,
       ...priceBySlug.get(slug),
     };
+    const plan = planState(inputChangeBySlug.get(slug));
+    if (plan !== undefined) change.planState = plan;
+    return change;
   };
 
   const sprintRows: MirrorSprint[] = sprints.map((sprint) => {

@@ -401,6 +401,32 @@ describe('no-task-plan warning', () => {
   });
 });
 
+describe('plan state', () => {
+  it('derives planned, planning, and none from the change source', () => {
+    const result = board({
+      changes: [
+        { ...change('planned'), hasTaskPlan: true, taskCount: 2 },
+        { ...change('planning'), hasTaskPlan: true, taskCount: 0 },
+        { ...change('unplanned'), hasTaskPlan: false, taskCount: 0 },
+      ],
+      epics: [epic('planned'), epic('planning'), epic('unplanned')],
+    });
+
+    expect(findChange(result, 'planned')?.planState).toBe('planned');
+    expect(findChange(result, 'planning')?.planState).toBe('planning');
+    expect(findChange(result, 'unplanned')?.planState).toBe('none');
+  });
+
+  it('omits planState when the adapter cannot tell', () => {
+    const result = board({
+      changes: [change('unknown-source')],
+      epics: [epic('unknown-source')],
+    });
+
+    expect('planState' in findChange(result, 'unknown-source')!).toBe(false);
+  });
+});
+
 describe('epic-meta status override', () => {
   it('applies a blocked override to a known change and reports it as an unsatisfied blocker', () => {
     const result = board({

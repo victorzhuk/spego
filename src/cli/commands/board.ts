@@ -29,8 +29,8 @@ interface BoardOptions {
   sync?: boolean;
 }
 
-const BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'signals'];
-const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'hours', 'signals'];
+const BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'plan', 'signals'];
+const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'plan', 'hours', 'signals'];
 const DEFAULT_TERMINAL_WIDTH = 120;
 const PANEL_CHROME_WIDTH = 4; // "│ " prefix + " │" suffix
 
@@ -96,9 +96,10 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, ner
   const hiddenCount = allSections.length - sections.length;
   const sourcesBySlug = new Map(input.changes.map((source) => [source.slug, source]));
   const icons = plain ? undefined : statusIcons(nerdFont);
+  const planGlyphs = plain ? undefined : planIcons(nerdFont);
 
   const totalWidth = Math.max(0, budget - PANEL_CHROME_WIDTH);
-  const row = (change: MirrorChange) => changeRow(change, priced, sourcesBySlug.get(change.slug), icons);
+  const row = (change: MirrorChange) => changeRow(change, priced, sourcesBySlug.get(change.slug), icons, planGlyphs);
   const rowsByColumn = sections.flatMap((section) => section.changes.map(row));
   const widths = columnWidths(columns, rowsByColumn, { maxWidth: 36, totalWidth, protect: [1] });
   const warningRows = aggregateWarningRows(board.warnings);
@@ -119,7 +120,7 @@ function renderBoard(board: MirrorBoard, input: MirrorInput, plain: boolean, ner
   const heading = boardHeading(panelWidth + PANEL_CHROME_WIDTH, plain);
   const lines = [...heading];
   const headingLineCount = lines.length;
-  if (icons && renderedChanges.length > 0) lines.push(...statusLegend(renderedChanges, icons, panelWidth + PANEL_CHROME_WIDTH));
+  if (icons && renderedChanges.length > 0) lines.push(...statusLegend(renderedChanges, icons, planGlyphs, panelWidth + PANEL_CHROME_WIDTH));
 
   if (sections.length === 0 && hiddenCount === 0) {
     lines.push('No groomed delivery board.');
@@ -211,8 +212,23 @@ const NERD_STATUS_ICONS: Record<string, string> = {
   paused: '\u{F04D}',
 };
 
+/** Plan glyphs read as a fill progression: `—` nothing, `◐` being written, `●` written. */
+const PORTABLE_PLAN_ICONS: Record<string, string> = {
+  planned: '●',
+  planning: '◐',
+};
+
+const NERD_PLAN_ICONS: Record<string, string> = {
+  planned: '\u{F111}',
+  planning: '\u{F042}',
+};
+
 function statusIcons(nerdFont: boolean): Record<string, string> {
   return { ...(nerdFont ? NERD_STATUS_ICONS : PORTABLE_STATUS_ICONS), unknown: nerdFont ? '\u{F059}' : '?' };
+}
+
+function planIcons(nerdFont: boolean): Record<string, string> {
+  return nerdFont ? NERD_PLAN_ICONS : PORTABLE_PLAN_ICONS;
 }
 
 const STATUS_LEGEND_LABELS: Record<string, string> = {
@@ -227,11 +243,21 @@ const STATUS_LEGEND_LABELS: Record<string, string> = {
 
 const STATUS_LEGEND_ORDER = ['backlog', 'in-progress', 'done', 'completed', 'blocked', 'paused', 'unknown'];
 
-/** One compact legend for the statuses actually rendered, word-wrapped at the board width. */
-function statusLegend(changes: MirrorChange[], icons: Record<string, string>, width: number): string[] {
+/** Plan states with a glyph, in legend order; `none` has no glyph — it renders `—` like every other absent cell. */
+const PLAN_LEGEND_ORDER = ['planned', 'planning'] as const;
+
+/** One compact legend for the statuses and plan states actually rendered, word-wrapped at the board width. */
+function statusLegend(changes: MirrorChange[], icons: Record<string, string>, planGlyphs: Record<string, string> | undefined, width: number): string[] {
   const statuses = new Set<string>(changes.map((change) => (icons[change.status] === undefined ? 'unknown' : change.status)));
   const entries = STATUS_LEGEND_ORDER.filter((status) => statuses.has(status))
     .map((status) => `${icons[status]} ${STATUS_LEGEND_LABELS[status]}`);
+  if (planGlyphs) {
+    // A satisfied change renders `—` in the plan column, so its plan state names no rendered symbol.
+    const rendered = new Set(changes.filter((change) => !isSatisfied(change.status)).map((change) => change.planState));
+    for (const state of PLAN_LEGEND_ORDER) {
+      if (rendered.has(state)) entries.push(`${planGlyphs[state]} ${state}`);
+    }
+  }
   const joined = entries.join('  ');
   if (joined.length <= width) return [joined];
   const lines: string[] = [];
@@ -253,6 +279,17 @@ function formatTasks(source: MirrorSourceChange | undefined): string {
   if (source === undefined || source.hasTaskPlan === false) return '—';
   if (source.taskCount === undefined || source.tasksDone === undefined) return '—';
   return `${source.tasksDone}/${source.taskCount}`;
+}
+
+/**
+ * The change's task-plan state: a glyph when colored output renders one and the
+ * state names one, the word under `--plain`. A satisfied row's plan is moot,
+ * and both no-plan and unknown read `—` — only `--json` spells `none`.
+ */
+function formatPlan(change: MirrorChange, glyphs: Record<string, string> | undefined): string {
+  if (isSatisfied(change.status)) return '—';
+  if (change.planState !== 'planned' && change.planState !== 'planning') return '—';
+  return glyphs?.[change.planState] ?? change.planState;
 }
 
 function buildChangeSections(board: MirrorBoard): BoardSection[] {
@@ -380,7 +417,7 @@ function renderGaps(board: MirrorBoard): string {
   return lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n');
 }
 
-function changeRow(change: MirrorChange, priced: boolean, source: MirrorSourceChange | undefined, icons: Record<string, string> | undefined): string[] {
+function changeRow(change: MirrorChange, priced: boolean, source: MirrorSourceChange | undefined, icons: Record<string, string> | undefined, planGlyphs: Record<string, string> | undefined): string[] {
   const status = icons
     ? icons[change.status] ?? icons.unknown ?? '?'
     : deliveryStatusLabel(change.status);
@@ -389,6 +426,7 @@ function changeRow(change: MirrorChange, priced: boolean, source: MirrorSourceCh
     change.slug,
     status,
     formatTasks(source),
+    formatPlan(change, planGlyphs),
   ];
   if (priced) {
     const estimate = change.flowEstimate === undefined ? '?' : formatHours(change.flowEstimate);
