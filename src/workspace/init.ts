@@ -97,7 +97,7 @@ export async function initWorkspace(options: InitOptions = {}): Promise<InitSumm
     config = existingConfig;
   } else {
     config = defaultConfig({
-      agents: options.agents ?? existingConfig?.agents ?? ['claude'],
+      agents: options.agents ?? existingConfig?.agents ?? ['agents'],
       demo: options.demo ?? existingConfig?.demo ?? false,
       extraArtifactTypes: existingConfig?.extraArtifactTypes ?? [],
     });

@@ -70,7 +70,7 @@ export async function setupInitialized(): Promise<{
  cleanup: () => Promise<void>;
 }> {
  const project = await makeTempProject();
- await spawnCli(['init', '--agents', 'claude', '--demo', 'false', '--cwd', project.root], project.root);
+ await spawnCli(['init', '--agents', 'agents', '--demo', 'false', '--cwd', project.root], project.root);
  return project;
 }
 

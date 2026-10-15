@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeTempProject } from './helpers.js';
-import { ClaudeGenerator } from '../src/generator/claude.js';
+import { AgentsGenerator } from '../src/generator/agents.js';
 import { WORKFLOW_REGISTRY, getWorkflowByName } from '../src/workflows/registry.js';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
@@ -49,11 +49,11 @@ describe('Authoring workflow generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
     for (const name of AUTHORING_WORKFLOWS) {
-      const skillPath = path.join(root, '.claude', 'skills', `spego-${name}`, 'SKILL.md');
+      const skillPath = path.join(root, '.agents', 'skills', `spego-${name}`, 'SKILL.md');
       const content = await fs.readFile(skillPath, 'utf8');
 
       expect(content.startsWith('---\n')).toBe(true);
@@ -68,10 +68,10 @@ describe('Authoring workflow generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-help', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-help', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('spego status');
@@ -83,10 +83,10 @@ describe('Authoring workflow generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-help', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-help', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     const otherWorkflows = WORKFLOW_REGISTRY.filter((w) => w.name !== 'help');
@@ -99,10 +99,10 @@ describe('Authoring workflow generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-elicit', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-elicit', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('--expected-revision');
@@ -116,10 +116,10 @@ describe('Authoring workflow generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-brainstorm-deep', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-brainstorm-deep', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('spego-brainstorm-party');

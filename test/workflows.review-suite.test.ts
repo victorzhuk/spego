@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeTempProject } from './helpers.js';
-import { ClaudeGenerator } from '../src/generator/claude.js';
+import { AgentsGenerator } from '../src/generator/agents.js';
 import { WORKFLOW_REGISTRY, getWorkflowByName } from '../src/workflows/registry.js';
 
 const NEW_WORKFLOWS = ['review-edge-cases', 'editorial-prose', 'editorial-structure'] as const;
@@ -55,10 +55,10 @@ describe('Review suite generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-review-edge-cases', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-review-edge-cases', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('derive-edge-classes');
@@ -76,10 +76,10 @@ describe('Review suite generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-editorial-prose', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-editorial-prose', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('--expected-revision');
@@ -91,10 +91,10 @@ describe('Review suite generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-editorial-structure', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-editorial-structure', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('does not mutate the source artifact');
@@ -105,11 +105,11 @@ describe('Review suite generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
     for (const name of NEW_WORKFLOWS) {
-      const skillPath = path.join(root, '.claude', 'skills', `spego-${name}`, 'SKILL.md');
+      const skillPath = path.join(root, '.agents', 'skills', `spego-${name}`, 'SKILL.md');
       const content = await fs.readFile(skillPath, 'utf8');
 
       expect(content.startsWith('---\n')).toBe(true);

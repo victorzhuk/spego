@@ -9,12 +9,14 @@
   "files": [
     "dist",
     "docs/*.md",
+    "skills",
     "README.md",
     "CHANGELOG.md"
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/make-cli-executable.mjs",
     "spego": "tsx src/cli.ts",
+    "skills": "tsx scripts/generate-skills.ts",
     "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",

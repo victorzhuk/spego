@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeTempProject } from './helpers.js';
-import { ClaudeGenerator } from '../src/generator/claude.js';
+import { AgentsGenerator } from '../src/generator/agents.js';
 import { WORKFLOW_REGISTRY } from '../src/workflows/registry.js';
 import { COMMAND_REGISTRY } from '../src/command-meta/registry.js';
 
@@ -17,11 +17,11 @@ describe('Workflow skill generation', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     const report = await gen.generate(root);
 
     for (const wf of WORKFLOW_REGISTRY) {
-      const skillPath = path.join(root, '.claude', 'skills', `spego-${wf.name}`, 'SKILL.md');
+      const skillPath = path.join(root, '.agents', 'skills', `spego-${wf.name}`, 'SKILL.md');
       const skillFile = report.files.find((f) => f.path === skillPath);
       expect(skillFile).toBeDefined();
       expect(skillFile!.action).toBe('created');
@@ -42,7 +42,7 @@ describe('Workflow skill generation', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     const report = await gen.generate(root);
 
     const allPaths = report.files.map((f) => f.path);
@@ -64,7 +64,7 @@ describe('Workflow skill generation', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     const report = await gen.generate(root);
 
     const workflowFiles = report.files.filter((f) =>
@@ -77,7 +77,7 @@ describe('Workflow skill generation', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
     const report2 = await gen.generate(root);
 
@@ -93,10 +93,10 @@ describe('Workflow skill generation', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-groom', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-groom', 'SKILL.md');
     const content = await fs.readFile(skillPath, 'utf8');
 
     expect(content).toContain('### orient');
@@ -124,7 +124,7 @@ describe('Workflow legacy flat-file cleanup', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const skillsDir = path.join(root, '.claude', 'skills');
+    const skillsDir = path.join(root, '.agents', 'skills');
     await fs.mkdir(skillsDir, { recursive: true });
 
     const oldContent = '<!-- spego-generated v1 -->\n---\nname: spego-brainstorm-party\n---\n\nold flat skill';
@@ -135,7 +135,7 @@ describe('Workflow legacy flat-file cleanup', () => {
     const oldPath2 = path.join(skillsDir, 'spego-review-adversarial.md');
     await fs.writeFile(oldPath2, oldContent2, 'utf8');
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     const report = await gen.generate(root);
 
     await expect(fs.access(oldPath)).rejects.toThrow();

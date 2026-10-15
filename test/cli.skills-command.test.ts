@@ -21,10 +21,10 @@ afterEach(async () => {
   for (const fn of cleanups.splice(0)) await fn();
 });
 
-async function setup() {
+async function setup(agents = 'agents') {
   const { root, cleanup } = await makeTempProject();
   cleanups.push(cleanup);
-  await cli(['init', '--agents', 'claude', '--demo', 'false', '--cwd', root], root);
+  await cli(['init', '--agents', agents, '--demo', 'false', '--cwd', root], root);
   return root;
 }
 
@@ -50,8 +50,8 @@ describe('CLI skills command', () => {
     const configPath = path.join(root, '.spego', 'config.yaml');
     const rawConfig = await fs.readFile(configPath, 'utf8');
     const updatedConfig = rawConfig.replace(
-      'agents:\n  - claude\n',
-      'agents:\n  - claude\n  - ghost\n',
+      'agents:\n  - agents\n',
+      'agents:\n  - agents\n  - ghost\n',
     );
     await fs.writeFile(configPath, updatedConfig, 'utf8');
 
@@ -60,9 +60,28 @@ describe('CLI skills command', () => {
 
     expect(Array.isArray(result)).toBe(true);
     const targets = result.map((r: { target: string }) => r.target);
-    expect(targets).toContain('claude');
+    expect(targets).toContain('agents');
     expect(targets).not.toContain('ghost');
     expect(stderr).not.toContain('warning: no generator registered for target "ghost", skipping');
+  });
+
+  it('legacy claude target still generates .agents skills', async () => {
+    const root = await setup('claude');
+    const { stdout } = await cli(['--json', 'skills', '--cwd', root], root);
+    const result = JSON.parse(stdout);
+    const targets = result.map((r: { target: string }) => r.target);
+    expect(targets).toContain('agents');
+
+    const skill = await fs.stat(path.join(root, '.agents', 'skills', 'spego-init', 'SKILL.md'));
+    expect(skill.isFile()).toBe(true);
+    await expect(fs.stat(path.join(root, '.claude'))).rejects.toThrow();
+  });
+
+  it('skills human output notes the legacy claude alias', async () => {
+    const root = await setup('claude');
+    const { stdout, stderr } = await cli(['skills', '--cwd', root], root);
+    expect(stdout).toContain('🛠️ Skill regeneration');
+    expect(stderr).toContain('legacy alias for "agents"');
   });
 
   it('regenerate hidden alias still works and emits deprecation warning', async () => {
@@ -106,16 +125,17 @@ describe('CLI skills command', () => {
   it('skills command generates spego-skills paths', async () => {
     const root = await setup();
     await cli(['skills', '--cwd', root], root);
-    const skill = await fs.stat(path.join(root, '.claude', 'skills', 'spego-skills', 'SKILL.md'));
+    const skill = await fs.stat(path.join(root, '.agents', 'skills', 'spego-skills', 'SKILL.md'));
     expect(skill.isFile()).toBe(true);
-    const cmd = await fs.stat(path.join(root, '.claude', 'commands', 'spego', 'skills.md'));
-    expect(cmd.isFile()).toBe(true);
+    await expect(
+      fs.stat(path.join(root, '.claude', 'commands', 'spego', 'skills.md')),
+    ).rejects.toThrow();
   });
 
   it('skills command creates spego-groom once then leaves it unchanged', async () => {
     const { root, cleanup } = await setupInitialized();
     cleanups.push(cleanup);
-    const skillPath = path.join(root, '.claude', 'skills', 'spego-groom', 'SKILL.md');
+    const skillPath = path.join(root, '.agents', 'skills', 'spego-groom', 'SKILL.md');
     await fs.rm(path.dirname(skillPath), { recursive: true, force: true });
 
     type SkillReport = { files: Array<{ path: string; action: string }> };

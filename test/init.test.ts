@@ -55,6 +55,16 @@ describe('init', () => {
     await expect(fs.stat(path.join(root, '.claude'))).rejects.toThrow();
   });
 
+  it('resolves the legacy claude target to universal .agents skills', async () => {
+    const { root, cleanup } = await makeTempProject();
+    cleanups.push(cleanup);
+
+    await initWorkspace({ projectRoot: root, agents: ['claude'], demo: false });
+
+    await expect(fs.stat(path.join(root, '.agents', 'skills', 'spego-init', 'SKILL.md'))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, '.claude'))).rejects.toThrow();
+  });
+
   it('rejects legacy orchestration config with VALIDATION_FAILED', async () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);

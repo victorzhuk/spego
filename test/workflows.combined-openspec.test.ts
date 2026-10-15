@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeTempProject } from './helpers.js';
-import { ClaudeGenerator } from '../src/generator/claude.js';
+import { AgentsGenerator } from '../src/generator/agents.js';
 import { getWorkflowByName } from '../src/workflows/registry.js';
 
 const COMBINED_WORKFLOWS = [
@@ -62,7 +62,7 @@ describe('Combined OpenSpec generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
     const brainstorm = await readWorkflowSkill(root, 'change-brainstorm');
@@ -95,7 +95,7 @@ describe('Combined OpenSpec generated skill content', () => {
     const { root, cleanup } = await makeTempProject();
     cleanups.push(cleanup);
 
-    const gen = new ClaudeGenerator();
+    const gen = new AgentsGenerator();
     await gen.generate(root);
 
     const help = await readWorkflowSkill(root, 'help');
@@ -109,6 +109,6 @@ describe('Combined OpenSpec generated skill content', () => {
 });
 
 async function readWorkflowSkill(root: string, name: string): Promise<string> {
-  const skillPath = path.join(root, '.claude', 'skills', `spego-${name}`, 'SKILL.md');
+  const skillPath = path.join(root, '.agents', 'skills', `spego-${name}`, 'SKILL.md');
   return fs.readFile(skillPath, 'utf8');
 }

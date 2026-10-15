@@ -103,8 +103,8 @@ Combine reviewers for orthogonal coverage:
 
 OpenSpec prompts and spego workflow skills are separate surfaces:
 
-- OPSX/OpenSpec prompts live under `.claude/commands/opsx/` and `.claude/skills/openspec-*/`.
-- spego-generated commands and workflow skills live under `.claude/commands/spego/` and `.claude/skills/spego-*/`.
+- OPSX/OpenSpec prompts live under their own installed locations (`.agents/skills/openspec-*/`, `.claude/skills/openspec-*/`).
+- spego-generated workflow and command skills live under `.agents/skills/spego-*/`.
 
 OpenSpec owns change execution and lifecycle state: proposal, design, specs, tasks, apply, verify, sync, archive. spego owns durable product-thinking artifacts — `brainstorm`, `qa`, `risk`, `retro` — plus delivery-mirror state, `epic` and `sprint-plan`, written only by the groom workflow. The [OpenSpec delivery adapter](openspec-adapter.md) is read-only.
 

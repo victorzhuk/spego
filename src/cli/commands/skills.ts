@@ -35,7 +35,7 @@ async function runSkills(cwd: string | undefined, json: boolean): Promise<{
 export function registerSkills(program: Command): void {
   program
     .command('skills')
-    .description('Regenerate agent skill and command files')
+    .description('Regenerate agent skill files')
     .option('--cwd <dir>', 'project root')
     .action(async (opts) => {
       await runCommand({ program }, async (json) => runSkills(opts.cwd, json));
@@ -43,7 +43,7 @@ export function registerSkills(program: Command): void {
 
   program
     .command('regenerate', { hidden: true })
-    .description('Regenerate agent skill and command files')
+    .description('Regenerate agent skill files')
     .option('--cwd <dir>', 'project root')
     .action(async (opts) => {
       await runCommand({ program }, async (json) => {

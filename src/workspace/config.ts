@@ -44,7 +44,7 @@ export const workspaceConfigSchema = z
     /** Schema version. Bump when config layout changes. */
     version: z.literal(1).default(1),
     /** Agent toolchains the workspace targets. */
-    agents: z.array(z.string()).default(['claude']),
+    agents: z.array(z.string()).default(['agents']),
     /** Whether init seeded demo artifacts. */
     demo: z.boolean().default(false),
     /** Built-in types are always allowed; this list extends them. */
@@ -65,7 +65,7 @@ export type WorkspaceConfig = z.infer<typeof workspaceConfigSchema>;
 export function defaultConfig(overrides: Partial<WorkspaceConfig> = {}): WorkspaceConfig {
   return workspaceConfigSchema.parse({
     version: 1,
-    agents: overrides.agents ?? ['claude'],
+    agents: overrides.agents ?? ['agents'],
     demo: overrides.demo ?? false,
     extraArtifactTypes: overrides.extraArtifactTypes ?? [],
     deliveryAdapter: overrides.deliveryAdapter,

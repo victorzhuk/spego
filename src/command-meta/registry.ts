@@ -126,7 +126,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
   },
   {
     name: 'skills',
-    description: 'Regenerate agent skill and command files',
+    description: 'Regenerate agent skill files',
     slashName: '/spego:skills',
     category: 'workspace',
     inputSchema: {

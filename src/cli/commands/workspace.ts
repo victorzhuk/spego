@@ -59,7 +59,7 @@ export function registerWorkspace(program: Command): void {
   program
     .command('init')
     .description('Initialize a .spego/ workspace in the current project')
-    .option('--agents <list>', 'comma-separated list of agent toolchains', 'claude')
+    .option('--agents <list>', 'comma-separated list of agent toolchains', 'agents')
     .option('--demo <bool>', 'seed demo artifacts (true|false)', 'false')
     .option('--force', 'overwrite config (does not delete artifacts)', false)
     .option('--cwd <dir>', 'project root (defaults to current directory)')

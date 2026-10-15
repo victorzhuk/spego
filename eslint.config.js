@@ -36,6 +36,7 @@ export default tseslint.config(
             'test/store.test.ts',
             'test/generator.test.ts',
             'test/generator.opencode.test.ts',
+            'test/generator.source.test.ts',
             'test/helpers.ts',
             'test/init.test.ts',
             'test/package.test.ts',

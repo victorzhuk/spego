@@ -6,7 +6,7 @@ Agent-first product orchestration: markdown-first artifact engine with SQLite in
 
 ```sh
 npm install --global @zhuk/spego
-spego init --agents claude,opencode --demo false
+spego init --agents agents,opencode --demo false
 ```
 
 ## Commands
@@ -49,7 +49,7 @@ Workspace config lives at `.spego/config.yaml`:
 ```yaml
 version: 1
 agents:
-  - claude
+  - agents
   - opencode
 demo: false
 extraArtifactTypes: []
@@ -59,6 +59,17 @@ deliveryAdapter:
 ```
 
 An optional `flows` block turns on hour estimates — see [docs/estimation.md](docs/estimation.md).
+
+## Installing skills
+
+Every target under `agents` gets its agent-facing files on `spego init` and `spego skills`. The `agents` target writes universal skills to `.agents/skills/spego-<name>/SKILL.md`, readable by any tool following the [Agent Skills](https://agentskills.io) layout. The same skills can be installed without spego through the skills CLI — the repository's committed `skills/` tree is the source for both, so the two paths deliver identical files:
+
+```sh
+spego skills                      # render skills into .agents/skills/
+npx skills add victorzhuk/spego   # install the same skills via the skills CLI
+```
+
+`claude` is still accepted as a target name and resolves to `agents`; regenerating also removes spego-generated leftovers from the old `.claude/skills` and `.claude/commands/spego` layout. See [docs/agent-targets.md](docs/agent-targets.md).
 
 ## Workflow Skills
 
@@ -81,7 +92,7 @@ Reviewers complement rather than replace each other. `spego-review-adversarial` 
 - [Estimation](docs/estimation.md) — Size Tiers, flow profiles, the pricing ladder, bias
 - [OpenSpec adapter](docs/openspec-adapter.md) — the read-only delivery view
 - [Workflow skills](docs/workflows.md) — every skill, the groom phases, combined OpenSpec lanes
-- [Agent targets](docs/agent-targets.md) — generated Claude and OpenCode files
+- [Agent targets](docs/agent-targets.md) — generated `.agents` and OpenCode files, install paths
 - [`CONTEXT.md`](CONTEXT.md) — project glossary
 
 ## Development
@@ -91,6 +102,7 @@ npm run typecheck   # type checking
 npm run lint        # eslint
 npm test            # run the suite
 npm run build       # compile to dist/
+npm run skills      # regenerate the canonical skills/ tree
 ```
 
 ## Requirements

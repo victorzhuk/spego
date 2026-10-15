@@ -30,7 +30,7 @@ export function padRight(value: string, width: number): string {
  * ```
  * ╭─ Workspace ─────────────────────────╮
  * │ root    /tmp/proj                   │
- * │ agents  claude                      │
+ * │ agents  agents, opencode            │
  * ╰─────────────────────────────────────╯
  * ```
  */
