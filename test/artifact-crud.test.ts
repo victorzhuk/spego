@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ArtifactEngine } from '../src/artifacts/engine.js';
+import { parseArtifactFile, renderArtifactFile } from '../src/artifacts/storage.js';
+import type { ArtifactFrontmatter } from '../src/artifacts/types.js';
 import { initWorkspace } from '../src/workspace/init.js';
 import { SpegoError } from '../src/errors.js';
 import { makeTempProject } from './helpers.js';
@@ -183,5 +185,32 @@ describe('artifact CRUD', () => {
         meta: { severity: 'impossible' as unknown as string },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+});
+
+describe('artifact storage round-trip', () => {
+  const frontmatter: ArtifactFrontmatter = {
+    id: '11111111-1111-4111-8111-111111111111',
+    type: 'design',
+    title: 'Round-trip fixture',
+    slug: 'round-trip-fixture',
+    revision: 1,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    meta: {},
+  };
+
+  it('parse(render(fm, body)).body equals a newline-free body', () => {
+    const body = 'Body without a trailing newline';
+
+    const parsed = parseArtifactFile(renderArtifactFile(frontmatter, body), 'round-trip.md');
+
+    expect(parsed.body).toBe(body);
+  });
+
+  it('keeps the frontmatter identical across a round trip', () => {
+    const parsed = parseArtifactFile(renderArtifactFile(frontmatter, 'Second body'), 'round-trip.md');
+
+    expect(parsed.frontmatter).toEqual(frontmatter);
   });
 });

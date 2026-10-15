@@ -40,7 +40,12 @@ export function parseArtifactFile(
     });
   }
   const yamlText = afterOpen.slice(0, closeMatch.index);
-  const body = afterOpen.slice(closeMatch.index + closeMatch[0].length).replace(/^\n+/, '');
+  // Strip the blank separator line after the closing fence and the file's
+  // trailing newline, so a parsed body is exactly what render was given.
+  const body = afterOpen
+    .slice(closeMatch.index + closeMatch[0].length)
+    .replace(/^\n+/, '')
+    .replace(/\n+$/, '');
 
   let data: unknown;
   try {
