@@ -1,6 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## [0.29.0] - 2026-10-15
+
+### Fixed
+- Artifact bodies round-trip exactly: parsing a rendered artifact strips the blank separator after the frontmatter fence and the trailing newline, so `parse(render(meta, body)).body` equals the body that was written instead of carrying an extra trailing newline.
+
+### Added
+- Skills generate to the universal `.agents/skills/spego-<name>/SKILL.md` layout instead of `.claude/skills`, so any tool following the Agent Skills standard reads them. Two install paths deliver the same skills from the same source: `spego skills` renders them into a project, and `npx skills add victorzhuk/spego` installs the identical tree committed to the repository's `skills/` directory through the skills CLI. A `npm run skills` script regenerates that tree, and a test fails when it drifts from generator output.
+
+### Changed
+- The `agents` target replaces `claude` in `.spego/config.yaml` and `spego init --agents`; `claude` still works as a legacy alias and prints a note in human output. Regenerating removes spego-generated files from the old layout — `.claude/skills/spego-*/SKILL.md` and the `.claude/commands/spego/` slash-command wrappers, now retired — plus stale skills in `.agents/skills` the registry no longer names. Files without the `spego_generated: true` marker are never touched. The skills command reads "Regenerate agent skill files".
+- The npm package ships the canonical `skills/` tree alongside `dist` and the docs.
 
 ## [0.28.0] - 2026-10-10
 
