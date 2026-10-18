@@ -1,7 +1,7 @@
 schema = 1
 id = "spego"
 name = "Spego"
-version = "0.30.0"
+version = "0.31.0"
 description = "Read-only Spego delivery board with manual refresh"
 icon = "terminal"
 host = "host.luau"

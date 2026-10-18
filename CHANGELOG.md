@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-18
+
+### Added
+- The board's four controls are compact native icon buttons with accessible names and tooltips: refresh, archived changes, finished sprints, and change details. The two toggles carry their state through `aria-pressed` and an inset underline rather than color alone, and every control is a full 28px target with a visible hover and focus outline. Change details keeps its existing context-menu gesture.
+
+### Fixed
+- A board load that completed while the details panel was open called `startTasks` before its declaration, so the name resolved to a nil global and the load raised `attempt to call a nil value`. Refreshing, toggling archived changes, or reopening a block with details restored now reloads the panel's task list.
+
 ## [0.30.0] - 2026-10-18
 
 ### Added
