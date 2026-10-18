@@ -85,6 +85,10 @@ The recommended authoring loop:
 
 Reviewers complement rather than replace each other. `spego-review-adversarial` is attitude-driven, hunting gaps and weak assumptions; `spego-review-edge-cases` is method-driven, enumerating unhandled branching paths. `spego-editorial-prose` and `spego-editorial-structure` catch the communication defects — ambiguity, confusion, poor organization — that the technical reviewers do not flag. Run at least one technical reviewer and at least one editorial reviewer before declaring an artifact ready.
 
+## Tern plugin
+
+A read-only delivery board as a native [Tern](https://stencil.so/tern) block, living in [`plugins/tern-spego/`](plugins/tern-spego/) and shipped inside the npm package. It opens from the palette in the spego project root, reads `spego --json board --fresh` on demand, and mutates nothing. See [plugins/tern-spego/README.md](plugins/tern-spego/README.md).
+
 ## Documentation
 
 - [CLI reference](docs/cli.md) — commands, output modes, JSON contract

@@ -22,6 +22,7 @@ spego board --json [options]
 - `--archived` (boolean, optional): Include archived changes in the ungrouped list
 - `--closed` (boolean, optional): Show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)
 - `--sync` (boolean, optional): Apply the mechanical reconciliation plan before rendering
+- `--fresh` (boolean, optional): Read canonical artifact metadata instead of indexed rows
 
 ## Output
 

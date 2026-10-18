@@ -45,12 +45,21 @@ The default output is the human board.
 - `--graph` shows dependency edges.
 - `--gaps` focuses on gap flags and missing artifacts.
 - `--sync` applies the mechanical reconciliation plan before rendering.
+- `--fresh` reads canonical artifact metadata instead of indexed rows for that one run.
 - `--nerd-font` swaps the portable status symbols for Nerd Font icons. Off unless asked for.
 - `--plain` wins over `--nerd-font` and prints the text statuses.
 - `--archived` restores archived changes to the `Ungrouped` list, which excludes them by default. They still resolve dependencies and blockers either way, and a sprint's own change list is never filtered — an archived change still scheduled in a sprint keeps showing there, struck through as satisfied.
 - `--closed` renders a sprint whose changes are all `done`/`completed`, which is otherwise hidden behind a trailing `N closed sprints hidden (--closed to show).` note and rendered muted when shown. This is purely a display filter: `--json` always lists every sprint, and hiding never writes `status: closed` to the sprint-plan artifact — that persistence belongs to the groom workflow, after your confirmation.
 
 `--graph` and `--gaps` also carry the `id` column. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change, or is `null` with a hint to groom.
+
+## Fresh reads
+
+The ordinary board is served from the SQLite index, so it reflects the files as of the last index write. Change state itself already comes from the filesystem, which means a hand edit — new epic, added sprint, a `deletedAt`, a resolved `link` — can sit in the canonical files while the board still reports the indexed version.
+
+`--fresh` reads current canonical artifact metadata instead of indexed rows for that one invocation, using the same snapshot for epics, sprint plans, and linked-artifact resolution. Ordering, warnings, dependencies, estimates, and `next` are derived exactly as usual, and the `--json` shape is unchanged — `--fresh` selects where metadata comes from, not what the payload looks like.
+
+The flag rebuilds nothing. It does not synchronize, repair, or populate the index, and a stale or phantom index row cannot reach the output. An invalid canonical file, a containment escape, or two files claiming the same artifact id fails the command instead of quietly falling back to indexed data. `--fresh --sync` is rejected with `VALIDATION_FAILED` before the engine opens, since one run cannot both ignore and rewrite the index.
 
 ## Rendering
 
@@ -60,7 +69,7 @@ Every panel on a board renders at the same width: whichever is wider between the
 
 The board opens with a centered `📋 Delivery board` heading and two blank lines above and below it. Colored output underlines the heading in place; `--plain` has no underline attribute to draw, so it gets a literal rule of `─` characters of the same width, aligned with the heading. The heading is centered over the same width every panel uses, so it stays put across terminal widths.
 
-The default change table carries `id`, `change`, `status`, `tasks`, `plan`, and `signals` — plus `hours` between `plan` and `signals` when the workspace declares a `flows` block — on one shared grid across every panel. The `tasks` column replaces the old `group` column in both the sprint tables and the `Ungrouped` list, and reads `done/total`: `0/5` for a planned change with nothing checked, `5/5` for a fully checked one. A change with a known-empty plan reads `0/0`, which is what separates it from one nobody planned. A change whose plan is missing or unreadable reads `—`, so an unknown count never looks like zero progress.
+The default change table carries `id`, `change`, `status`, `tasks`, `plan`, and `signals` — plus `hours` between `plan` and `signals` when the workspace declares a `flows` block — on one shared grid across every panel. The `tasks` column replaces the old `group` column in both the sprint tables and the `Ungrouped` list, and reads `done/total`: `0/5` for a planned change with nothing checked, `5/5` for a fully checked one. A change with a known-empty plan reads `0/0`, which is what separates it from one nobody planned. A change whose plan is missing or unreadable reads `—`, so an unknown count never looks like zero progress. `--json` mirrors the column additively: when the plan is readable it reports `taskCount` and `tasksDone` as a pair — including `0`/`0` for a known-empty plan — and omits both when it is not.
 
 The `plan` column names the same fact: `planned` when the task plan holds at least one item, `planning` when a `tasks.md` exists but none yet, and `—` when there is no readable task plan. Colored output renders the two named states as portable symbols — `●` planned, `◐` planning, a fill progression from `—` — with `--nerd-font` swapping in Nerd Font glyphs for the same meaning; `--plain` prints the words. A `done` or `completed` row always reads `—` — its plan is moot. `--json` carries the state per change as `planState` (`planned`, `planning`, or `none`) and omits the key when the adapter cannot tell; `--graph` and `--gaps` do not carry the column.
 

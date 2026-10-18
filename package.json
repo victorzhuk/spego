@@ -10,6 +10,7 @@
     "dist",
     "docs/*.md",
     "skills",
+    "plugins/tern-spego",
     "README.md",
     "CHANGELOG.md"
   ],

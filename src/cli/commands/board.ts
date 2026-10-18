@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { styleText } from 'node:util';
 import { loadBoardState } from '../../delivery/load.js';
+import { SpegoError } from '../../errors.js';
 import {
   filterMirrorArchived,
   filterMirrorGaps,
@@ -27,8 +28,8 @@ interface BoardOptions {
   archived?: boolean;
   closed?: boolean;
   sync?: boolean;
+  fresh?: boolean;
 }
-
 const BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'plan', 'signals'];
 const PRICED_BOARD_COLUMNS = ['id', 'change', 'status', 'tasks', 'plan', 'hours', 'signals'];
 const DEFAULT_TERMINAL_WIDTH = 120;
@@ -45,10 +46,19 @@ export function registerBoard(program: Command): void {
     .option('--archived', 'include archived changes in the ungrouped list', false)
     .option('--closed', 'show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)', false)
     .option('--sync', 'apply the mechanical reconciliation plan before rendering', false)
+    .option('--fresh', 'read artifact metadata from canonical files, ignoring the index for this run', false)
     .option('--cwd <dir>', 'project root')
     .action(async (opts: BoardOptions) => {
-      await runEngineCommand({ program, cwd: opts.cwd }, async (engine) => {
-        let state = await loadBoardState(engine, opts.cwd);
+      await runEngineCommand({
+        program,
+        cwd: opts.cwd,
+        validate: () => {
+          if (opts.fresh && opts.sync) {
+            throw new SpegoError('VALIDATION_FAILED', '--fresh cannot be combined with --sync');
+          }
+        },
+      }, async (engine) => {
+        let state = await loadBoardState(engine, opts.cwd, { fresh: opts.fresh === true });
         if (opts.sync) {
           const syncPlan = deriveSyncPlan(state.board, state.input);
           if (syncPlan.actions.length > 0) {
@@ -56,7 +66,7 @@ export function registerBoard(program: Command): void {
               ? await resolveEpicAdapter(engine)
               : null;
             await applySyncPlan(engine, syncPlan, adapter);
-            state = await loadBoardState(engine, opts.cwd);
+            state = await loadBoardState(engine, opts.cwd, { fresh: opts.fresh === true });
           }
         }
         const unarchived = opts.archived ? state.board : filterMirrorArchived(state.board);

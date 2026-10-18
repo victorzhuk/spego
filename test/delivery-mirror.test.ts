@@ -427,6 +427,63 @@ describe('plan state', () => {
   });
 });
 
+describe('task progress serialization', () => {
+  it('serializes a partial plan as a pair', () => {
+    const result = board({
+      changes: [{ ...change('partial'), hasTaskPlan: true, taskCount: 10, tasksDone: 2 }],
+      epics: [epic('partial')],
+    });
+
+    expect(findChange(result, 'partial')).toMatchObject({ taskCount: 10, tasksDone: 2 });
+  });
+
+  it('serializes a complete plan with equal counts', () => {
+    const result = board({
+      changes: [{ ...change('complete'), hasTaskPlan: true, taskCount: 10, tasksDone: 10 }],
+      epics: [epic('complete')],
+    });
+
+    expect(findChange(result, 'complete')).toMatchObject({ taskCount: 10, tasksDone: 10 });
+  });
+
+  it('serializes a known-empty plan as 0/0', () => {
+    const result = board({
+      changes: [{ ...change('empty-plan'), hasTaskPlan: true, taskCount: 0, tasksDone: 0 }],
+      epics: [epic('empty-plan')],
+    });
+
+    expect(findChange(result, 'empty-plan')).toMatchObject({ taskCount: 0, tasksDone: 0 });
+  });
+
+  it('carries neither key when the plan is missing, unreadable, unknown, or archived without adapter data', () => {
+    const result = board({
+      changes: [
+        { ...change('missing-plan'), hasTaskPlan: false, taskCount: 0 },
+        change('unknown-source'),
+        { ...change('archived-unknown', 'completed', true) },
+      ],
+      epics: [epic('missing-plan'), epic('unknown-source'), epic('archived-unknown')],
+    });
+
+    for (const slug of ['missing-plan', 'unknown-source', 'archived-unknown']) {
+      const row = findChange(result, slug)!;
+      expect(row.taskCount).toBeUndefined();
+      expect(row.tasksDone).toBeUndefined();
+    }
+  });
+
+  it('keeps both keys present in ungrouped rows', () => {
+    const result = board({
+      changes: [{ ...change('unscheduled'), hasTaskPlan: true, taskCount: 4, tasksDone: 1 }],
+    });
+
+    expect(result.ungrouped.find((item) => item.slug === 'unscheduled')).toMatchObject({
+      taskCount: 4,
+      tasksDone: 1,
+    });
+  });
+});
+
 describe('epic-meta status override', () => {
   it('applies a blocked override to a known change and reports it as an unsatisfied blocker', () => {
     const result = board({

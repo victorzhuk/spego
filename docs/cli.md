@@ -20,7 +20,7 @@ Every command accepts `--cwd <dir>` to set the project root, and the global `--j
 | `spego epics [name]` | List delivery epics, or get one by change name |
 | `spego tasks <change> [task]` | List tasks for a change, or get one task |
 | `spego sprints` | List sprint plans in board order |
-| `spego board` | Show the delivery board — sprints, change signals, drift; `--sync` reconciles first |
+| `spego board` | Show the delivery board — sprints, change signals, drift; `--sync` reconciles first; `--fresh` reads artifact metadata from canonical files, ignoring the index for this run (rejected with `--sync`) |
 | `spego sync` | Reconcile the delivery mirror: create missing epics, close finished sprints, retire epics of archived changes |
 | `spego record <change>` | Record one measured run (`--flow`, `--hours`) against a change's epic `actuals`; appends, never overwrites |
 | `spego index rebuild` | Rebuild the SQLite index from files |

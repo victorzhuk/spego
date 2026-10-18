@@ -207,6 +207,7 @@ export const COMMAND_REGISTRY: CommandMeta[] = [
       archived: { name: 'archived', type: 'boolean', required: false, description: 'Include archived changes in the ungrouped list' },
       closed: { name: 'closed', type: 'boolean', required: false, description: 'Show closed and completed sprints (does not affect --archived, which only controls the ungrouped list)' },
       sync: { name: 'sync', type: 'boolean', required: false, description: 'Apply the mechanical reconciliation plan before rendering' },
+      fresh: { name: 'fresh', type: 'boolean', required: false, description: 'Read canonical artifact metadata instead of indexed rows' },
     },
     outputModes: ['markdown', 'json'],
   },

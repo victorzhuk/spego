@@ -4,8 +4,8 @@
  */
 
 import path from 'node:path';
+import type { ListOptions, IndexedArtifact } from '../index/indexer.js';
 import type { ArtifactEngine } from '../artifacts/engine.js';
-import type { IndexedArtifact } from '../index/indexer.js';
 import { SpegoError } from '../errors.js';
 import { readConfig } from '../workspace/config.js';
 import { resolveStoreRoot, resolveWorkspacePaths } from '../workspace/paths.js';
@@ -13,6 +13,7 @@ import { assertWorkspace, discoverChanges } from './openspec-discover.js';
 import { listEpicsFromDiscovered } from './openspec-adapter.js';
 import { resolveAdapter } from './resolve.js';
 import { readStoreRuns, type StoreRun } from './store.js';
+import { loadFreshSnapshot, type FreshSnapshot } from './fresh-snapshot.js';
 import {
   deriveMirror,
   type MirrorArtifact,
@@ -20,6 +21,7 @@ import {
   type MirrorInput,
   type MirrorWarning,
 } from './mirror.js';
+
 import type { DeliveryAdapter, DeliveryEpicLink, DeliveryStatus } from './types.js';
 
 export interface BoardState {
@@ -27,7 +29,16 @@ export interface BoardState {
   board: MirrorBoard;
 }
 
-export async function loadBoardState(engine: ArtifactEngine, cwd: string | undefined): Promise<BoardState> {
+export interface LoadBoardOptions {
+  /** Read artifacts from canonical files instead of the index for this invocation. */
+  fresh?: boolean;
+}
+
+export async function loadBoardState(
+  engine: ArtifactEngine,
+  cwd: string | undefined,
+  opts: LoadBoardOptions = {},
+): Promise<BoardState> {
   const projectRoot = path.resolve(cwd ?? process.cwd());
   const wsPaths = resolveWorkspacePaths(projectRoot);
   const config = await readConfig(wsPaths.configPath);
@@ -36,7 +47,8 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
   // pricing is reproducible from the repo and the config directory stays unread.
   const storeRuns = config.flows?.crossProject ? await readStoreRuns(resolveStoreRoot()) : undefined;
   try {
-    const input = await collectMirrorInput(engine, projectRoot, adapter, config.flows, storeRuns);
+    const artifacts = opts.fresh ? await loadFreshSnapshot(wsPaths, config) : engine;
+    const input = await collectMirrorInput(artifacts, projectRoot, adapter, config.flows, storeRuns);
     return { input, board: deriveMirror(input) };
   } catch (err) {
     if (err instanceof SpegoError && err.code === 'DELIVERY_ADAPTER_ERROR') {
@@ -60,8 +72,12 @@ export async function loadBoardState(engine: ArtifactEngine, cwd: string | undef
   }
 }
 
+interface ArtifactSource {
+  list(opts?: ListOptions): IndexedArtifact[];
+}
+
 async function collectMirrorInput(
-  engine: ArtifactEngine,
+  artifacts: ArtifactSource | FreshSnapshot,
   projectRoot: string,
   adapter: DeliveryAdapter,
   flows: MirrorInput['flows'],
@@ -94,9 +110,9 @@ async function collectMirrorInput(
   // Retired (soft-deleted) epics stay in the input: their recorded actuals
   // must keep feeding closed-sprint rows and pricing buckets. deriveMirror
   // keeps them off planning surfaces via deletedAt.
-  const epics = engine.list({ type: 'epic', includeDeleted: true }).map(toMirrorArtifact);
-  const sprints = engine.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
-  const linkedArtifacts = await resolveLinkedArtifacts(engine, [...epics, ...sprints]);
+  const epics = artifacts.list({ type: 'epic', includeDeleted: true }).map(toMirrorArtifact);
+  const sprints = artifacts.list({ type: 'sprint-plan' }).map(toMirrorArtifact);
+  const linkedArtifacts = await resolveLinkedArtifacts(artifacts, [...epics, ...sprints]);
   return { changes, epics, sprints, linkedArtifacts, warnings: [], flows, storeRuns };
 }
 
@@ -127,7 +143,7 @@ export function toMirrorArtifact(artifact: IndexedArtifact): MirrorArtifact {
 
 /** Epics and sprint-plans both carry `links`; a sprint's supporting artifacts resolve the same way. */
 async function resolveLinkedArtifacts(
-  engine: ArtifactEngine,
+  artifacts: ArtifactSource | FreshSnapshot,
   owners: MirrorArtifact[],
 ): Promise<MirrorArtifact[]> {
   const ids = new Set<string>();
@@ -138,26 +154,36 @@ async function resolveLinkedArtifacts(
       if (typeof link === 'string') ids.add(link);
     }
   }
-  const artifacts: MirrorArtifact[] = [];
+  const linked: MirrorArtifact[] = [];
   for (const id of [...ids].sort()) {
-    try {
-      const record = await engine.readById(id);
-      artifacts.push({
-        id: record.frontmatter.id,
-        type: record.frontmatter.type,
-        slug: record.frontmatter.slug,
-        title: record.frontmatter.title,
-        meta: record.frontmatter.meta,
-      });
-    } catch (err) {
-      if (err instanceof SpegoError && err.code === 'ARTIFACT_NOT_FOUND') continue;
-      throw err;
-    }
+    const record = await readLinked(artifacts, id);
+    if (record) linked.push(record);
   }
-  artifacts.sort((a, b) => {
+  linked.sort((a, b) => {
     const bySlug = a.slug.localeCompare(b.slug);
     if (bySlug !== 0) return bySlug;
     return a.id.localeCompare(b.id);
   });
-  return artifacts;
+  return linked;
+}
+
+/** Linked-artifact read through either source; missing and deleted links are skipped like `readById` does. */
+async function readLinked(
+  artifacts: ArtifactSource | FreshSnapshot,
+  id: string,
+): Promise<MirrorArtifact | null> {
+  if ('byId' in artifacts) {
+    const row = artifacts.byId(id);
+    return row
+      ? { id: row.id, type: row.type, slug: row.slug, title: row.title, meta: row.meta }
+      : null;
+  }
+  try {
+    const record = await (artifacts as ArtifactEngine).readById(id);
+    const fm = record.frontmatter;
+    return { id: fm.id, type: fm.type, slug: fm.slug, title: fm.title, meta: fm.meta };
+  } catch (err) {
+    if (err instanceof SpegoError && err.code === 'ARTIFACT_NOT_FOUND') return null;
+    throw err;
+  }
 }

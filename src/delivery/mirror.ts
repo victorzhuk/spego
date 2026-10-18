@@ -84,6 +84,9 @@ export interface MirrorChange {
   chunks?: number;
   /** Task-plan state: a plan with items, one with none yet, or none at all. Omitted when the adapter cannot tell. */
   planState?: 'planned' | 'planning' | 'none';
+  /** Task total and done count, emitted as a pair only when the adapter supplied both. Absence never means zero. */
+  taskCount?: number;
+  tasksDone?: number;
   /** Recorded runs from the epic's `actuals` (stored measurements, not derived). */
   actuals: ActualRun[];
   /** Total recorded hours across all runs. */
@@ -452,8 +455,13 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
       actualsTotal: Math.round(actuals.reduce((sum, run) => sum + run.hours, 0) * 100) / 100,
       ...priceBySlug.get(slug),
     };
-    const plan = planState(inputChangeBySlug.get(slug));
+    const source = inputChangeBySlug.get(slug);
+    const plan = planState(source);
     if (plan !== undefined) change.planState = plan;
+    if (source?.taskCount !== undefined && source.tasksDone !== undefined) {
+      change.taskCount = source.taskCount;
+      change.tasksDone = source.tasksDone;
+    }
     return change;
   };
 
