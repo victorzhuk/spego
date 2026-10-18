@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-18
+
 ### Added
 - `spego board --fresh` reads artifact metadata from the canonical files instead of the index for that one run, so a hand edit to an epic, sprint plan, `deletedAt`, or `links` shows up without an index rebuild. It rebuilds nothing, never falls back to indexed data on a malformed file, rejects `--fresh --sync` with `VALIDATION_FAILED`, and leaves the `--json` shape unchanged.
 - A read-only Stencil Tern plugin at `plugins/tern-spego/`, shipped inside the npm package. It renders the delivery board and per-change details as a native block, loading `spego --json board --fresh` on open and on manual refresh only.
