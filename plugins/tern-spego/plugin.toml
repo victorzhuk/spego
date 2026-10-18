@@ -5,6 +5,7 @@ version = "0.30.0"
 description = "Read-only Spego delivery board with manual refresh"
 icon = "terminal"
 host = "host.luau"
+styles = ["toolbar.css"]
 
 [[blocks]]
 id = "board"

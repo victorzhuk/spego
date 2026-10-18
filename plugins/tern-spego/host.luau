@@ -325,6 +325,26 @@ local function legendNode(changes: { any }): any?
 	return tern.ui.text(spans)
 end
 
+-- Compact toolbar control: native icon, accessible name and tooltip, and
+-- an optional pressed state carried through aria-pressed and icon tone.
+local function toolbarButton(id: string, iconName: string, label: string, pressed: boolean?): any
+	local props: { [string]: any } = {
+		id = id,
+		role = "spego.toolbar-button",
+		title = label,
+		aria = label,
+		actions = { click = id },
+	}
+	if pressed ~= nil then
+		props.attrs = { ["aria-pressed"] = pressed }
+	end
+	local icon = tern.ui.node("icon", {
+		name = iconName,
+		tone = pressed == true and "accent" or "neutral",
+	})
+	return keyed(tern.ui.el("button", props, { keyed(icon, id .. "-icon") }), id)
+end
+
 -- Sprint head: title strong, then status, dates and the sprint-scope signals
 -- the CLI's sprintTitle carries.
 local function sectionHeadSpans(sprint: any): { any }
@@ -708,9 +728,19 @@ local function renderBoard(st: State, cx: any): any
 		-- Tern, so a change is selected through the Details menu listing every
 		-- rendered change.
 		local controls: { any } = {
-			keyed(tern.ui.el("button", { text = "Refresh", id = "refresh" }), "refresh"),
-			keyed(tern.ui.el("button", { text = "Archived: " .. (st.showArchived and "on" or "off"), id = "toggle-archived" }), "toggle-archived"),
-			keyed(tern.ui.el("button", { text = "Finished sprints: " .. (st.showClosed and "shown" or "hidden"), id = "toggle-closed" }), "toggle-closed"),
+			toolbarButton("refresh", "repeat", "Refresh board (r)"),
+			toolbarButton(
+				"toggle-archived",
+				"box",
+				st.showArchived and "Hide archived changes (a)" or "Show archived changes (a)",
+				st.showArchived
+			),
+			toolbarButton(
+				"toggle-closed",
+				"list-checks",
+				st.showClosed and "Hide finished sprints (c)" or "Show finished sprints (c)",
+				st.showClosed
+			),
 		}
 		local menuEntries: { string } = {}
 		for _, sprint in board.sprints do
@@ -740,7 +770,7 @@ local function renderBoard(st: State, cx: any): any
 			end
 		end
 		if #menuEntries > 0 then
-			local button = tern.ui.el("button", { text = "Details", id = "open-details" })
+			local button = toolbarButton("open-details", "info", "Change details (right-click)")
 			local p: { [string]: any } = button.p or {}
 			p.actions = { menu = menuEntries }
 			button.p = p

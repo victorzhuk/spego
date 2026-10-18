@@ -152,7 +152,9 @@ Each sprint section MUST render its title, status, and dates above its rows, and
 #### Scenario: The toolbar does not restate itself as text
 
 - **WHEN** the board renders its controls
-- **THEN** the archived and finished-sprint controls appear once, as interactive controls, without a duplicate text line repeating their labels
+- **THEN** it renders four compact interactive controls (refresh, archived, finished sprints, details), each carrying a native icon with an accessible name and tooltip, once, without a duplicate text line repeating their labels
+- **AND** the archived and finished-sprint controls carry a persistent non-color state cue while their visibility preference is active
+- **AND** the details control opens its change list through the context menu, not the primary click
 
 ### Requirement: Refresh and restore the board safely
 

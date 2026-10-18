@@ -1,0 +1,23 @@
+.sf-main[data-surface='plugin.spego.board'] [data-role='spego.toolbar-button'] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+}
+
+.sf-main[data-surface='plugin.spego.board'] [data-role='spego.toolbar-button']:hover,
+.sf-main[data-surface='plugin.spego.board'] [data-role='spego.toolbar-button']:focus-visible {
+	outline: 1px solid currentColor;
+	outline-offset: 2px;
+}
+
+.sf-main[data-surface='plugin.spego.board'] [data-role='spego.toolbar-button'][aria-pressed='true'] {
+	box-shadow: inset 0 -2px 0 currentColor;
+}
