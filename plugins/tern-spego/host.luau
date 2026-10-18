@@ -382,6 +382,7 @@ local function validateBoard(v: any): string?
 	return nil
 end
 
+local startTasks: (State) -> ()
 local function startLoad(st: State)
 	if st.root == nil or st.loading then
 		return
@@ -480,7 +481,7 @@ local function startLoad(st: State)
 	end
 end
 
-local function startTasks(st: State)
+startTasks = function(st: State)
 	local ch = selectedChange(st)
 	if not st.detailsOpen or st.board == nil or ch == nil then
 		return
