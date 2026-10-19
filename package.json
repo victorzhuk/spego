@@ -21,6 +21,7 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:tern": "node scripts/test-tern-plugin.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test --max-warnings 0"
   },
