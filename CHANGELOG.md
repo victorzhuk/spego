@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-19
+
+### Added
+- The board's change details are reachable from the keyboard: `d` opens details for the selected visible change, or the first visible one when nothing is selected; `n` and `p` move between visible changes without wrapping; Escape closes details. The Details control stays context-menu-only and now names the key in its accessible label, `Change details (d, or right-click)`.
+- `npm run test:tern` runs the plugin source verbatim against a mock Tern boundary in `lifecycle`, `validation`, and `interaction` scenario groups, each in its own process, so callback ordering, payload rejection, and key handling are covered without a native window.
+
+### Fixed
+- The block no longer renders its own `📋 Delivery board` heading under the native block title.
+- The controls row is scoped with `spego.toolbar` and given a 4px inset with 6px gaps, so the focus and hover outline of the first button is no longer clipped at the left edge of the pane.
+- Refresh and the loading indicator render before the first board result instead of only after a board is accepted, and a board-less load failure now also advises closing the block and reopening it from the spego project root.
+- A refresh no longer clears the accepted change rows, their details, or their task summaries while the request is in flight. A board request that times out, exits nonzero, prints malformed output, or fails to start keeps the previous board and marks it stale.
+- A board callback that no longer matches its pane registration, state identity, generation, root, or liveness returns without mutating anything, instead of deleting a replacement block's registration.
+- Every consumed board and task field is validated before it is accepted. A malformed payload reports a field-specific diagnostic instead of raising, and the previously accepted snapshot survives. `taskCount` and `tasksDone` must both be absent or both be nonnegative integers with `tasksDone` at most `taskCount`; a missing count never reads as zero.
+- A saved preference record that is not a table, carries an unknown version, has non-boolean toggles, a relative root, a half-present selection pair, or an open details panel with no selection is discarded whole. Every preference resets to its default and the root falls back to the current working directory, instead of reading string methods off a non-string root during initialization.
+- A change's gap entries render as `flag: note` instead of a table identity, so real producer gaps read as their flag and note.
+- The hidden-finished-sprint hint names the plugin's `c` key instead of the CLI's `--closed`.
+
+### Changed
+- A change's details are keyed by section and change id rather than by id alone, so a duplicate id in a hidden finished sprint no longer wins over the visible active section. Details-menu actions and `select` events are resolved against the current visible occurrences, which makes a stale action a no-op instead of opening the wrong change.
+
 ## [0.31.0] - 2026-10-18
 
 ### Added
