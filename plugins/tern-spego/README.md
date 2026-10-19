@@ -26,18 +26,26 @@ command runs on the block's host with that root as its process working
 directory and as `--cwd`, so a remote host needs its own plugin installation
 and a compatible `spego` on its daemon PATH.
 
+A malformed or unknown-version saved preference record is discarded and all
+preferences reset to defaults taken from the current working directory.
+
 ## Refresh
 
 The board loads once on open and then only when you press `r`, the Refresh
 button, or toggle the archived filter. There is no polling, file watching, or
 automatic retry. `a` toggles archived ungrouped changes, `c` shows or hides
 finished sprint sections. The board renders each section as a native table
-under a `📋 Delivery board` heading with a status legend and CLI-style footer
+under the block's native title, with a status legend and CLI-style footer
 hints. Table rows are not clickable in Tern, so the `Details` button lists
-every rendered change; picking one opens its details from the
-accepted board snapshot; task summaries load only for an active, non-archived
-change with a readable, non-empty task plan (`spego tasks <slug> --json`).
-A failed task load shows inside the details and never changes board rows.
+every rendered change; the Details control itself is context-menu-only, and
+keyboard selection is the pointer-free path: `d` opens details for the
+selected visible change (or the first visible one), `n` and `p` move between
+visible changes without wrapping, and Escape closes details. The archived and
+finished-sprint filters never clear an accepted selection. Picking a menu
+entry opens its details from the accepted board snapshot; task summaries load
+only for an active, non-archived change with a readable, non-empty task plan
+(`spego tasks <slug> --json`). A failed task load shows inside the details
+and never changes board rows.
 
 ## Read boundary
 
