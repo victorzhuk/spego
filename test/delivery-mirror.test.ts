@@ -505,6 +505,77 @@ describe('epic-meta status override', () => {
     expect(findChange(result, 'dependent')?.blockers).toEqual(['base']);
   });
 
+  it.each(['blocked', 'paused'] as const)('keeps %s dependency chains unavailable across sprint scheduling exemptions', (status) => {
+    for (const earlier of [false, true]) {
+      const result = board({
+        changes: ['root', 'direct', 'transitive', 'independent'].map((slug) => change(slug)),
+        epics: [
+          epic('root', {}, status),
+          epic('direct', { deps: ['root'] }),
+          epic('transitive', { deps: ['direct'] }),
+          epic('independent'),
+        ],
+        sprints: [
+          ...(earlier ? [sprint('earlier', ['root'], { startDate: '2026-01-01' })] : []),
+          sprint('active', ['transitive', 'direct', ...(earlier ? [] : ['root']), 'independent'], {
+            status: 'active', startDate: '2026-01-02',
+          }),
+        ],
+      });
+
+      expect(findChange(result, 'root')?.status).toBe(status);
+      expect(findChange(result, 'direct')?.blockers).toEqual(['root']);
+      expect(findChange(result, 'transitive')?.blockers).toEqual(['direct']);
+      expect(result.next).toMatchObject({ change: 'independent', sprint: 'active' });
+    }
+  });
+
+  it.each(['blocked', 'paused'] as const)('returns no next change when every active candidate is %s or depends on it', (status) => {
+    const result = board({
+      changes: ['root', 'dependent', 'planned'].map((slug) => change(slug)),
+      epics: [epic('root', {}, status), epic('dependent', { deps: ['root'] }), epic('planned')],
+      sprints: [
+        sprint('active', ['dependent', 'root'], { status: 'active' }),
+        sprint('planned', ['planned']),
+      ],
+    });
+
+    expect(result.next).toBeNull();
+  });
+
+  it('returns no next change when all planned candidates are unavailable', () => {
+    const result = board({
+      changes: ['blocked', 'paused'].map((slug) => change(slug)),
+      epics: [epic('blocked', {}, 'blocked'), epic('paused', {}, 'paused')],
+      sprints: [sprint('planned', ['blocked', 'paused'])],
+    });
+
+    expect(result.next).toBeNull();
+  });
+
+  it.each(['done', 'completed'] as const)('stops unavailable ancestry at a %s dependency', (status) => {
+    const result = board({
+      changes: [change('root'), change('settled', status, status === 'completed'), change('target')],
+      epics: [epic('root', {}, 'blocked'), epic('settled', { deps: ['root'] }), epic('target', { deps: ['settled'] })],
+      sprints: [sprint('active', ['target', 'settled', 'root'], { status: 'active' })],
+    });
+
+    expect(findChange(result, 'target')?.blockers).toEqual([]);
+    expect(result.next).toMatchObject({ change: 'target', sprint: 'active' });
+  });
+
+  it('restores dependency eligibility when the unavailable override is removed', () => {
+    const changes = [change('root'), change('dependent')];
+    const sprints = [sprint('active', ['dependent', 'root'], { status: 'active' })];
+    const dependent = epic('dependent', { deps: ['root'] });
+    const unavailable = board({ changes, sprints, epics: [epic('root', {}, 'blocked'), dependent] });
+    const available = board({ changes, sprints, epics: [epic('root'), dependent] });
+
+    expect(unavailable.next).toBeNull();
+    expect(findChange(available, 'dependent')?.blockers).toEqual([]);
+    expect(available.next).toMatchObject({ change: 'root', sprint: 'active' });
+  });
+
   it('lets archived win over a blocked override', () => {
     const result = board({
       changes: [change('done-archived', 'completed', true)],

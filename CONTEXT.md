@@ -29,7 +29,7 @@ A missing or weak supporting artifact for a Change, flagged on its Epic (e.g. no
 _Avoid_: finding (reserved for qa artifacts), violation
 
 **Blocker**:
-A derived state: a Change whose dependency is not done and not scheduled in the same or an earlier Sprint.
+A derived state: a Change whose unfinished dependency is outside the same or an earlier Sprint, or whose unfinished dependency chain reaches a blocked or paused Change regardless of scheduling. A done or completed dependency stops that chain.
 _Avoid_: dependency (the declared edge; a Blocker is its unsatisfied consequence)
 
 **Group**:

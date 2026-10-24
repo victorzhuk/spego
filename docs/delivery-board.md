@@ -6,7 +6,7 @@ The board combines active and archived OpenSpec changes with `epic` and `sprint-
 
 A `sprint-plan` carries its own `requires` and `links`, resolved by the same rule: what the sprint as a whole needs — a design, a QA plan, a decision that spans its changes — rather than what any single change needs. The unresolved remainder is the sprint's `missing`.
 
-A change is blocked when a dependency is not `done` or `completed` and is not scheduled in the same or an earlier sprint. Archived changes are discovered from `openspec/changes/archive/<date>-<slug>/`, with the date prefix stripped to derive the slug, and always resolve to `completed` — so a dependency that resolved through the archive no longer trips `dangling-dep`.
+A change is blocked when a dependency is not `done` or `completed` and is not scheduled in the same or an earlier sprint. A dependency marked `blocked` or `paused`, or depending on one through unfinished changes, remains a blocker regardless of sprint scheduling. A `done` or `completed` dependency stops that propagation. Archived changes are discovered from `openspec/changes/archive/<date>-<slug>/`, with the date prefix stripped to derive the slug, and always resolve to `completed` — so a dependency that resolved through the archive no longer trips `dangling-dep`.
 
 ## Status
 
@@ -51,7 +51,7 @@ The default output is the human board.
 - `--archived` restores archived changes to the `Ungrouped` list, which excludes them by default. They still resolve dependencies and blockers either way, and a sprint's own change list is never filtered — an archived change still scheduled in a sprint keeps showing there, struck through as satisfied.
 - `--closed` renders a sprint whose changes are all `done`/`completed`, which is otherwise hidden behind a trailing `N closed sprints hidden (--closed to show).` note and rendered muted when shown. This is purely a display filter: `--json` always lists every sprint, and hiding never writes `status: closed` to the sprint-plan artifact — that persistence belongs to the groom workflow, after your confirmation.
 
-`--graph` and `--gaps` also carry the `id` column. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change, or is `null` with a hint to groom.
+`--graph` and `--gaps` also carry the `id` column. The global `--json` flag emits a deterministic `{ sprints, ungrouped, warnings, next }` document in all modes; `next` names the first pending, unblocked change whose status is neither `blocked` nor `paused`, or is `null` with a hint to groom. It searches active sprints when any exist and otherwise planned sprints; unavailable active work does not select work from a planned sprint.
 
 ## Fresh reads
 

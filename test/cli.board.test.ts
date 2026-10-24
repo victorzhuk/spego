@@ -349,6 +349,28 @@ describe('CLI board command', () => {
     expect(result.next).toMatchObject({ change: 'add-ui', sprint: 'sprint-1' });
   }, 30_000);
 
+  it('selects independent work after fresh blocked and paused dependency chains', async () => {
+    const root = await setupOpenSpecWorkspace();
+    await createChangeEpic(root, 'blocked-root', { tasks: '- [ ] build\n', meta: { status: 'blocked' } });
+    await createChangeEpic(root, 'paused-root', { tasks: '- [ ] build\n', meta: { status: 'paused' } });
+    await createChangeEpic(root, 'dependent', { tasks: '- [ ] build\n', meta: { deps: ['blocked-root', 'paused-root'] } });
+    await createChangeEpic(root, 'transitive', { tasks: '- [ ] build\n', meta: { deps: ['dependent'] } });
+    await createChangeEpic(root, 'independent', { tasks: '- [ ] build\n' });
+    await createArtifact(root, 'sprint-plan', 'Sprint 1', {
+      status: 'active', changes: ['transitive', 'dependent', 'blocked-root', 'paused-root', 'independent'],
+    });
+
+    const { stdout } = await spawnCli(['--json', 'board', '--fresh', '--cwd', root], root);
+    const result = JSON.parse(stdout) as MirrorBoard;
+    const changes = result.sprints[0]!.changes;
+
+    expect(changes.find((change) => change.slug === 'blocked-root')?.status).toBe('blocked');
+    expect(changes.find((change) => change.slug === 'paused-root')?.status).toBe('paused');
+    expect(changes.find((change) => change.slug === 'dependent')?.blockers).toEqual(['blocked-root', 'paused-root']);
+    expect(changes.find((change) => change.slug === 'transitive')?.blockers).toEqual(['dependent']);
+    expect(result.next).toMatchObject({ change: 'independent', sprint: 'sprint-1' });
+  }, 30_000);
+
   it('flags a sprint-plan whose own required artifacts are unlinked', async () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'sprint-scoped', { tasks: '- [ ] build\n' });

@@ -341,12 +341,13 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     });
   }
 
+  const unavailable = unavailableChanges(changeStates, depsBySlug);
   const cycleReach = new Map<string, boolean>();
   const blockersBySlug = new Map<string, string[]>();
   for (const slug of sortedSlugs) {
     blockersBySlug.set(
       slug,
-      blockersFor(slug, depsBySlug, knownSlugs, changeStates, scheduleBySlug, cycleMembers, cycleReach),
+      blockersFor(slug, depsBySlug, knownSlugs, changeStates, scheduleBySlug, cycleMembers, cycleReach, unavailable),
     );
   }
 
@@ -986,6 +987,31 @@ function findCycleMembers(
   return members;
 }
 
+function isUnavailable(status: DeliveryStatus | undefined): boolean {
+  return status === 'blocked' || status === 'paused';
+}
+
+function unavailableChanges(states: Map<string, ChangeState>, depsBySlug: Map<string, string[]>): Set<string> {
+  const dependents = new Map<string, string[]>();
+  for (const [slug, deps] of depsBySlug) {
+    for (const dep of deps) {
+      const items = dependents.get(dep) ?? [];
+      items.push(slug);
+      dependents.set(dep, items);
+    }
+  }
+  const pending = [...states.values()].filter((state) => isUnavailable(state.status)).map((state) => state.slug);
+  const unavailable = new Set(pending);
+  for (let i = 0; i < pending.length; i += 1) {
+    for (const slug of dependents.get(pending[i]!) ?? []) {
+      if (unavailable.has(slug) || isSatisfied(states.get(slug)?.status)) continue;
+      unavailable.add(slug);
+      pending.push(slug);
+    }
+  }
+  return unavailable;
+}
+
 function blockersFor(
   slug: string,
   depsBySlug: Map<string, string[]>,
@@ -994,6 +1020,7 @@ function blockersFor(
   scheduleBySlug: Map<string, number>,
   cycleMembers: Set<string>,
   cycleReach: Map<string, boolean>,
+  unavailable: Set<string>,
 ): string[] {
   const blockers = new Set<string>();
   if (cycleMembers.has(slug)) blockers.add('dep-cycle');
@@ -1003,7 +1030,7 @@ function blockersFor(
       blockers.add(dep);
       continue;
     }
-    if (leadsToCycle(dep, depsBySlug, knownSlugs, cycleMembers, cycleReach, new Set())) {
+    if (unavailable.has(dep) || leadsToCycle(dep, depsBySlug, knownSlugs, cycleMembers, cycleReach, new Set())) {
       blockers.add(dep);
       continue;
     }
@@ -1119,7 +1146,7 @@ function chooseNext(sprints: MirrorSprint[]): MirrorNext | null {
   const source = active.length > 0 ? 'active sprint' : 'planned sprint';
   for (const sprint of candidates) {
     for (const change of sprint.changes) {
-      if (isSatisfied(change.status)) continue;
+      if (isSatisfied(change.status) || isUnavailable(change.status)) continue;
       if (change.blockers.length > 0) continue;
       return {
         change: change.slug,
