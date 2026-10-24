@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-24
+
 ### Changed
 - The board's `plan` column drops the empty-plan state: a change reports `planned` only when its task plan holds at least one item, and an empty, missing, or unreadable plan reads `—` everywhere, including `--json`. The planned glyph is now `✓`.
 
