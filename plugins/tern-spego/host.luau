@@ -86,15 +86,15 @@ local function displayStatus(status: any): string
 	return tostring(status)
 end
 
--- Legend order, icons and chip tones mirror src/cli/commands/board.ts.
+-- Legend order follows src/cli/commands/board.ts.
 local STATUS_LEGEND_ORDER = { "backlog", "in-progress", "done", "completed", "blocked", "paused", "unknown" }
 local STATUS_ICONS = {
 	backlog = "○",
 	["in-progress"] = "▶",
 	done = "✓",
-	completed = "🗑︎",
-	blocked = "×",
-	paused = "■",
+	completed = "▣",
+	blocked = "■",
+	paused = "Ⅱ",
 	unknown = "?",
 }
 local STATUS_LABELS = {
@@ -106,39 +106,26 @@ local STATUS_LABELS = {
 	paused = "paused",
 	unknown = "unknown",
 }
-local STATUS_STYLE = {
-	backlog = "muted",
-	["in-progress"] = "pending",
-	done = "success",
-	completed = "muted",
-	blocked = "error",
-	paused = "muted",
-	unknown = nil,
-}
-local PLAN_STYLE = { planned = "accent", planning = "info" }
-local PLAN_ICONS = { planned = "●", planning = "◐" }
+local PLAN_ICONS = { planned = "✓", planning = "◐" }
 
 local function isSatisfied(status: any): boolean
 	return status == "done" or status == "completed"
 end
 
 local function statusSpan(ch: any): any
-	local key = STATUS_STYLE[ch.status] ~= nil and ch.status or "unknown"
-	if ch.status == "unknown" then
-		key = "unknown"
-	end
-	return tern.ui.span(STATUS_ICONS[key], STATUS_STYLE[key])
+	local key = STATUS_ICONS[ch.status] ~= nil and ch.status or "unknown"
+	return tern.ui.span(STATUS_ICONS[key])
 end
 
 local function planSpan(ch: any): any
 	if isSatisfied(ch.status) then
-		return tern.ui.span("—", "muted")
+		return tern.ui.span("—")
 	end
 	local st = ch.planState
 	if st == "planned" or st == "planning" then
-		return tern.ui.span(PLAN_ICONS[st], PLAN_STYLE[st])
+		return tern.ui.span(PLAN_ICONS[st])
 	end
-	return tern.ui.span("—", "muted")
+	return tern.ui.span("—")
 end
 
 local function formatHours(hours: number): string
@@ -300,12 +287,13 @@ local function taskEligible(ch: any): boolean
 	return true
 end
 
--- Column layout mirrors the CLI board: hours only when the payload carries
--- estimates; low priorities hide signals, then hours, on narrow panes.
+-- Hours column exists only when the payload carries estimates; low priorities
+-- hide signals, then hours, on narrow panes.
 local function boardTable(changes: { any }, section: string, priced: boolean): any
 	local cols: { any } = {
 		{ id = "id", head = "id" },
 		{ id = "change", head = "change", grow = 1 },
+		{ id = "signals", head = "signals", priority = -2 },
 		{ id = "status", head = "status" },
 		{ id = "tasks", head = "tasks", align = "end" },
 		{ id = "plan", head = "plan" },
@@ -313,20 +301,19 @@ local function boardTable(changes: { any }, section: string, priced: boolean): a
 	if priced then
 		table.insert(cols, { id = "hours", head = "hours", align = "end", priority = -1 })
 	end
-	table.insert(cols, { id = "signals", head = "signals", priority = -2 })
 	local rows: { any } = {}
 	for _, ch in changes do
 		local cells: { any } = {
 			tern.ui.span(tostring(ch.id or "?"), "muted"),
 			tern.ui.span(tostring(ch.slug or "?"), nil),
+			signalsSpan(ch),
 			statusSpan(ch),
 			tasksSpan(ch),
 			planSpan(ch),
 		}
 		if priced then
-			table.insert(cells, 6, hoursSpan(ch))
+			table.insert(cells, hoursSpan(ch))
 		end
-		table.insert(cells, signalsSpan(ch))
 		table.insert(rows, cells)
 	end
 	return tern.ui.table(cols, rows)
@@ -347,13 +334,13 @@ local function legendNode(changes: { any }): any?
 	local spans: { any } = {}
 	for _, status in STATUS_LEGEND_ORDER do
 		if statuses[status] then
-			table.insert(spans, tern.ui.span(STATUS_ICONS[status] .. " " .. STATUS_LABELS[status], "muted"))
+			table.insert(spans, tern.ui.span(STATUS_ICONS[status] .. " " .. STATUS_LABELS[status]))
 			table.insert(spans, "  ")
 		end
 	end
 	for _, plan in { "planned", "planning" } do
 		if plans[plan] then
-			table.insert(spans, tern.ui.span(PLAN_ICONS[plan] .. " " .. plan, "muted"))
+			table.insert(spans, tern.ui.span(PLAN_ICONS[plan] .. " " .. plan))
 			table.insert(spans, "  ")
 		end
 	end
