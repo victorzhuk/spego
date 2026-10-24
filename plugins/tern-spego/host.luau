@@ -86,14 +86,13 @@ local function displayStatus(status: any): string
 	return tostring(status)
 end
 
--- Legend order follows src/cli/commands/board.ts.
-local STATUS_LEGEND_ORDER = { "backlog", "in-progress", "done", "completed", "blocked", "paused", "unknown" }
+-- Legend order follows src/cli/commands/board.ts; blocked renders as paused.
+local STATUS_LEGEND_ORDER = { "backlog", "in-progress", "done", "completed", "paused", "unknown" }
 local STATUS_ICONS = {
 	backlog = "○",
 	["in-progress"] = "▶",
 	done = "✓",
 	completed = "▣",
-	blocked = "■",
 	paused = "Ⅱ",
 	unknown = "?",
 }
@@ -102,10 +101,14 @@ local STATUS_LABELS = {
 	["in-progress"] = "in-progress",
 	done = "done",
 	completed = "archived",
-	blocked = "blocked",
 	paused = "paused",
 	unknown = "unknown",
 }
+
+local function statusDisplayKey(status: any): string
+	return status == "blocked" and "paused" or status
+end
+
 local PLAN_ICONS = { planned = "✓", planning = "◐" }
 
 local function isSatisfied(status: any): boolean
@@ -113,7 +116,10 @@ local function isSatisfied(status: any): boolean
 end
 
 local function statusSpan(ch: any): any
-	local key = STATUS_ICONS[ch.status] ~= nil and ch.status or "unknown"
+	local key = statusDisplayKey(ch.status)
+	if STATUS_ICONS[key] == nil then
+		key = "unknown"
+	end
 	return tern.ui.span(STATUS_ICONS[key])
 end
 
@@ -294,9 +300,9 @@ local function boardTable(changes: { any }, section: string, priced: boolean): a
 		{ id = "id", head = "id" },
 		{ id = "change", head = "change", grow = 1 },
 		{ id = "signals", head = "signals", priority = -2 },
-		{ id = "status", head = "status" },
+		{ id = "status", head = "status", align = "center" },
 		{ id = "tasks", head = "tasks", align = "end" },
-		{ id = "plan", head = "plan" },
+		{ id = "plan", head = "plan", align = "center" },
 	}
 	if priced then
 		table.insert(cols, { id = "hours", head = "hours", align = "end", priority = -1 })
@@ -325,7 +331,7 @@ local function legendNode(changes: { any }): any?
 	local statuses: { [string]: boolean } = {}
 	local plans: { [string]: boolean } = {}
 	for _, ch in changes do
-		local key = STATUS_LABELS[ch.status] and ch.status or "unknown"
+		local key = STATUS_LABELS[statusDisplayKey(ch.status)] and statusDisplayKey(ch.status) or "unknown"
 		statuses[key] = true
 		if not isSatisfied(ch.status) and (ch.planState == "planned" or ch.planState == "planning") then
 			plans[ch.planState] = true

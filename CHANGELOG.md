@@ -5,6 +5,10 @@
 ### Fixed
 - The board excludes blocked and paused changes from its next suggestion and keeps their unfinished dependents blocked regardless of sprint scheduling.
 
+### Changed
+- The board carries a single paused status: a `blocked` change renders `Ⅱ paused`, so the status column and the legend show one glyph for both hand-set states. The `■` blocked glyph and its legend entry are gone.
+- The status and plan columns center their glyphs inside the column instead of starting them at the left edge.
+
 ## [0.33.0] - 2026-10-24
 
 ### Changed
