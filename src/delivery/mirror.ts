@@ -82,8 +82,8 @@ export interface MirrorChange {
   bias?: number;
   /** The plan's chunk count when the price came from it (`rung: 'planned'`); absent otherwise. */
   chunks?: number;
-  /** Task-plan state: a plan with items, one with none yet, or none at all. Omitted when the adapter cannot tell. */
-  planState?: 'planned' | 'planning' | 'none';
+  /** Task-plan state: a plan with items, or none at all. Omitted when the adapter cannot tell. */
+  planState?: 'planned' | 'none';
   /** Task total and done count, emitted as a pair only when the adapter supplied both. Absence never means zero. */
   taskCount?: number;
   tasksDone?: number;
@@ -176,14 +176,14 @@ function taskPlanGap(source: MirrorSourceChange): 'missing' | 'empty' | undefine
 
 /**
  * The task-plan state behind the board's `plan` column: a plan with items,
- * one with none yet, or none at all. Undefined when the adapter cannot tell
- * — an unknown count must never read as `none`.
+ * or none at all. Undefined when the adapter cannot tell — an unknown count
+ * must never read as `none`.
  */
-function planState(source: MirrorSourceChange | undefined): 'planned' | 'planning' | 'none' | undefined {
+function planState(source: MirrorSourceChange | undefined): 'planned' | 'none' | undefined {
   if (source === undefined) return undefined;
+  if (source.hasTaskPlan === undefined) return undefined;
   if (source.hasTaskPlan === false) return 'none';
-  if (source.hasTaskPlan === true) return (source.taskCount ?? 0) > 0 ? 'planned' : 'planning';
-  return undefined;
+  return (source.taskCount ?? 0) > 0 ? 'planned' : 'none';
 }
 
 /** True when `status` means no further work remains — task completion or archival. */
@@ -459,7 +459,7 @@ export function deriveMirror(input: MirrorInput): MirrorBoard {
     const source = inputChangeBySlug.get(slug);
     const plan = planState(source);
     if (plan !== undefined) change.planState = plan;
-    if (source?.taskCount !== undefined && source.tasksDone !== undefined) {
+    if (source?.hasTaskPlan === true && source.taskCount !== undefined && source.tasksDone !== undefined) {
       change.taskCount = source.taskCount;
       change.tasksDone = source.tasksDone;
     }

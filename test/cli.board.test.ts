@@ -1140,7 +1140,7 @@ describe('CLI board command', () => {
     const column = (slug: string) => lines.find((line) => line.includes(slug))!.slice(planAt, nextAt).trim();
 
     expect(column('partial')).toBe('planned');
-    expect(column('voided')).toBe('planning');
+    expect(column('voided')).toBe('—');
     expect(column('unplanned')).toBe('—');
     expect(column('whole')).toBe('—');
     expect(column('orphan')).toBe('—');
@@ -1150,6 +1150,7 @@ describe('CLI board command', () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'partial', { tasks: '- [x] one\n- [ ] two\n' });
     await createChangeEpic(root, 'voided', { tasks: '' });
+    await createChangeEpic(root, 'prose', { tasks: 'Notes only, no checkboxes yet.\n' });
     await writeOpenSpecChange(root, 'unplanned');
     await createArtifact(root, 'epic', 'orphan', { slug: 'orphan' });
 
@@ -1157,12 +1158,13 @@ describe('CLI board command', () => {
     const payload = JSON.parse(stdout) as MirrorBoard;
     const bySlug = new Map(payload.ungrouped.map((item) => [item.slug, item]));
     expect(bySlug.get('partial')?.planState).toBe('planned');
-    expect(bySlug.get('voided')?.planState).toBe('planning');
+    expect(bySlug.get('voided')?.planState).toBe('none');
+    expect(bySlug.get('prose')?.planState).toBe('none');
     expect(bySlug.get('unplanned')?.planState).toBe('none');
     expect('planState' in bySlug.get('orphan')!).toBe(false);
   }, 30_000);
 
-  it('renders plan symbols with legend entries, words under --plain, and Nerd glyphs under --nerd-font', async () => {
+  it('renders the planned glyph with a legend entry, words under --plain, and the Nerd glyph under --nerd-font', async () => {
     const root = await setupOpenSpecWorkspace();
     await createChangeEpic(root, 'partial', { tasks: '- [x] one\n- [ ] two\n' });
     await createChangeEpic(root, 'voided', { tasks: '' });
@@ -1170,21 +1172,20 @@ describe('CLI board command', () => {
 
     const { stdout } = await spawnCli(['board', '--cwd', root], root);
     const plannedRow = stdout.split('\n').find((line) => line.includes('partial'))!;
-    const planningRow = stdout.split('\n').find((line) => line.includes('voided'))!;
-    expect(plannedRow).toContain('●');
-    expect(planningRow).toContain('◐');
-    expect(stdout).toContain('● planned');
-    expect(stdout).toContain('◐ planning');
+    const emptyRow = stdout.split('\n').find((line) => line.includes('voided'))!;
+    expect(plannedRow).toContain('✓');
+    expect(emptyRow).not.toContain('✓');
+    expect(stdout).toContain('✓ planned');
+    expect(stdout).not.toContain('◐');
 
     const nerd = await spawnCli(['board', '--nerd-font', '--cwd', root], root);
-    expect(nerd.stdout).toContain('\u{F111}');
-    expect(nerd.stdout).toContain('\u{F042}');
+    expect(nerd.stdout).toContain('\u{F00C}');
 
     const plain = await spawnCli(['board', '--plain', '--cwd', root], root);
     const plainRow = plain.stdout.split('\n').find((line) => line.includes('partial'))!;
     expect(plainRow).toContain('planned');
-    expect(plainRow).not.toContain('●');
-    expect(plain.stdout).not.toContain('● planned');
+    expect(plainRow).not.toContain('✓');
+    expect(plain.stdout).not.toContain('✓ planned');
   }, 30_000);
 
   it('renders archived and paused rows rail-aligned with one-cell glyphs and legend entries', async () => {

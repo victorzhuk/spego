@@ -123,7 +123,7 @@ Each change MUST render as a table row with the columns `id`, `change`, `status`
 
 - **WHEN** a section holds a blocked change and an in-progress change whose plan is planned
 - **THEN** the blocked row's status cell renders `×` with the error tone and the in-progress row renders `▶` with its own tone
-- **AND** the plan cells render `●` for a plan holding items, `◐` for one holding none, and `—` when the plan is unreadable or the change is satisfied
+- **AND** the plan cells render `✓` for a plan holding items and `—` when the plan holds none, is unreadable, or the change is satisfied
 - **AND** the words `blocked`, `in-progress`, and `planned` remain available in the change's details
 
 ### Requirement: Head the board sections

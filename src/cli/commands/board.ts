@@ -222,15 +222,13 @@ const NERD_STATUS_ICONS: Record<string, string> = {
   paused: '\u{F04D}',
 };
 
-/** Plan glyphs read as a fill progression: `—` nothing, `◐` being written, `●` written. */
+/** Plan glyph: `✓` when a plan holds items; every other state renders `—`. */
 const PORTABLE_PLAN_ICONS: Record<string, string> = {
-  planned: '●',
-  planning: '◐',
+  planned: '✓',
 };
 
 const NERD_PLAN_ICONS: Record<string, string> = {
-  planned: '\u{F111}',
-  planning: '\u{F042}',
+  planned: '\u{F00C}',
 };
 
 function statusIcons(nerdFont: boolean): Record<string, string> {
@@ -254,7 +252,7 @@ const STATUS_LEGEND_LABELS: Record<string, string> = {
 const STATUS_LEGEND_ORDER = ['backlog', 'in-progress', 'done', 'completed', 'blocked', 'paused', 'unknown'];
 
 /** Plan states with a glyph, in legend order; `none` has no glyph — it renders `—` like every other absent cell. */
-const PLAN_LEGEND_ORDER = ['planned', 'planning'] as const;
+const PLAN_LEGEND_ORDER = ['planned'] as const;
 
 /** One compact legend for the statuses and plan states actually rendered, word-wrapped at the board width. */
 function statusLegend(changes: MirrorChange[], icons: Record<string, string>, planGlyphs: Record<string, string> | undefined, width: number): string[] {
@@ -298,7 +296,7 @@ function formatTasks(source: MirrorSourceChange | undefined): string {
  */
 function formatPlan(change: MirrorChange, glyphs: Record<string, string> | undefined): string {
   if (isSatisfied(change.status)) return '—';
-  if (change.planState !== 'planned' && change.planState !== 'planning') return '—';
+  if (change.planState !== 'planned') return '—';
   return glyphs?.[change.planState] ?? change.planState;
 }
 

@@ -68,7 +68,7 @@ local function validBoard(): any
 				gaps = {},
 				taskCount = 0,
 				tasksDone = 0,
-				planState = "planning",
+				planState = "none",
 			},
 		},
 		warnings = {},

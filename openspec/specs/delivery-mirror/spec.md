@@ -233,30 +233,30 @@ The default board's change table SHALL carry exactly the columns `id`, `change`,
 - **AND** missing, unreadable, unknown, and archived-without-data changes omit both counts
 
 ### Requirement: Render the plan column
-The default board's change table SHALL carry a `plan` column between `tasks` and `hours` naming the change's task-plan state: `planned` when its task plan holds at least one item, `planning` when a task plan exists but holds none, and `—` when there is no readable task plan or the adapter cannot tell. Colored output SHALL render the two named states as one portable symbol each — `planned` `●`, `planning` `◐` — with `--nerd-font` opting in to Nerd Font icons for the same two states (the filled circle and the half-filled adjust glyph), `--plain` printing the words instead, and `--plain` winning over `--nerd-font`. The legend SHALL name every plan symbol the board renders, after the status entries. A satisfied change (`done` or `completed`) SHALL render `—` regardless of its plan state — its plan is moot. `--json` SHALL carry the same state per change as `planState` (`planned`, `planning`, or `none`) and SHALL omit `planState` when the adapter cannot tell, so an unknown count never reads as `none`. `--graph` and `--gaps` SHALL not carry the column.
+The default board's change table SHALL carry a `plan` column between `tasks` and `hours` naming the change's task-plan state: `planned` when its task plan holds at least one item, and `—` when the plan holds none, there is no readable task plan, or the adapter cannot tell. Colored output SHALL render `planned` as the portable `✓`, with `--nerd-font` opting in to the Nerd Font check glyph for the same state, `--plain` printing the word instead, and `--plain` winning over `--nerd-font`. The legend SHALL name every plan symbol the board renders, after the status entries. A satisfied change (`done` or `completed`) SHALL render `—` regardless of its plan state — its plan is moot. `--json` SHALL carry the same state per change as `planState` (`planned` or `none`) and SHALL omit `planState` when the adapter cannot tell, so an unknown count never reads as `none`. `--graph` and `--gaps` SHALL not carry the column.
 
-#### Scenario: Plan column names the three states
+#### Scenario: Plan column names the two states
 - **WHEN** one change's task plan holds two items, a second's task plan exists but holds none, and a third has no task plan at all
-- **THEN** `spego board --plain` renders the `plan` cells as `planned`, `planning`, and `—`
+- **THEN** `spego board --plain` renders the `plan` cells as `planned`, `—`, and `—`
 
-#### Scenario: Plan symbols join the legend
-- **WHEN** the human board renders in colored output with a planned and a planning change pending
-- **THEN** the `plan` cells render `●` and `◐`
-- **AND** the legend carries `● planned` and `◐ planning` after the status entries
-- **AND** a satisfied change adds no plan legend entry, since its cell renders `—`
+#### Scenario: Plan symbol joins the legend
+- **WHEN** the human board renders in colored output with a planned change pending
+- **THEN** the `plan` cell renders `✓`
+- **AND** the legend carries `✓ planned` after the status entries
+- **AND** a satisfied change and a change with no task items add no plan legend entry, since their cells render `—`
 
-#### Scenario: Nerd font plan icons are opt-in and plain wins
+#### Scenario: Nerd font plan icon is opt-in and plain wins
 - **WHEN** an agent runs `spego board --nerd-font`
-- **THEN** the `plan` cells render the Nerd Font filled circle and half-filled adjust glyph
-- **AND** `spego board --plain --nerd-font` prints the words `planned` and `planning` instead
+- **THEN** the planned `plan` cell renders the Nerd Font check glyph
+- **AND** `spego board --plain --nerd-font` prints the word `planned` instead
 
 #### Scenario: Satisfied change renders a muted plan cell
 - **WHEN** a `done` change's task plan still holds unchecked items
 - **THEN** its `plan` cell reads `—`, like its `group` cell
 
 #### Scenario: JSON carries planState and omits it when unknown
-- **WHEN** an agent runs `spego board --json` against the three-state workspace
-- **THEN** the payload reports `planState: "planned"`, `planState: "planning"`, and `planState: "none"` for the three changes
+- **WHEN** an agent runs `spego board --json` against a workspace holding a planned change and one whose task plan exists but holds none
+- **THEN** the payload reports `planState: "planned"` and `planState: "none"` for the two changes
 - **AND** a change whose adapter cannot tell carries no `planState` key at all
 
 ### Requirement: Render the board heading

@@ -109,7 +109,7 @@ local function statusDisplayKey(status: any): string
 	return status == "blocked" and "paused" or status
 end
 
-local PLAN_ICONS = { planned = "✓", planning = "◐" }
+local PLAN_ICONS = { planned = "✓" }
 
 local function isSatisfied(status: any): boolean
 	return status == "done" or status == "completed"
@@ -128,7 +128,7 @@ local function planSpan(ch: any): any
 		return tern.ui.span("—")
 	end
 	local st = ch.planState
-	if st == "planned" or st == "planning" then
+	if st == "planned" then
 		return tern.ui.span(PLAN_ICONS[st])
 	end
 	return tern.ui.span("—")
@@ -333,7 +333,7 @@ local function legendNode(changes: { any }): any?
 	for _, ch in changes do
 		local key = STATUS_LABELS[statusDisplayKey(ch.status)] and statusDisplayKey(ch.status) or "unknown"
 		statuses[key] = true
-		if not isSatisfied(ch.status) and (ch.planState == "planned" or ch.planState == "planning") then
+		if not isSatisfied(ch.status) and ch.planState == "planned" then
 			plans[ch.planState] = true
 		end
 	end
@@ -344,7 +344,7 @@ local function legendNode(changes: { any }): any?
 			table.insert(spans, "  ")
 		end
 	end
-	for _, plan in { "planned", "planning" } do
+	for _, plan in { "planned" } do
 		if plans[plan] then
 			table.insert(spans, tern.ui.span(PLAN_ICONS[plan] .. " " .. plan))
 			table.insert(spans, "  ")
@@ -522,8 +522,8 @@ local function validateChange(ch: any, path: string): string?
 	if ch.rung ~= nil and type(ch.rung) ~= "string" then
 		return path .. ".rung must be a string"
 	end
-	if ch.planState ~= nil and ch.planState ~= "planned" and ch.planState ~= "planning" and ch.planState ~= "none" then
-		return path .. ".planState must be planned, planning, or none"
+	if ch.planState ~= nil and ch.planState ~= "planned" and ch.planState ~= "none" then
+		return path .. ".planState must be planned or none"
 	end
 	return nil
 end

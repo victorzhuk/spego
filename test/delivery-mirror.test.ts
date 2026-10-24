@@ -402,18 +402,18 @@ describe('no-task-plan warning', () => {
 });
 
 describe('plan state', () => {
-  it('derives planned, planning, and none from the change source', () => {
+  it('derives planned and none from the change source', () => {
     const result = board({
       changes: [
         { ...change('planned'), hasTaskPlan: true, taskCount: 2 },
-        { ...change('planning'), hasTaskPlan: true, taskCount: 0 },
+        { ...change('empty-plan'), hasTaskPlan: true, taskCount: 0 },
         { ...change('unplanned'), hasTaskPlan: false, taskCount: 0 },
       ],
-      epics: [epic('planned'), epic('planning'), epic('unplanned')],
+      epics: [epic('planned'), epic('empty-plan'), epic('unplanned')],
     });
 
     expect(findChange(result, 'planned')?.planState).toBe('planned');
-    expect(findChange(result, 'planning')?.planState).toBe('planning');
+    expect(findChange(result, 'empty-plan')?.planState).toBe('none');
     expect(findChange(result, 'unplanned')?.planState).toBe('none');
   });
 
