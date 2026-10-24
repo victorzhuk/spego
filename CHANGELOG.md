@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-24
+
 ### Changed
 - The board's status and plan columns carry monochrome glyphs only: archived is `▣`, blocked `■`, paused `Ⅱ`, planned `✓`. Status and plan icons and their legend entries take the normal foreground instead of an error, success, accent, or muted tone.
 - The Signals column sits third, after `id` and `change`, so a variable-width cell no longer trails the compact status, task, plan, and hour columns.
