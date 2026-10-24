@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-24
+
 ### Fixed
 - The board excludes blocked and paused changes from its next suggestion and keeps their unfinished dependents blocked regardless of sprint scheduling.
 
