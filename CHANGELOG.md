@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-18
+
 ### Changed
 - The Tern board refresh button and `r` run `spego sync` before reading the fresh board.
 
