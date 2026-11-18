@@ -120,10 +120,11 @@ do
 	T.assert(string.find(txt, "Zeta One", 1, true) == nil, "select event must not pick the hidden duplicate")
 
 	T.key(st, "r")
+	T.complete(T.pending(), ok("{}"))
 	T.json("board-reordered", validBoard({ sprintZ(), sprintA() }, { ungroupedC2(false) }))
-	T.eq(#T.requests(), base + 4, "refresh starts one board request")
+	T.eq(#T.requests(), base + 5, "refresh starts one board request")
 	T.complete(T.pending(), ok("board-reordered"))
-	T.eq(#T.requests(), base + 5, "open details request tasks for the accepted snapshot")
+	T.eq(#T.requests(), base + 6, "open details request tasks for the accepted snapshot")
 	T.complete(T.pending(), ok("tasks-a"))
 	txt = viewText(st)
 	T.assert(string.find(txt, "Task One", 1, true) ~= nil, "details survive reordered refresh")

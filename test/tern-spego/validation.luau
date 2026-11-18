@@ -122,7 +122,8 @@ end
 local function refreshText(st: any, board: any): string
 	T.json("b2", board)
 	hostKey(st, "r")
-	T.assert(#T.requests() == 2, "refresh should issue a board request")
+	T.complete(T.pending(), okResult("{}"))
+	T.assert(#T.requests() == 3, "refresh should issue a board request")
 	T.complete(T.pending(), okResult("b2"))
 	return T.text(hostView(st))
 end

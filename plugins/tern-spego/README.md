@@ -1,9 +1,7 @@
 # spego Tern plugin
 
-A read-only Spego delivery board as a native Tern block. The plugin runs
-`spego --json board --fresh` in the workspace and renders sprints, ungrouped
-changes, warnings, and `next`. It mutates nothing: no sync, no record, no
-index rebuild.
+A native Tern block that renders Spego sprints, ungrouped changes, warnings,
+and `next` from `spego --json board --fresh`.
 
 ## Install
 
@@ -31,9 +29,13 @@ preferences reset to defaults taken from the current working directory.
 
 ## Refresh
 
-The board loads once on open and then only when you press `r`, the Refresh
-button, or toggle the archived filter. There is no polling, file watching, or
-automatic retry. `a` toggles archived ungrouped changes, `c` shows or hides
+The board loads once on open. Use **Sync and refresh** or press `r` to run
+`spego sync` before a fresh board read. Sync can create missing epics, close
+finished sprints, and retire epics for archived changes. When sync fails, the
+plugin displays the error and reads the board once to show any writes that
+completed. When the read fails, the last successful board stays visible.
+
+`a` toggles archived ungrouped changes and reads the board. `c` shows or hides
 finished sprint sections. The board renders each section as a native table
 under the block's native title, with a status legend and CLI-style footer
 hints. Table rows are not clickable in Tern, so the `Details` button lists
@@ -47,12 +49,10 @@ only for an active, non-archived change with a readable, non-empty task plan
 (`spego tasks <slug> --json`). A failed task load shows inside the details
 and never changes board rows.
 
-## Read boundary
+## Workspace writes
 
-The plugin never writes under `.spego/artifacts/`, `.spego/revisions/`, or
-`config.yaml`, and never touches OpenSpec files. Opening the board may let the
-spego CLI initialize its existing index cache under `.spego/index/`; the
-plugin promises nothing about a physically read-only index directory. Tern
-has no plugin permission system: the plugin runs `spego` as a child process
-with your user's full rights. It resolves `spego` from the host daemon's
-PATH and requires it there.
+Manual sync can write under `.spego/artifacts/` and `.spego/revisions/`.
+Opening the board, changing filters, and viewing details read source data.
+The CLI may initialize its cache under `.spego/index/`. The plugin resolves
+`spego` from the host daemon's PATH and runs it with your user's rights.
+Tern provides no separate plugin permissions.

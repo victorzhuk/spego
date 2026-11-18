@@ -1,5 +1,3 @@
--- Host half of the Spego Tern plugin: a read-only delivery board block.
-
 local STREAM_CAP = 16 * 1024 * 1024
 
 type State = {
@@ -9,6 +7,8 @@ type State = {
 	rootError: string?,
 	board: any?,
 	loadError: string?,
+	syncError: string?,
+	syncing: boolean,
 	stale: boolean,
 	loading: boolean,
 	boardGen: number,
@@ -740,6 +740,50 @@ local function startLoad(st: State)
 	end
 end
 
+local function syncAndRefresh(st: State)
+	local root = st.root
+	if root == nil or st.loading then
+		return
+	end
+	st.loading = true
+	st.syncing = true
+	st.syncError = nil
+	st.boardGen += 1
+	local gen = st.boardGen
+	local pane = st.pane
+
+	local function finishSync(err: string?)
+		if panes[pane] ~= st or st.boardGen ~= gen or st.root ~= root or not paneLive(pane) then
+			return
+		end
+		st.syncError = err
+		st.syncing = false
+		st.loading = false
+		st.boardPending = false
+		startLoad(st)
+		pcall(function()
+			st.cx:render()
+		end)
+	end
+
+	local argv = { "spego", "--json", "sync", "--cwd", root }
+	local ok = pcall(tern.process.run, argv, { cwd = root, timeout_ms = 10000 }, function(result)
+		if result.timed_out then
+			finishSync("spego sync timed out after 10s")
+		elseif #result.stdout >= STREAM_CAP or #result.stderr >= STREAM_CAP then
+			finishSync("spego sync output reached the 16 MiB stream cap")
+		elseif result.status ~= 0 then
+			local detail = result.stderr:gsub("^%s+", ""):gsub("%s+$", "")
+			finishSync(if detail == "" then string.format("spego sync exited with status %d", result.status) else detail)
+		else
+			finishSync(nil)
+		end
+	end)
+	if not ok then
+		finishSync("could not start spego sync (is it on the daemon's PATH?)")
+	end
+end
+
 startTasks = function(st: State)
 	local ch = selectedChange(st)
 	if not st.detailsOpen or st.board == nil or ch == nil then
@@ -1024,7 +1068,7 @@ local function renderBoard(st: State): any
 	-- Tern, so a change is selected through the Details menu listing every
 	-- rendered change.
 	local controls: { any } = {
-		toolbarButton("refresh", "repeat", "Refresh board (r)"),
+		toolbarButton("refresh", "repeat", "Sync and refresh (r)"),
 	}
 
 	if st.board ~= nil then
@@ -1247,7 +1291,7 @@ local function renderBoard(st: State): any
 		table.insert(children, keyed(tern.ui.text({ tern.ui.span(st.loadError, "strong error") }), "error"))
 		table.insert(
 			children,
-			keyed(tern.ui.text({ tern.ui.span("press r or the Refresh button to retry", "muted") }), "retry")
+			keyed(tern.ui.text({ tern.ui.span("press r or Sync and refresh to retry", "muted") }), "retry")
 		)
 		table.insert(
 			children,
@@ -1259,7 +1303,8 @@ local function renderBoard(st: State): any
 	end
 
 	if st.loading then
-		table.insert(controls, keyed(tern.ui.text({ tern.ui.span("loading…", "strong") }), "loading"))
+		local status = if st.syncing then "syncing…" else "loading…"
+		table.insert(controls, keyed(tern.ui.text({ tern.ui.span(status, "strong") }), "loading"))
 	end
 	local controlsRow = tern.ui.row(controls)
 	local controlsProps: { [string]: any } = controlsRow.p or {}
@@ -1279,6 +1324,8 @@ tern.block.define("board", {
 			rootError = nil,
 			board = nil,
 			loadError = nil,
+			syncError = nil,
+			syncing = false,
 			stale = false,
 			loading = false,
 			boardGen = 0,
@@ -1355,6 +1402,12 @@ tern.block.define("board", {
 				main,
 			})
 		end
+		if state.syncError ~= nil then
+			main = tern.ui.col({
+				keyed(tern.ui.text({ tern.ui.span("Sync failed. " .. state.syncError, "strong error") }), "sync-error"),
+				main,
+			})
+		end
 		return { main = main }
 	end,
 
@@ -1370,7 +1423,7 @@ tern.block.define("board", {
 			return false
 		end
 		if key.name == "r" then
-			startLoad(state)
+			syncAndRefresh(state)
 			return true
 		elseif key.name == "a" then
 			state.showArchived = not state.showArchived
@@ -1421,7 +1474,7 @@ tern.block.define("board", {
 		end
 		local act = ev.act or ev.id
 		if act == "refresh" then
-			startLoad(state)
+			syncAndRefresh(state)
 		elseif act == "toggle-archived" then
 			state.showArchived = not state.showArchived
 			if state.loading then

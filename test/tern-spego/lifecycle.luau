@@ -226,7 +226,8 @@ do
 	local txt = viewText(st)
 	T.assert(has(txt, "Task Alpha"), "accepted task title rendered")
 	T.key(st, "r")
-	local refreshIdx = taskIdx + 1
+	finish(T.pending(), okResult("{}"))
+	local refreshIdx = taskIdx + 2
 	T.eq(#T.requests(), refreshIdx, "refresh issued one board request")
 	finish(1, failResult)
 	local after = viewText(st)
@@ -239,9 +240,10 @@ do
 	local st, boardIdx = loadBoard()
 	local taskIdx = openDetails(st, boardIdx)
 	finish(1, okResult(taskToken(tasksA())))
-	T.failNextStart()
 	T.key(st, "r")
-	T.eq(#T.requests(), taskIdx, "failed start recorded no request")
+	T.failNextStart()
+	finish(T.pending(), okResult("{}"))
+	T.eq(#T.requests(), taskIdx + 1, "failed board start recorded no request")
 	local after = viewText(st)
 	T.assert(has(after, "change-one"), "board rows survive process-start failure")
 	T.assert(has(after, "Task Alpha"), "task text survives process-start failure")
@@ -251,8 +253,9 @@ end
 do
 	local st, boardIdx = loadBoard()
 	local taskIdx = openDetails(st, boardIdx)
-	local refreshIdx = taskIdx + 1
+	local refreshIdx = taskIdx + 2
 	T.key(st, "r")
+	finish(T.pending(), okResult("{}"))
 	T.eq(#T.requests(), refreshIdx, "refresh board request pending")
 	finish(1, okResult(taskToken(tasksA())))
 	local txt = viewText(st)
@@ -271,8 +274,9 @@ end
 do
 	local st, boardIdx = loadBoard()
 	local taskIdx = openDetails(st, boardIdx)
-	local refreshIdx = taskIdx + 1
+	local refreshIdx = taskIdx + 2
 	T.key(st, "r")
+	finish(T.pending(), okResult("{}"))
 	finish(2, okResult(boardToken(validBoard())))
 	T.eq(#T.requests(), refreshIdx + 1, "new task request after snapshot acceptance")
 	finish(1, okResult(taskToken(tasksA())))
@@ -287,8 +291,9 @@ end
 do
 	local st, boardIdx = loadBoard()
 	local taskIdx = openDetails(st, boardIdx)
-	local refreshIdx = taskIdx + 1
+	local refreshIdx = taskIdx + 2
 	T.key(st, "r")
+	finish(T.pending(), okResult("{}"))
 	finish(2, failResult)
 	local after = viewText(st)
 	T.assert(has(after, "change-one"), "board rows survive failed replacement")
@@ -349,4 +354,61 @@ do
 	T.eq(argv[5], "--archived", "archived argv[5]")
 	T.eq(argv[6], "--cwd", "archived argv cwd flag")
 	T.eq(argv[7], "/repo", "archived argv cwd")
+	finish(1, okResult(boardToken(validBoard())))
+end
+
+do
+	local st, boardIdx = loadBoard()
+	T.event(st, { ev = "action", act = "refresh" })
+	local requests = T.requests()
+	local sync = requests[boardIdx + 1]
+	T.eq(#requests, boardIdx + 1, "toolbar starts only sync")
+	T.eq(table.concat(sync.argv, " "), "spego --json sync --cwd /repo", "sync argv")
+	T.eq(sync.cwd, "/repo", "sync process cwd")
+	T.assert(has(viewText(st), "syncing"), "sync progress is visible")
+	T.key(st, "r")
+	T.event(st, { ev = "action", act = "refresh" })
+	T.key(st, "a")
+	T.eq(#requests, boardIdx + 1, "no requests stack during sync")
+	finish(1, failResult)
+	T.eq(#requests, boardIdx + 2, "failed sync starts one fresh board read")
+	T.eq(table.concat(requests[boardIdx + 2].argv, " "), "spego --json board --fresh --archived --cwd /repo", "latest filter reaches board")
+	local board = validBoard()
+	board.sprints[1].title = "Updated Sprint"
+	finish(1, okResult(boardToken(board)))
+	local txt = viewText(st)
+	T.assert(has(txt, "Updated Sprint"), "fresh board reflects writes that completed")
+	T.assert(has(txt, "Sync failed. boom"), "sync error survives board acceptance")
+	T.eq(#requests, boardIdx + 2, "no automatic retry")
+end
+
+do
+	local st, boardIdx = loadBoard()
+	T.failNextStart()
+	T.key(st, "r")
+	T.eq(#T.requests(), boardIdx + 1, "sync start failure falls back to one board read")
+	T.eq(T.requests()[boardIdx + 1].argv[3], "board", "fallback command")
+	finish(1, failResult)
+	local txt = viewText(st)
+	T.assert(has(txt, "could not start spego sync"), "sync startup diagnostic")
+	T.assert(has(txt, "last refresh failed"), "board failure diagnostic")
+	T.assert(has(txt, "Sprint One"), "previous board survives both failures")
+	T.key(st, "r")
+	finish(1, { stdout = "", stderr = "", status = 0, timed_out = true })
+	finish(1, okResult(boardToken(validBoard())))
+	txt = viewText(st)
+	T.assert(has(txt, "spego sync timed out after 10s"), "timeout diagnostic")
+	T.assert(not has(txt, "could not start spego sync"), "manual refresh replaces old sync error")
+end
+
+do
+	local st, boardIdx = loadBoard()
+	T.key(st, "r")
+	local replacement = T.init("/other")
+	local renders = T.renderCount()
+	finish(1, okResult("{}"))
+	T.eq(#T.requests(), boardIdx + 2, "obsolete sync starts no board read")
+	T.eq(T.renderCount(), renders, "obsolete sync causes no render")
+	finish(1, okResult(boardToken(validBoard())))
+	T.assert(has(viewText(replacement), "Sprint One"), "replacement keeps its own board")
 end

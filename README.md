@@ -87,7 +87,7 @@ Reviewers complement rather than replace each other. `spego-review-adversarial` 
 
 ## Tern plugin
 
-A read-only delivery board as a native [Tern](https://stencil.so/tern) block, living in [`plugins/tern-spego/`](plugins/tern-spego/) and shipped inside the npm package. It opens from the palette in the spego project root, reads `spego --json board --fresh` on demand, and mutates nothing. See [plugins/tern-spego/README.md](plugins/tern-spego/README.md).
+A delivery board as a native [Tern](https://stencil.so/tern) block, living in [`plugins/tern-spego/`](plugins/tern-spego/) and shipped inside the npm package. It opens from the palette in the spego project root, and reads `spego --json board --fresh`. The Sync and refresh button and `r` run `spego sync` before the board read. See [plugins/tern-spego/README.md](plugins/tern-spego/README.md).
 
 ## Documentation
 

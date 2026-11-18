@@ -158,7 +158,7 @@ Each sprint section MUST render its title, status, and dates above its rows, and
 
 ### Requirement: Refresh and restore the board safely
 
-The board MUST refresh exactly once when the pane initializes or restores and once per explicit user refresh, and MUST NOT poll, watch files, refresh on focus, or retry automatically. Saved pane state MUST carry preferences only, never a delivery snapshot. A late callback MUST NOT modify a pane whose state has been replaced.
+The board MUST refresh exactly once when the pane initializes or restores and once after each accepted manual sync attempt, and MUST NOT poll, watch files, refresh on focus, or retry automatically. Saved pane state MUST carry preferences only, never a delivery snapshot. A late callback MUST NOT modify a pane whose state has been replaced.
 
 #### Scenario: Initialization and restoration request fresh data
 
@@ -169,8 +169,12 @@ The board MUST refresh exactly once when the pane initializes or restores and on
 
 - **WHEN** canonical files change, the pane regains focus, or time passes
 - **THEN** no board or task request is issued
-- **WHEN** the user requests a refresh
-- **THEN** exactly one new board request is issued
+
+#### Scenario: Manual refresh reconciles before reading
+
+- **WHEN** the user presses the Sync and refresh button or `r` while idle
+- **THEN** the pane runs `spego --json sync --cwd <root>` before starting one fresh board request
+- **AND** archive toggles during sync are included in that board request
 
 #### Scenario: Saved state holds preferences only
 
@@ -185,17 +189,17 @@ The board MUST refresh exactly once when the pane initializes or restores and on
 
 #### Scenario: Obsolete callbacks are ignored
 
-- **WHEN** a board or task request completes after its pane was replaced, or after a later request superseded it
+- **WHEN** a sync, board, or task request completes after its pane was replaced, or after a later request superseded it
 - **THEN** it changes no state, renders nothing, and raises no toast
 
 #### Scenario: A refresh request during a load does not stack
 
-- **WHEN** a refresh is requested while a board request is active
-- **THEN** no second board request is started
+- **WHEN** a refresh is requested while a sync or board request is active
+- **THEN** no additional sync or board request is started
 
 ### Requirement: Handle CLI and lifecycle failures
 
-Every process start and JSON decode MUST be protected against failure, and output MUST be accepted only after a successful exit, no timeout, and structural validation of every consumed field. Failures MUST be reported without rendering a partial payload, and a failed refresh MUST retain the last successful board with a visible stale indication.
+Every process start and JSON decode MUST be protected against failure, and output MUST be accepted only after a successful exit, no timeout, and structural validation of every consumed field. Failures MUST be reported without rendering a partial payload, and a failed board read MUST retain the last successful board with a visible stale indication.
 
 #### Scenario: A missing executable is reported, not installed
 
@@ -247,13 +251,20 @@ Every process start and JSON decode MUST be protected against failure, and outpu
 - **WHEN** a start attempt fails before reaching the process callback
 - **THEN** the pane leaves its loading state so refresh remains available
 
+#### Scenario: Sync fails after possible writes
+
+- **WHEN** sync fails to start, times out, or exits nonzero
+- **THEN** the pane reports the sync failure and attempts one fresh board read
+- **AND** the sync error stays visible even if the read succeeds
+- **AND** the pane never retries sync automatically
+
 ### Requirement: Preserve source-state ownership
 
-The block MUST NOT mutate `.spego/artifacts/`, `.spego/revisions/`, `.spego/config.yaml`, OpenSpec files, or cross-project run records, and MUST NOT invoke `sync`, `record`, `init`, `skills`, an index rebuild, or any artifact mutation. Existing index cache initialization under `.spego/index/` and normal Tern pane-state persistence remain permitted.
+Only explicit manual refresh may invoke `spego sync` to reconcile artifacts and revisions through the CLI. The block MUST NOT invoke `record`, `init`, `skills`, an index rebuild, or any other artifact mutation. It MUST NOT modify configuration, OpenSpec files, or cross-project run records. Existing index cache initialization under `.spego/index/` and normal Tern pane-state persistence remain permitted.
 
 #### Scenario: Source state is untouched
 
-- **WHEN** the board loads, refreshes, and opens details for several changes
+- **WHEN** the board opens, restores preferences, changes filters, or opens details
 - **THEN** the contents and membership of `.spego/artifacts/`, `.spego/revisions/`, `.spego/config.yaml`, the OpenSpec directory, and cross-project run records are unchanged
 
 #### Scenario: Index cache initialization is permitted
@@ -264,7 +275,7 @@ The block MUST NOT mutate `.spego/artifacts/`, `.spego/revisions/`, `.spego/conf
 
 #### Scenario: No mutation command is reachable
 
-- **WHEN** any board or detail interaction is exercised
+- **WHEN** the pane opens, restores, changes filters, or opens details
 - **THEN** no process is started for `sync`, `record`, `init`, `skills`, or an index rebuild
 
 #### Scenario: Process authority is documented
